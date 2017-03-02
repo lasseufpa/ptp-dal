@@ -44,6 +44,9 @@ Rtc(2).init_rising_edge_ns = 3;
 rtc_inc_est_period = 2;     % RTC increment estimation period in frames
 sync_rate          = 128;   % SYNC rate in frames per second
 perfect_delay_est  = 1;     % Enable for perfect delay estimations
+% Filtering of Estimations
+filter_rtc_inc     = 1;     % Enable moving average for RTC increment
+rtc_inc_filt_len   = 128;   % RTC increment filter length
 
 %%%%%%% Network %%%%%%%%
 % Queueing statistics
@@ -99,8 +102,18 @@ hScopeFreq = dsp.TimeScope(...
     'TimeSpanOverrunAction', 'Scroll', ...
     'TimeSpan', 1e3*sync_period, ...
     'TimeUnits', 'Metric', ...
-    'SampleRate', 1/sync_period, ...
+    'SampleRate', 1/(rtc_inc_est_period * sync_period), ...
     'YLimits', 4e3*[-1 1]);
+
+%% Filter
+
+if (filter_rtc_inc)
+    h_rtc_inc = (1/rtc_inc_filt_len)*ones(rtc_inc_filt_len, 1);
+else
+    rtc_inc_filt_len = 1;
+    h_rtc_inc = 1;
+end
+
 
 %% Priority Queue
 
@@ -138,6 +151,9 @@ next_sync_tx    = 0;
 rtc_error_ns    = 0;
 norm_freq_offset  = 0;
 i_iteration     = 0;
+
+rtc_inc_filt_taps = zeros(rtc_inc_filt_len, 1);
+i_rtc_inc_est     = 0;
 
 %% Infinite Loop
 while (1)
@@ -232,6 +248,8 @@ while (1)
         % Clear "on way" status
         Sync.on_way = 0;
 
+        %% Process SYNC timestamps
+
         % Timestamp the arrival time (t2) at the slave side:
         Sync.t2.ns = Rtc(2).ns_cnt;
         Sync.t2.sec = Rtc(2).sec_cnt;
@@ -273,6 +291,8 @@ while (1)
             master_sec_sync_rx = master_sec_sync_rx + 1;
         end
 
+        %% Time offset estimation
+
         % RTC error:
         Rtc_error.ns = master_ns_sync_rx - slave_ns_sync_rx;
         % Note: it is actually computed as "(t1 + d) - t2" here.
@@ -293,6 +313,8 @@ while (1)
         % corrected in the actual ns/sec count. The two informations are
         % always separately available and can be summed together to form a
         % synchronized (correct) ns/sec count.
+
+        %% Frequency Offset Estimation and RTC increment value computation
 
         % Check if the desirable number of SYNC receptions was already
         % reached for estimating the frequency offset
@@ -344,13 +366,27 @@ while (1)
 
             % Compute the new increment value for the slave RTC:
             slave_est_clk_freq = (1 + norm_freq_offset) * nominal_rtc_clk;
-            Rtc(2).inc_val_ns = (1 / slave_est_clk_freq)*1e9;
+            new_rtc_inc        = (1 / slave_est_clk_freq)*1e9;
             % Note: infinite precision for the increment value is assumed
             % here. However, in practice the RTC increment value would be
             % represented by a fixed-point number with limited number of
             % fractional (subnanoseconds bits).
 
-            % Plot to scope
+            %% Filter the increment value
+            rtc_inc_filt_taps = [new_rtc_inc; rtc_inc_filt_taps(1:end-1)];
+            filtered_rtc_inc  = (rtc_inc_filt_taps.') * h_rtc_inc;
+
+            % Count how many increment value estimations so far
+            i_rtc_inc_est = i_rtc_inc_est + 1;
+
+            % Use the filtered RTC increment after the filter transitory
+            if (i_rtc_inc_est >= rtc_inc_filt_len)
+                Rtc(2).inc_val_ns = filtered_rtc_inc;
+            else
+                Rtc(2).inc_val_ns = new_rtc_inc;
+            end
+
+            %% Plot to scope
             if (debug_scopes)
                 step(hScopeFreq, norm_freq_offset*1e9);
             end
