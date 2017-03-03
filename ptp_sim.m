@@ -152,6 +152,9 @@ t_sim      = 0;
 prev_t_sim = 0;
 
 for iRtc = 1:nRtcs
+    % Initialize the increment counter
+    Rtc(iRtc).iInc = 0;
+
     % Initialize the Seconds RTC count
     Rtc(iRtc).sec_cnt = Rtc(iRtc).init_time_sec;
 
@@ -207,18 +210,36 @@ while (1)
     for iRtc = 1:nRtcs
 
         % Check how many times the RTC has incremented so far:
-        nIncs = floor(...
+        n_incs = floor(...
             (t_sim - Rtc(iRtc).init_rising_edge_ns*1e-9) ...
             / Rtc(iRtc).clk_period );
 
         % Prevent negative number of increments
-        if (nIncs < 0)
-            nIncs = 0;
+        if (n_incs < 0)
+            n_incs = 0;
         end
 
-        % Update the RTC nanoseconds/seconds counts:
-        Rtc(iRtc).ns_cnt = mod(nIncs * Rtc(iRtc).inc_val_ns, 1e9);
-        Rtc(iRtc).sec_cnt = floor(nIncs/nominal_rtc_clk);
+        % Track the number of increments that haven't been taken into
+        % account yet
+        new_incs = n_incs - Rtc(iRtc).iInc;
+
+        % Elapsed time since last update:
+        elapsed_ns = new_incs * Rtc(iRtc).inc_val_ns;
+        % Note: the elapsed time depends on the increment value that is
+        % currently configured at the RTC. The number of increments, in
+        % contrast, does not depend on the current RTC configuration.
+
+        % Update the increment counter
+        Rtc(iRtc).iInc = n_incs;
+
+        % Update the RTC seconds count:
+        if (Rtc(iRtc).ns_cnt + elapsed_ns > 1e9)
+             Rtc(iRtc).sec_cnt =  Rtc(iRtc).sec_cnt + ...
+                 floor((Rtc(iRtc).ns_cnt + elapsed_ns)/1e9);
+        end
+
+        % Update the RTC nanoseconds count:
+        Rtc(iRtc).ns_cnt = mod(Rtc(iRtc).ns_cnt + elapsed_ns, 1e9);
     end
 
     if (print_sim_time)
