@@ -58,6 +58,8 @@ perfect_delay_est  = 0;     % Enable for perfect delay estimations
 % Filtering of Estimations
 filter_rtc_inc     = 1;     % Enable moving average for RTC increment
 rtc_inc_filt_len   = 128;   % RTC increment filter length
+filter_delay_est   = 1;     % Enable moving average for delay estimations
+delay_est_filt_len = 128;   % Delay estimation filter length
 
 %%%%%%% Network %%%%%%%%
 % Queueing statistics
@@ -93,7 +95,7 @@ end
 
 % Observations
 hScope = dsp.TimeScope(...
-    'NumInputPorts', 3, ...
+    'NumInputPorts', 4, ...
     'ShowGrid', 1, ...
     'ShowLegend', 1, ...
     'BufferLength', 1e5, ...
@@ -115,17 +117,28 @@ hScope.YLabel        = 'ppb';
 hScope.YLimits       = 1e7*[-1 1];
 
 hScope.ActiveDisplay = 3;
-hScope.Title         = 'Delay Estimations';
+hScope.Title         = 'Delay Estimations (Instantaneous vs Filtered)';
 hScope.YLabel        = 'Nanoseconds';
 hScope.YLimits       = queueing_mean*1e9*[0 3];
 
-%% Filter
+%% Filters
 
+% Moving average for the RTC increment value
 if (filter_rtc_inc)
-    h_rtc_inc = (1/rtc_inc_filt_len)*ones(rtc_inc_filt_len, 1);
+    h_rtc_inc   = (1/rtc_inc_filt_len)*ones(rtc_inc_filt_len, 1);
 else
+    % If disabled, force the filter to a single unitary tap
     rtc_inc_filt_len = 1;
-    h_rtc_inc = 1;
+    h_rtc_inc        = 1;
+end
+
+% Moving average for the delay estimations
+if (filter_delay_est)
+    h_delay_est = (1/delay_est_filt_len)*ones(delay_est_filt_len, 1);
+else
+    % If disabled, force the filter to a single unitary tap
+    delay_est_filt_len = 1;
+    h_delay_est        = 1;
 end
 
 %% Priority Queue
@@ -161,9 +174,12 @@ end
 i_iteration         = 0;
 rtc_error_ns        = 0;
 delay_est_ns        = 0;
+used_delay_est_ns   = 0;
 norm_freq_offset    = 0;
 i_rtc_inc_est       = 0;
 rtc_inc_filt_taps   = zeros(rtc_inc_filt_len, 1);
+i_delay_est         = 0;
+delay_est_filt_taps = zeros(delay_est_filt_len, 1);
 
 Sync.on_way         = 0;
 Pdelay_req.on_way   = 0;
@@ -317,6 +333,20 @@ while (1)
 
         % One-way delay estimation (in ns):
         delay_est_ns = (t4_minus_t1 - t3_minus_t2) / 2;
+
+        %% Filter the delay estimation
+        delay_est_filt_taps = [delay_est_ns; delay_est_filt_taps(1:end-1)];
+        filtered_delay_est  = (delay_est_filt_taps.') * h_delay_est;
+
+        % Count how many increment value estimations so far
+        i_delay_est = i_delay_est + 1;
+
+        % Use the filtered RTC increment after the filter transitory
+        if (i_delay_est >= delay_est_filt_len)
+            used_delay_est_ns = filtered_delay_est;
+        else
+            used_delay_est_ns = delay_est_ns;
+        end
     end
 
     %% SYNC Transmission
@@ -383,7 +413,7 @@ while (1)
         if (perfect_delay_est)
             sync_route_delay_ns = Sync.delay*1e9;
         else
-            sync_route_delay_ns = delay_est_ns;
+            sync_route_delay_ns = used_delay_est_ns;
         end
 
         % Master Timestamp corrected by the delay
@@ -537,7 +567,8 @@ while (1)
 
         % Plot to scope
         if (debug_scopes)
-            step(hScope, actual_ns_error, norm_freq_offset*1e9, delay_est_ns);
+            step(hScope, actual_ns_error, norm_freq_offset*1e9, ...
+                delay_est_ns, used_delay_est_ns);
         end
 
         if (print_offsets)
