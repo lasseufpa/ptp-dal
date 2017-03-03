@@ -101,21 +101,23 @@ hScope = dsp.TimeScope(...
     'TimeSpanOverrunAction', 'Scroll', ...
     'TimeSpan', 1e3*sync_period, ...
     'TimeUnits', 'Metric', ...
-    'SampleRate', 1/sync_period, ...
-    'YLimits', 50*[-1 1]);
+    'SampleRate', 1/sync_period);
 
 % Customize
 hScope.ActiveDisplay = 1;
 hScope.Title         = 'Actual Time Offset';
 hScope.YLabel        = 'Nanoseconds';
+hScope.YLimits       = 1e4*[-2 2];
 
 hScope.ActiveDisplay = 2;
 hScope.Title         = 'Normalized Frequency Offset';
 hScope.YLabel        = 'ppb';
+hScope.YLimits       = 1e7*[-1 1];
 
 hScope.ActiveDisplay = 3;
 hScope.Title         = 'Delay Estimations';
 hScope.YLabel        = 'Nanoseconds';
+hScope.YLimits       = queueing_mean*1e9*[0 3];
 
 %% Filter
 
