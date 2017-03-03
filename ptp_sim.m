@@ -6,6 +6,16 @@
 % - Synchronized    Aligned in time and frequency.
 % - Syntonized      Aligned in frequency only.
 %
+% In this simulator, following common practices for PTP implementations,
+% the timestamps that are actually added to PTP frames are always taken
+% using the syntonized RTC values, not the synchronized RTC. By doing so,
+% the actual time-offset of the slave RTC w.r.t. the master will always be
+% present and potentially could be estimated. In PTP implementations, the
+% goal is firstly to synchronize the RTC increment values, such that the
+% time offset between the two (master and slave) RTCs eventually becomes
+% constant (not varying over time). After that, by estimating precisely
+% this constant time offset and updating the time offset registers, a
+% stable synchronized time scale can be derived at the slave RTC.
 
 clearvars, clc
 
@@ -43,7 +53,8 @@ Rtc(2).init_rising_edge_ns = 3;
 %%%%%%%%% PTP %%%%%%%%%%
 rtc_inc_est_period = 2;     % RTC increment estimation period in frames
 sync_rate          = 128;   % SYNC rate in frames per second
-perfect_delay_est  = 1;     % Enable for perfect delay estimations
+pdelay_req_rate    = 8;     % Pdelay_req rate in frames per second
+perfect_delay_est  = 0;     % Enable for perfect delay estimations
 % Filtering of Estimations
 filter_rtc_inc     = 1;     % Enable moving average for RTC increment
 rtc_inc_filt_len   = 128;   % RTC increment filter length
@@ -56,7 +67,8 @@ erlang_K           = 2;     % Erlang shape for delay pdf (see [5])
 %% Constants
 nRtcs              = length(Rtc);
 default_rtc_inc_ns = (1/nominal_rtc_clk)*1e9;
-sync_period        =  1 / sync_rate;
+sync_period        = 1 / sync_rate;
+pdelay_req_period  = 1 / pdelay_req_rate;
 
 %% Derivations
 
@@ -79,31 +91,31 @@ end
 
 %% System Objects
 
-% Time Offset Observation
-hScopeTime = dsp.TimeScope(...
-    'Title', 'Actual Ns Offset', ...
-    'NumInputPorts', 1, ...
+% Observations
+hScope = dsp.TimeScope(...
+    'NumInputPorts', 3, ...
     'ShowGrid', 1, ...
     'ShowLegend', 1, ...
     'BufferLength', 1e5, ...
+    'LayoutDimensions', [3 1], ...
     'TimeSpanOverrunAction', 'Scroll', ...
     'TimeSpan', 1e3*sync_period, ...
     'TimeUnits', 'Metric', ...
     'SampleRate', 1/sync_period, ...
     'YLimits', 50*[-1 1]);
 
-% Frequency Offset Observation
-hScopeFreq = dsp.TimeScope(...
-    'Title', 'Estimated Frequency Offset (ppb)', ...
-    'NumInputPorts', 1, ...
-    'ShowGrid', 1, ...
-    'ShowLegend', 1, ...
-    'BufferLength', 1e5, ...
-    'TimeSpanOverrunAction', 'Scroll', ...
-    'TimeSpan', 1e3*sync_period, ...
-    'TimeUnits', 'Metric', ...
-    'SampleRate', 1/(rtc_inc_est_period * sync_period), ...
-    'YLimits', 4e3*[-1 1]);
+% Customize
+hScope.ActiveDisplay = 1;
+hScope.Title         = 'Actual Time Offset';
+hScope.YLabel        = 'Nanoseconds';
+
+hScope.ActiveDisplay = 2;
+hScope.Title         = 'Normalized Frequency Offset';
+hScope.YLabel        = 'ppb';
+
+hScope.ActiveDisplay = 3;
+hScope.Title         = 'Delay Estimations';
+hScope.YLabel        = 'Nanoseconds';
 
 %% Filter
 
@@ -113,7 +125,6 @@ else
     rtc_inc_filt_len = 1;
     h_rtc_inc = 1;
 end
-
 
 %% Priority Queue
 
@@ -145,15 +156,23 @@ for iRtc = 1:nRtcs
 end
 
 % Init variables
-Sync.on_way     = 0;
-i_sync_rx_event = 0;
-next_sync_tx    = 0;
-rtc_error_ns    = 0;
-norm_freq_offset  = 0;
-i_iteration     = 0;
+i_iteration         = 0;
+rtc_error_ns        = 0;
+delay_est_ns        = 0;
+norm_freq_offset    = 0;
+i_rtc_inc_est       = 0;
+rtc_inc_filt_taps   = zeros(rtc_inc_filt_len, 1);
 
-rtc_inc_filt_taps = zeros(rtc_inc_filt_len, 1);
-i_rtc_inc_est     = 0;
+Sync.on_way         = 0;
+Pdelay_req.on_way   = 0;
+Pdelay_resp.on_way  = 0;
+
+next_sync_tx        = 0;
+next_sync_rx        = inf;
+i_sync_rx_event     = 0;
+next_pdelay_req_tx  = 0;
+next_pdelay_req_rx  = inf;
+next_pdelay_resp_rx = inf;
 
 %% Infinite Loop
 while (1)
@@ -195,10 +214,113 @@ while (1)
             Rtc(2).ns_cnt);
     end
 
-    %% SYNC Transmissions
+    %% Peer Delay Request Transmission (from slave to master)
+
+    % Check when it is time to transmit a Pdelay_req frame
+    if (t_sim >= next_pdelay_req_tx && Pdelay_req.on_way == 0)
+        if (log_ptp_frames)
+            fprintf('--- Event: ---\n');
+            fprintf('Pdelay_req transmitted at time %g\n', t_sim);
+        end
+
+        % Timestamp the departure time from the slave side:
+        Pdelay.t1.ns  = Rtc(2).ns_cnt;
+        Pdelay.t1.sec = Rtc(2).sec_cnt;
+        % Note timestamps come from the syntonized (not synchronized) RTC.
+
+        % Mark the Pdelay_req frame as "on its way" towards the master
+        Pdelay_req.on_way = 1;
+
+        % Generate a random frame delay
+        frame_delay = sum(exprnd(queueing_mean/erlang_K, 1, erlang_K));
+
+        % Schedule the event for Pdelay_req reception by the master
+        next_pdelay_req_rx = t_sim + frame_delay;
+        eventQueue.add(next_pdelay_req_rx);
+
+        % Schedule the next Pdelay_req transmission
+        next_pdelay_req_tx = next_pdelay_req_tx + pdelay_req_period;
+        eventQueue.add(next_pdelay_req_tx);
+    end
+
+    %% Peer Delay Request Reception
+
+    % Process the Pdelay_req frame received by the master
+    if (t_sim >= next_pdelay_req_rx && Pdelay_req.on_way)
+
+        % Clear "on way" status
+        Pdelay_req.on_way = 0;
+
+        % Timestamp the arrival time (t2) at the master side:
+        Pdelay.t2.ns = Rtc(1).ns_cnt;
+        Pdelay.t2.sec = Rtc(1).sec_cnt;
+        % Note timestamps come from the syntonized (not synchronized) RTC.
+
+        if (log_ptp_frames)
+            fprintf('--- Event: ---\n');
+            fprintf('Pdelay_req received at time %g\n', t_sim);
+        end
+
+        % Now a Pdelay_resp must be sent back to the slave
+
+        % Mark the Pdelay_resp frame as "on its way" towards the slave
+        Pdelay_resp.on_way = 1;
+
+        % Timestamp the response departure time (t3) at the master side:
+        Pdelay.t3.ns = Rtc(1).ns_cnt;
+        Pdelay.t3.sec = Rtc(1).sec_cnt;
+        % Note timestamps come from the syntonized (not synchronized) RTC.
+
+        % Generate a random frame delay
+        frame_delay = sum(exprnd(queueing_mean/erlang_K, 1, erlang_K));
+
+        % Schedule the event for Pdelay_resp reception
+        next_pdelay_resp_rx = t_sim + frame_delay;
+        eventQueue.add(next_pdelay_resp_rx);
+    end
+
+    %% Peer Delay Response Reception
+
+    % Process the Pdelay_resp frame received by the requestor (slave)
+    if (t_sim >= next_pdelay_resp_rx && Pdelay_resp.on_way)
+
+        % Clear "on way" status
+        Pdelay_resp.on_way = 0;
+
+        % Timestamp the response arrival time (t4) at the slave side:
+        Pdelay.t4.ns = Rtc(2).ns_cnt;
+        Pdelay.t4.sec = Rtc(2).sec_cnt;
+        % Note timestamps come from the syntonized (not synchronized) RTC.
+
+        if (log_ptp_frames)
+            fprintf('--- Event: ---\n');
+            fprintf('Pdelay_resp received at time %g\n', t_sim);
+        end
+
+        %% Delay Estimation
+
+        t4_minus_t1 = Pdelay.t4.ns - Pdelay.t1.ns;
+        % If the ns counter wraps, this difference would become negative.
+        % In this case, add one second back:
+        if (t4_minus_t1 < 0)
+            t4_minus_t1 = t4_minus_t1 + 1e9;
+        end
+
+        t3_minus_t2 = Pdelay.t3.ns - Pdelay.t2.ns;
+        % If the ns counter wraps, this difference would become negative.
+        % In this case, add one second back:
+        if (t3_minus_t2 < 0)
+            t3_minus_t2 = t3_minus_t2 + 1e9;
+        end
+
+        % One-way delay estimation (in ns):
+        delay_est_ns = (t4_minus_t1 - t3_minus_t2) / 2;
+    end
+
+    %% SYNC Transmission
 
     % Check when it is time to transmit a SYNC frame
-    if (t_sim >= next_sync_tx)
+    if (t_sim >= next_sync_tx && Sync.on_way == 0)
 
         if (log_ptp_frames)
             fprintf('--- Event: ---\n');
@@ -208,31 +330,19 @@ while (1)
         % Timestamp the departure time:
         Sync.t1.ns  = Rtc(1).ns_cnt;
         Sync.t1.sec = Rtc(1).sec_cnt;
-        % Note: timestamps are always taken using the syntonized RTC
-        % values, not the synchronized RTC. By doing so, the actual
-        % time-offset of the slave RTC w.r.t. the master will always be
-        % present and potentially could be estimated. In PTP
-        % implementations, the goal is firstly to synchronize the RTC
-        % increment values, such that the time offset between the two
-        % (master and slave) RTCs eventually becomes constant (not varying
-        % over time). After that, by estimating precisely this constant
-        % time offset and updating the time offset registers, a stable
-        % synchronized time scale can be derived at the slave RTC.
+        % Note timestamps come from the syntonized (not synchronized) RTC.
 
         % Mark the SYNC frame as "on its way" towards the slave
         Sync.on_way = 1;
 
-        % Generate a random queueing delay
-        if (perfect_delay_est)
-            queuing_delay = queueing_mean;
-        else
-            queuing_delay = sum(...
-                exprnd(queueing_mean/erlang_K, 1, erlang_K) ...
-                );
-        end
+        % Generate a random frame delay
+        frame_delay = sum(exprnd(queueing_mean/erlang_K, 1, erlang_K));
+        % Save the true delay within the message for use in case perfect
+        % delay estimation is enabled in the simulation(for debugging):
+        Sync.delay = frame_delay;
 
         % Schedule the event for sync reception
-        next_sync_rx = t_sim + queuing_delay;
+        next_sync_rx = t_sim + frame_delay;
         eventQueue.add(next_sync_rx);
 
         % Schedule the next SYNC transmission
@@ -240,10 +350,10 @@ while (1)
         eventQueue.add(next_sync_tx);
     end
 
-    %% SYNC Receptions
+    %% SYNC Reception
 
     % Process the SYNC frame at the destination
-    if (t_sim >= next_sync_rx)
+    if (t_sim >= next_sync_rx && Sync.on_way)
 
         % Clear "on way" status
         Sync.on_way = 0;
@@ -253,7 +363,7 @@ while (1)
         % Timestamp the arrival time (t2) at the slave side:
         Sync.t2.ns = Rtc(2).ns_cnt;
         Sync.t2.sec = Rtc(2).sec_cnt;
-        % Again, using syntonized-only timestamps.
+        % Note timestamps come from the syntonized (not synchronized) RTC.
 
         % First save the previous time offset estimation:
         prev_rtc_error_ns = rtc_error_ns;
@@ -267,11 +377,12 @@ while (1)
                 i_sync_rx_event, t_sim);
         end
 
-        % SYNC delay estimation:
-        sync_route_delay_ns = queueing_mean * 1e9;
-        % Note: while PTP delay is not implemented in this simulation,
-        % assume the mean is known a priori and use it for time offset
-        % estimations.
+        % Delay to correct the master timestamp:
+        if (perfect_delay_est)
+            sync_route_delay_ns = Sync.delay*1e9;
+        else
+            sync_route_delay_ns = delay_est_ns;
+        end
 
         % Master Timestamp corrected by the delay
         master_ns_sync_rx  = Sync.t1.ns + sync_route_delay_ns;
@@ -385,11 +496,6 @@ while (1)
             else
                 Rtc(2).inc_val_ns = new_rtc_inc;
             end
-
-            %% Plot to scope
-            if (debug_scopes)
-                step(hScopeFreq, norm_freq_offset*1e9);
-            end
         end
 
         % Save the sync arrival timestamps for the next iteration:
@@ -429,7 +535,7 @@ while (1)
 
         % Plot to scope
         if (debug_scopes)
-            step(hScopeTime, actual_ns_error);
+            step(hScope, actual_ns_error, norm_freq_offset*1e9, delay_est_ns);
         end
 
         if (print_offsets)
