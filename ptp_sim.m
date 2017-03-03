@@ -60,6 +60,9 @@ filter_rtc_inc     = 1;     % Enable moving average for RTC increment
 rtc_inc_filt_len   = 128;   % RTC increment filter length
 filter_delay_est   = 1;     % Enable moving average for delay estimations
 delay_est_filt_len = 128;   % Delay estimation filter length
+% Packet selection
+packet_selection   = 1;     % Enable packet selection
+sel_window_len     = 64;    % Selection window length
 
 %%%%%%% Network %%%%%%%%
 % Queueing statistics
@@ -183,6 +186,11 @@ i_rtc_inc_est       = 0;
 rtc_inc_filt_taps   = zeros(rtc_inc_filt_len, 1);
 i_delay_est         = 0;
 delay_est_filt_taps = zeros(delay_est_filt_len, 1);
+i_toffset_est       = 0;
+i_sel_done          = 0;
+toffset_sel_window  = repmat(struct('ns',0,'sec',0), sel_window_len, 1 );
+rtc_inc_est_strobe  = 0;
+toffset_corr_strobe = 0;
 
 Sync.on_way         = 0;
 Pdelay_req.on_way   = 0;
@@ -462,27 +470,92 @@ while (1)
         % Note: it is actually computed as "(t1 + d) - t2" here.
         Rtc_error.sec = master_sec_sync_rx - slave_sec_sync_rx;
 
-        % The nanoseconds error can not be negative. It has to be a number
-        % between 0 and 1e9. Any negative ns offset can be corrected by a
-        % positive ns offset plus a correction within the seconds count.
-        if (Rtc_error.ns < 0)
-            Rtc_error.ns = Rtc_error.ns + 1e9;
-            Rtc_error.sec = Rtc_error.sec - 1;
+        %% "Packet selection" for time offset estimation
+
+        if (packet_selection)
+            % Count the number of time offset estimations accumulated so
+            % far:
+            i_toffset_est = i_toffset_est + 1;
+
+            % Add the new estimation to the selection window:
+            toffset_sel_window(i_toffset_est) = Rtc_error;
+
+            % Trigger a time offset correction when the window is full
+            toffset_corr_strobe = (i_toffset_est == sel_window_len);
+
+            % When the selection window is full, proceed with the time
+            % offset selection.
+            if (toffset_corr_strobe)
+                % Reset count
+                i_toffset_est = 0;
+
+                % "Select" (compute) a ns and a sec time offset estimation
+                Rtc_error.ns  = mean(cat(1, toffset_sel_window.ns));
+                Rtc_error.sec = mean(cat(1, toffset_sel_window.sec));
+
+                % Use the selected time offset estimation to compute and
+                % replace the slave-side timestamp that is used for
+                % estimating the RTC increment value. By doing so, the
+                % instant when the packet selection is concluded could be
+                % interpreted as the actual "reception" of a SYNC (with
+                % slower rate) that yields a better estimation.
+                slave_ns_sync_rx = master_ns_sync_rx - Rtc_error.ns;
+                slave_sec_sync_rx = master_sec_sync_rx - Rtc_error.sec;
+                % Note:
+                % master time - (master time + slave time) = slave time
+
+                % Keep track of how many selections were already concludedy
+                i_sel_done = i_sel_done + 1;
+
+                % And use this count to trigger RTC increment estimations
+                if (i_sel_done == rtc_inc_est_period)
+                    rtc_inc_est_strobe = 1;
+
+                    % Reset the count
+                    i_sel_done = 0;
+                end
+            end
+        else
+            % When packet selection is not used, the strobe to trigger the
+            % RTC increment estimation occurs after every
+            % "rtc_inc_est_period".
+            rtc_inc_est_strobe = (i_sync_rx_event == rtc_inc_est_period);
+
+            % In this case, time offsets are corrected after every Rx SYNC,
+            % so the strobe signal is always asserted
+            toffset_corr_strobe = 1;
         end
 
-        % Update the RTC time offset registers
-        Rtc(2).time_offset.ns = Rtc_error.ns;
-        Rtc(2).time_offset.sec = Rtc_error.sec;
+        %% Time Offset Correction
         % Note: the error is saved on the time offset registers, and never
         % corrected in the actual ns/sec count. The two informations are
         % always separately available and can be summed together to form a
-        % synchronized (correct) ns/sec count.
+        % synchronized (time aligned) ns/sec count.
+
+        if (toffset_corr_strobe)
+            % First ensure that the nanoseconds error is not negative. It
+            % has to be a number between 0 and 1e9. Any negative ns offset
+            % can be corrected by a positive ns offset plus a correction
+            % within the seconds count.
+            if (Rtc_error.ns < 0)
+                Rtc_error.ns = Rtc_error.ns + 1e9;
+                Rtc_error.sec = Rtc_error.sec - 1;
+            end
+
+            % Update the RTC time offset registers
+            Rtc(2).time_offset.ns = Rtc_error.ns;
+            Rtc(2).time_offset.sec = Rtc_error.sec;
+        end
 
         %% Frequency Offset Estimation and RTC increment value computation
 
         % Check if the desirable number of SYNC receptions was already
         % reached for estimating the frequency offset
-        if (i_sync_rx_event == rtc_inc_est_period)
+        if (rtc_inc_est_strobe)
+
+            % Clear the strobe signal
+            rtc_inc_est_strobe = 0;
+
             % Reset SYNC event counter
             i_sync_rx_event = 0;
 
@@ -551,12 +624,17 @@ while (1)
             end
         end
 
-        % Save the sync arrival timestamps for the next iteration:
-        prev_master_ns_sync_rx = master_ns_sync_rx;
-        prev_slave_ns_sync_rx  = slave_ns_sync_rx;
+        % Save the sync arrival timestamps for the next iteration. These
+        % timestamps can be the actual timestamps carried along the SYNC
+        % frames or the ones including adjustments after packet selection:
+        if (toffset_corr_strobe)
+            prev_master_ns_sync_rx = master_ns_sync_rx;
+            prev_slave_ns_sync_rx  = slave_ns_sync_rx;
+        end
 
         %% Synchronized RTC Values
 
+        % Master
         master_rtc_sync_ns  = Rtc(1).ns_cnt  + Rtc(1).time_offset.ns;
         master_rtc_sync_sec = Rtc(1).sec_cnt + Rtc(1).time_offset.sec;
         % Check for ns wrap:
@@ -565,6 +643,7 @@ while (1)
             master_rtc_sync_sec = master_rtc_sync_sec + 1;
         end
 
+        % Slave
         slave_rtc_sync_ns   = Rtc(2).ns_cnt  + Rtc(2).time_offset.ns;
         slave_rtc_sync_sec  = Rtc(2).sec_cnt + Rtc(2).time_offset.sec;
         % Check for ns wrap:
