@@ -21,10 +21,11 @@ clearvars, clc
 
 %% Debug
 
-log_ptp_frames = 1;
-print_offsets  = 1;
-debug_scopes   = 1;
-print_sim_time = 1;
+log_ptp_frames           = 0;
+print_true_time_offsets  = 0;
+print_freq_offset_est    = 1;
+debug_scopes             = 1;
+print_sim_time           = 0;
 
 %% Parameters and Configurations
 
@@ -55,6 +56,7 @@ rtc_inc_est_period = 2;     % RTC increment estimation period in frames
 sync_rate          = 128;   % SYNC rate in frames per second
 pdelay_req_rate    = 8;     % Pdelay_req rate in frames per second
 perfect_delay_est  = 0;     % Enable for perfect delay estimations
+foffset_thresh_ppb = 1e4;   % Maximum frequency offset correction in ppb
 % Filtering of Estimations
 filter_rtc_inc     = 1;     % Enable moving average for RTC increment
 rtc_inc_filt_len   = 128;   % RTC increment filter length
@@ -561,11 +563,23 @@ while (1)
 
             % Duration in ns at the master side between the two SYNCs:
             master_sync_interval_ns = ...
-                master_ns_sync_rx - prev_master_ns_sync_rx;
-            % In practice, this interval could be known a priori. However,
-            % since a standardized PTP master does not need to inform the
-            % SYNC rate to the slave, a generic implementation would
-            % measure the sync interval.
+                (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
+                (prev_master_ns_sync_rx + 1e9*prev_master_sec_sync_rx);
+            % Note #1: In practice, this interval could be known a priori.
+            % However, since a standardized PTP master does not need to
+            % inform the SYNC rate to the slave, a generic implementation
+            % would measure the sync interval.
+            %
+            % Note #2: normally we can measure only the nanosecond
+            % difference and infer any wrapping by checking whether the
+            % difference is negative. In this case, however, when packet
+            % selection is adopted, it is possible to have effective SYNC
+            % intervals of more than 1 second. For example, if the SYNC
+            % rate is 128 packet-per-second and the packet selection length
+            % is 256, there is one selected time offset for each 2 seconds
+            % and one RTC increment est after 4 seconds. Thus, the
+            % computation has to use the full "unwrapped" nanosecond
+            % counts.
 
             % Check a negative duration, which can happen whenever the ns
             % counter (used for the timestampts) wraps:
@@ -575,7 +589,10 @@ while (1)
 
             % Duration at the slave side between the two SYNC frames:
             slave_sync_interval_ns = ...
-                slave_ns_sync_rx - prev_slave_ns_sync_rx;
+                (slave_ns_sync_rx + 1e9*slave_sec_sync_rx) - ...
+                (prev_slave_ns_sync_rx + 1e9*prev_slave_sec_sync_rx);
+            % Here, again, the unwrapped ns count is used due to the fact
+            % that the intervals can be larger than one second.
 
             % Check a negative duration, which, again, happens whenever the
             % ns counter (used for the timestampts) wraps:
@@ -601,6 +618,11 @@ while (1)
             % offset in nanoseconds accumulated at the slave RTC w.r.t the
             % master RTC after 1 full second.
 
+            if (norm_freq_offset*1e9 > foffset_thresh_ppb)
+                warning('Frequency offset estimation exceed the maximum');
+                norm_freq_offset = 0;
+            end
+
             % Compute the new increment value for the slave RTC:
             slave_est_clk_freq = (1 + norm_freq_offset) * nominal_rtc_clk;
             new_rtc_inc        = (1 / slave_est_clk_freq)*1e9;
@@ -622,14 +644,22 @@ while (1)
             else
                 Rtc(2).inc_val_ns = new_rtc_inc;
             end
+
+            %% Print Frequency Offset Estimation
+            if (print_freq_offset_est)
+                fprintf('FOffset:\t%g ppb\t NewInc:\t%.20f ns\n', ...
+                    norm_freq_offset*1e9, new_rtc_inc);
+            end
         end
 
         % Save the sync arrival timestamps for the next iteration. These
         % timestamps can be the actual timestamps carried along the SYNC
         % frames or the ones including adjustments after packet selection:
         if (toffset_corr_strobe)
-            prev_master_ns_sync_rx = master_ns_sync_rx;
-            prev_slave_ns_sync_rx  = slave_ns_sync_rx;
+            prev_master_ns_sync_rx  = master_ns_sync_rx;
+            prev_master_sec_sync_rx = master_sec_sync_rx;
+            prev_slave_ns_sync_rx   = slave_ns_sync_rx;
+            prev_slave_sec_sync_rx  = slave_sec_sync_rx;
         end
 
         %% Synchronized RTC Values
@@ -671,11 +701,9 @@ while (1)
                 delay_est_ns, used_delay_est_ns);
         end
 
-        if (print_offsets)
-            fprintf('--- Estimated Offsets: ---\n');
-            fprintf('TOffset\t%g ns\tFOffset\t%g ppb\n', ...
-                actual_ns_error, ...
-                norm_freq_offset*1e9);
+        if (print_true_time_offsets)
+            fprintf('True TOffset\t%g ns\n', ...
+                actual_ns_error);
         end
     end
 
