@@ -650,7 +650,7 @@ while (1)
             % offset in nanoseconds accumulated at the slave RTC w.r.t the
             % master RTC after 1 full second.
 
-            if (norm_freq_offset*1e9 > foffset_thresh_ppb)
+            if (abs(norm_freq_offset*1e9) > foffset_thresh_ppb)
                 warning('Frequency offset estimation exceed the maximum');
                 norm_freq_offset = 0;
             end
