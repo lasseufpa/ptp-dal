@@ -184,6 +184,7 @@ rtc_error_ns        = 0;
 delay_est_ns        = 0;
 used_delay_est_ns   = 0;
 norm_freq_offset    = 0;
+cum_norm_freqoffset = 0;
 i_rtc_inc_est       = 0;
 rtc_inc_filt_taps   = zeros(rtc_inc_filt_len, 1);
 i_delay_est         = 0;
@@ -623,9 +624,38 @@ while (1)
                 norm_freq_offset = 0;
             end
 
+            % Accumulate the normalized frequency offset, so that we have a
+            % variable that holds the actual frequency offset in the RTC's
+            % clock signal with respect to its nominal frequency:
+            cum_norm_freqoffset = cum_norm_freqoffset + norm_freq_offset;
+            % Note: norm_freq_offset, in contrast, always estimates the
+            % frequency offset with respect to the current RTC increment
+            % configuration (not the nominal), as detailed next.
+
             % Compute the new increment value for the slave RTC:
-            slave_est_clk_freq = (1 + norm_freq_offset) * nominal_rtc_clk;
-            new_rtc_inc        = (1 / slave_est_clk_freq)*1e9;
+            %
+            % Note that, in contrast to time offsets, once an increment
+            % value is corrected, the frequency offset that is going to be
+            % "seen" next is not the true frequency offset anymore (recall
+            % that since syntonized timestamps are used, the same true time
+            % offset could be estimated forever if everything remained
+            % stable). Instead, the frequency offset estimation is expected
+            % to change from something near the true frequency offset (for
+            % the first estimation/correction) to something near zero (for
+            % the subsequent estimations). This is because the computation
+            % is such that the estimated frequency offset reflects the
+            % offset remaining from the current increment value, instead of
+            % the nominal increment value.
+
+            % First infer the current estimation for the clock frequency
+            % that feeds the slave RTC, from the current increment value:
+            current_slave_clk_freq_est = (1/Rtc(2).inc_val_ns)*1e9;
+            % Then, update the estimation by applying the frequency offset
+            % that was just estimated:
+            new_slave_est_clk_freq = (1 + norm_freq_offset) * ...
+                current_slave_clk_freq_est;
+            % And derive the corresponding new increment value:
+            new_rtc_inc        = (1 / new_slave_est_clk_freq)*1e9;
             % Note: infinite precision for the increment value is assumed
             % here. However, in practice the RTC increment value would be
             % represented by a fixed-point number with limited number of
@@ -647,8 +677,9 @@ while (1)
 
             %% Print Frequency Offset Estimation
             if (print_freq_offset_est)
-                fprintf('FOffset:\t%g ppb\t NewInc:\t%.20f ns\n', ...
-                    norm_freq_offset*1e9, new_rtc_inc);
+                fprintf(...
+                'Estimated FreqOffset:\t%g ppb\t NewInc:\t%.20f ns\n', ...
+                norm_freq_offset*1e9, new_rtc_inc);
             end
         end
 
@@ -697,7 +728,7 @@ while (1)
 
         % Plot to scope
         if (debug_scopes)
-            step(hScope, actual_ns_error, norm_freq_offset*1e9, ...
+            step(hScope, actual_ns_error, cum_norm_freqoffset*1e9, ...
                 delay_est_ns, used_delay_est_ns);
         end
 
