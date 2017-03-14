@@ -256,6 +256,10 @@ while (1)
 
         % Update the RTC nanoseconds count:
         Rtc(iRtc).ns_cnt = mod(Rtc(iRtc).ns_cnt + elapsed_ns, 1e9);
+        % Note: the ns count can be a fractional number, since it includes
+        % the sub-nanosecond bits of the RTC increment accumulator. In
+        % contrast, the timestamps added to the PTP frames are always
+        % integer numbers (the integer part of these counters).
     end
 
     if (print_sim_time)
@@ -279,9 +283,12 @@ while (1)
         end
 
         % Timestamp the departure time from the slave side:
-        Pdelay.t1.ns  = Rtc(2).ns_cnt;
-        Pdelay.t1.sec = Rtc(2).sec_cnt;
-        % Note timestamps come from the syntonized (not synchronized) RTC.
+        Pdelay.t1.ns  = floor(Rtc(2).ns_cnt);
+        Pdelay.t1.sec = floor(Rtc(2).sec_cnt);
+        % Note timestamps come from the syntonized (not synchronized) RTC
+        % and are also integer numbers. The "floor" approximation simulates
+        % the fact that the sub-nanosecond bits are "ignored" for the
+        % timestamping.
 
         % Mark the Pdelay_req frame as "on its way" towards the master
         Pdelay_req.on_way = 1;
@@ -307,9 +314,10 @@ while (1)
         Pdelay_req.on_way = 0;
 
         % Timestamp the arrival time (t2) at the master side:
-        Pdelay.t2.ns = Rtc(1).ns_cnt;
-        Pdelay.t2.sec = Rtc(1).sec_cnt;
-        % Note timestamps come from the syntonized (not synchronized) RTC.
+        Pdelay.t2.ns = floor(Rtc(1).ns_cnt);
+        Pdelay.t2.sec = floor(Rtc(1).sec_cnt);
+        % Note timestamps come from the syntonized (not synchronized) RTC
+        % and are also integer numbers.
 
         if (log_ptp_frames)
             fprintf('--- Event: ---\n');
@@ -322,9 +330,10 @@ while (1)
         Pdelay_resp.on_way = 1;
 
         % Timestamp the response departure time (t3) at the master side:
-        Pdelay.t3.ns = Rtc(1).ns_cnt;
-        Pdelay.t3.sec = Rtc(1).sec_cnt;
-        % Note timestamps come from the syntonized (not synchronized) RTC.
+        Pdelay.t3.ns  = floor(Rtc(1).ns_cnt);
+        Pdelay.t3.sec = floor(Rtc(1).sec_cnt);
+        % Note timestamps come from the syntonized (not synchronized) RTC
+        % and are also integer numbers.
 
         % Generate a random frame delay
         frame_delay = sum(exprnd(queueing_mean/erlang_K, 1, erlang_K));
@@ -343,9 +352,10 @@ while (1)
         Pdelay_resp.on_way = 0;
 
         % Timestamp the response arrival time (t4) at the slave side:
-        Pdelay.t4.ns = Rtc(2).ns_cnt;
-        Pdelay.t4.sec = Rtc(2).sec_cnt;
-        % Note timestamps come from the syntonized (not synchronized) RTC.
+        Pdelay.t4.ns  = floor(Rtc(2).ns_cnt);
+        Pdelay.t4.sec = floor(Rtc(2).sec_cnt);
+        % Note timestamps come from the syntonized (not synchronized) RTC
+        % and are also integer numbers.
 
         if (log_ptp_frames)
             fprintf('--- Event: ---\n');
@@ -397,9 +407,10 @@ while (1)
         end
 
         % Timestamp the departure time:
-        Sync.t1.ns  = Rtc(1).ns_cnt;
-        Sync.t1.sec = Rtc(1).sec_cnt;
-        % Note timestamps come from the syntonized (not synchronized) RTC.
+        Sync.t1.ns  = floor(Rtc(1).ns_cnt);
+        Sync.t1.sec = floor(Rtc(1).sec_cnt);
+        % Note timestamps come from the syntonized (not synchronized) RTC
+        % and are also integer numbers.
 
         % Mark the SYNC frame as "on its way" towards the slave
         Sync.on_way = 1;
@@ -430,9 +441,10 @@ while (1)
         %% Process SYNC timestamps
 
         % Timestamp the arrival time (t2) at the slave side:
-        Sync.t2.ns = Rtc(2).ns_cnt;
-        Sync.t2.sec = Rtc(2).sec_cnt;
-        % Note timestamps come from the syntonized (not synchronized) RTC.
+        Sync.t2.ns  = floor(Rtc(2).ns_cnt);
+        Sync.t2.sec = floor(Rtc(2).sec_cnt);
+        % Note timestamps come from the syntonized (not synchronized) RTC
+        % and are also integer numbers.
 
         % First save the previous time offset estimation:
         prev_rtc_error_ns = rtc_error_ns;
@@ -716,6 +728,7 @@ while (1)
         end
 
         %% Synchronized RTC Values
+        % Synchronized RTC = Syntonized RTC + Offset
 
         % Master
         master_rtc_sync_ns  = Rtc(1).ns_cnt  + Rtc(1).time_offset.ns;
