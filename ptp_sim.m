@@ -57,9 +57,14 @@ sync_rate          = 128;   % SYNC rate in frames per second
 pdelay_req_rate    = 8;     % Pdelay_req rate in frames per second
 perfect_delay_est  = 0;     % Enable for perfect delay estimations
 foffset_thresh_ppb = 1e4;   % Maximum frequency offset correction in ppb
-% Filtering of Estimations
+% RTC Increment Value
+en_fp_inc_val      = 0;     % Simulate increment value as a fixed-point num
+n_inc_val_int_bits = 26;    % Total number of bits in the increment value
+n_inc_val_frc_bits = 20;    % Number of fractional bits in the increment
+% Filtering of RTC Increment Value
 filter_rtc_inc     = 1;     % Enable moving average for RTC increment
 rtc_inc_filt_len   = 128;   % RTC increment filter length
+% Filtering of Delay Estimations
 filter_delay_est   = 1;     % Enable moving average for delay estimations
 delay_est_filt_len = 128;   % Delay estimation filter length
 % Packet selection
@@ -184,7 +189,7 @@ rtc_error_ns        = 0;
 delay_est_ns        = 0;
 used_delay_est_ns   = 0;
 norm_freq_offset    = 0;
-cum_norm_freqoffset = 0;
+norm_freq_offset_to_nominal = 0;
 i_rtc_inc_est       = 0;
 rtc_inc_filt_taps   = zeros(rtc_inc_filt_len, 1);
 i_delay_est         = 0;
@@ -624,14 +629,6 @@ while (1)
                 norm_freq_offset = 0;
             end
 
-            % Accumulate the normalized frequency offset, so that we have a
-            % variable that holds the actual frequency offset in the RTC's
-            % clock signal with respect to its nominal frequency:
-            cum_norm_freqoffset = cum_norm_freqoffset + norm_freq_offset;
-            % Note: norm_freq_offset, in contrast, always estimates the
-            % frequency offset with respect to the current RTC increment
-            % configuration (not the nominal), as detailed next.
-
             % Compute the new increment value for the slave RTC:
             %
             % Note that, in contrast to time offsets, once an increment
@@ -656,10 +653,35 @@ while (1)
                 current_slave_clk_freq_est;
             % And derive the corresponding new increment value:
             new_rtc_inc        = (1 / new_slave_est_clk_freq)*1e9;
-            % Note: infinite precision for the increment value is assumed
-            % here. However, in practice the RTC increment value would be
-            % represented by a fixed-point number with limited number of
-            % fractional (subnanoseconds bits).
+
+            % If simulation of increment as a fixed-point number is
+            % enabled, quantize the increment value:
+            if (en_fp_inc_val)
+                % Use an unsigned fixed-point number for the RTC increment
+                % with limited number of fractional (subnanoseconds bits).
+                new_rtc_inc_fp = fi(new_rtc_inc, 0, ...
+                    n_inc_val_int_bits, n_inc_val_frc_bits);
+
+                % Convert back to double
+                new_rtc_inc = double(new_rtc_inc_fp);
+
+                % And update the resulting "new" slave clock frequency
+                % considering the fixed-point precision:
+                new_slave_est_clk_freq = (1/new_rtc_inc)*1e9;
+            end
+
+
+            % Compute the "new" frequency offset that is going to be
+            % present after the RTC is updated:
+            new_freq_offset = new_slave_est_clk_freq - nominal_rtc_clk;
+
+            % And also compute a normalized frequency offset estimation
+            % relative to the nominal frequency value (instead of the
+            % current configuration):
+            norm_freq_offset_to_nominal = new_freq_offset/nominal_rtc_clk;
+            % Note: norm_freq_offset, in contrast, always estimates the
+            % frequency offset with respect to the current RTC increment
+            % configuration (not the nominal).
 
             %% Filter the increment value
             rtc_inc_filt_taps = [new_rtc_inc; rtc_inc_filt_taps(1:end-1)];
@@ -728,7 +750,8 @@ while (1)
 
         % Plot to scope
         if (debug_scopes)
-            step(hScope, actual_ns_error, cum_norm_freqoffset*1e9, ...
+            step(hScope, actual_ns_error, ...
+                norm_freq_offset_to_nominal*1e9, ...
                 delay_est_ns, used_delay_est_ns);
         end
 
