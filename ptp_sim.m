@@ -510,8 +510,22 @@ while (1)
                 i_toffset_est = 0;
 
                 % "Select" (compute) a ns and a sec time offset estimation
-                Rtc_error.ns  = mean(cat(1, toffset_sel_window.ns));
-                Rtc_error.sec = mean(cat(1, toffset_sel_window.sec));
+
+                % First compute the mean of the seconds
+                mean_sec      = mean(cat(1,toffset_sel_window.sec));
+                % The seconds error in the RTC is the integer part of that:
+                Rtc_error.sec = round(mean_sec);
+                % The ns error, in turn, is the mean of the ns time offsets
+                % in the selection window + the fractional part of the mean
+                % sec time offset:
+                Rtc_error.ns  = ...
+                    round(mean(cat(1,toffset_sel_window.ns))) + ...
+                    round((mean_sec - round(mean_sec)) * 1e9);
+                % Important to remember: the resulting RTC error depends on
+                % the original time offset from when the system started and
+                % the changes in time offset that are accumulated when the
+                % RTC increment is changed, but are never changed by time
+                % offset corrections themselves.
 
                 % Use the selected time offset estimation to compute and
                 % replace the slave-side timestamp that is used for
@@ -712,7 +726,7 @@ while (1)
             %% Print Frequency Offset Estimation
             if (print_freq_offset_est)
                 fprintf(...
-                'Estimated FreqOffset:\t%g ppb\t NewInc:\t%.20f ns\n', ...
+                'Estimated FreqOffset:\t%6g ppb\t NewInc:\t%.20f ns\n', ...
                 norm_freq_offset*1e9, new_rtc_inc);
             end
         end
