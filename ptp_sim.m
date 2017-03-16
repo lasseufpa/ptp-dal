@@ -521,6 +521,12 @@ while (1)
                 Rtc_error.ns  = ...
                     round(mean(cat(1,toffset_sel_window.ns))) + ...
                     round((mean_sec - round(mean_sec)) * 1e9);
+                % After the above step, we check once again whether a wrap
+                % occurs within the ns counter:
+                if (Rtc_error.ns >= 1e9)
+                    Rtc_error.ns  = Rtc_error.ns - 1e9;
+                    Rtc_error.sec = Rtc_error.sec + 1;
+                end
                 % Important to remember: the resulting RTC error depends on
                 % the original time offset from when the system started and
                 % the changes in time offset that are accumulated when the
