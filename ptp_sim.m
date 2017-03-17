@@ -72,6 +72,7 @@ delay_est_filt_len = 128;   % Delay estimation filter length
 packet_selection   = 1;     % Enable packet selection
 sel_window_len     = 2^10;    % Selection window length
 ls_estimator       = 1;     % Use least-squares for the packet selection
+sample_win_delay   = 0;     % Sample the delay to be used along the window
 
 %%%%%%% Network %%%%%%%%
 % Queueing statistics
@@ -213,7 +214,7 @@ end
 i_iteration         = 0;
 rtc_error_ns        = 0;
 delay_est_ns        = 0;
-used_delay_est_ns   = 0;
+filt_delay_ns_no_tran = 0;
 norm_freq_offset    = 0;
 norm_freq_offset_to_nominal = 0;
 i_rtc_inc_est       = 0;
@@ -416,9 +417,9 @@ while (1)
 
         % Use the filtered RTC increment after the filter transitory
         if (i_delay_est >= delay_est_filt_len)
-            used_delay_est_ns = filtered_delay_est;
+            filt_delay_ns_no_tran = filtered_delay_est;
         else
-            used_delay_est_ns = delay_est_ns;
+            filt_delay_ns_no_tran = delay_est_ns;
         end
     end
 
@@ -488,7 +489,31 @@ while (1)
         if (perfect_delay_est)
             sync_route_delay_ns = Sync.delay*1e9;
         else
-            sync_route_delay_ns = used_delay_est_ns;
+            % When packet selection is enabled, the delay used to correct
+            % the master timestamps can be sampled in the beginning of the
+            % selection window, such that the same value is used for all
+            % windowed time offset computations. This is done when
+            % "sample_win_delay" is enabled. When this parameter is
+            % disabled, in contrast, the delay used along the window is
+            % always updated (to the most recent delay estimation).
+            if (packet_selection && sample_win_delay)
+                % When sampling of the window delay is enabled, strobe the
+                % update to the delay only for the first sample being
+                % captured to the window and when the system is not
+                % "locked".
+                if (i_toffset_est == 0)
+                    update_sync_route_delay_strobe = 1;
+                else
+                    update_sync_route_delay_strobe = 0;
+                end
+            else
+                update_sync_route_delay_strobe = 1;
+            end
+
+            % Use the filtered delay that has the transitory "cleaned"
+            if (update_sync_route_delay_strobe)
+                sync_route_delay_ns = filt_delay_ns_no_tran;
+            end
         end
 
         % Master Timestamp corrected by the delay
@@ -895,7 +920,7 @@ while (1)
         if (debug_scopes)
             step(hScope, actual_ns_error, ...
                 norm_freq_offset_to_nominal*1e9, ...
-                delay_est_ns, used_delay_est_ns);
+                delay_est_ns, filt_delay_ns_no_tran);
         end
 
         if (print_true_time_offsets)
