@@ -25,6 +25,7 @@ log_ptp_frames           = 0;
 print_true_time_offsets  = 0;
 print_freq_offset_est    = 1;
 debug_scopes             = 1;
+debug_sel_window         = 0;
 print_sim_time           = 0;
 
 %% Parameters and Configurations
@@ -131,6 +132,30 @@ hScope.ActiveDisplay = 3;
 hScope.Title         = 'Delay Estimations (Instantaneous vs Filtered)';
 hScope.YLabel        = 'Nanoseconds';
 hScope.YLimits       = queueing_mean*1e9*[0 3];
+
+hScope.AxesScaling   = 'Auto';
+
+if (debug_sel_window)
+    hScopeSelWindow = dsp.TimeScope(...
+        'NumInputPorts', 2 + ls_estimator, ...
+        'ShowGrid', 1, ...
+        'ShowLegend', 1, ...
+        'BufferLength', sel_window_len, ...
+        'LayoutDimensions', [2 1], ...
+        'TimeSpanOverrunAction', 'Wrap', ...
+        'TimeSpan', sel_window_len*sync_period, ...
+        'TimeUnits', 'Metric', ...
+        'SampleRate', 1/sync_period);
+
+    hScopeSelWindow.ActiveDisplay = 1;
+    hScopeSelWindow.Title         = 'Window of Ns Time Offsets';
+    hScopeSelWindow.YLabel        = 'Seconds';
+
+    hScopeSelWindow.ActiveDisplay = 2;
+    hScopeSelWindow.YLabel        = 'Nanoseconds';
+
+    hScopeSelWindow.AxesScaling   = 'Auto';
+end
 
 %% Filters
 
@@ -575,6 +600,14 @@ while (1)
                         Rtc_error.ns  = Rtc_error.ns - 1e9;
                         Rtc_error.sec = Rtc_error.sec + 1;
                     end
+
+                    % Debug the selection window:
+                    if (debug_sel_window)
+                        step(hScopeSelWindow, ...
+                            cat(1,toffset_sel_window.sec), ...
+                            cat(1,toffset_sel_window.ns), ...
+                            x_fit);
+                    end
                 else
                     % "Select" (compute) a ns and a sec time offset
                     % estimation
@@ -595,6 +628,13 @@ while (1)
                     if (Rtc_error.ns >= 1e9)
                         Rtc_error.ns  = Rtc_error.ns - 1e9;
                         Rtc_error.sec = Rtc_error.sec + 1;
+                    end
+
+                    % And debug the selection window
+                    if (debug_sel_window)
+                        step(hScopeSelWindow, ...
+                            cat(1,toffset_sel_window.sec), ...
+                            cat(1,toffset_sel_window.ns));
                     end
                 end
                 % Important to remember: the resulting RTC error depends on
