@@ -47,7 +47,7 @@ Rtc(1).init_rising_edge_ns = 0;
 % at y ns away from simulation time 0.
 
 % Slave RTC
-Rtc(2).freq_offset_ppb     = 50;
+Rtc(2).freq_offset_ppb     = 400;
 Rtc(2).init_time_sec       = 0;
 Rtc(2).init_time_ns        = 0;
 Rtc(2).init_rising_edge_ns = 3;
@@ -57,9 +57,9 @@ rtc_inc_est_period = 2;     % RTC increment estimation period in frames
 sync_rate          = 128;   % SYNC rate in frames per second
 pdelay_req_rate    = 8;     % Pdelay_req rate in frames per second
 perfect_delay_est  = 0;     % Enable for perfect delay estimations
-foffset_thresh_ppb = 1e4;   % Maximum frequency offset correction in ppb
+foffset_thresh_ppb = 5e3;   % Maximum frequency offset correction in ppb
 % RTC Increment Value
-en_fp_inc_val      = 0;     % Simulate increment value as a fixed-point num
+en_fp_inc_val      = 1;     % Simulate increment value as a fixed-point num
 n_inc_val_int_bits = 26;    % Total number of bits in the increment value
 n_inc_val_frc_bits = 20;    % Number of fractional bits in the increment
 % Filtering of RTC Increment Value
