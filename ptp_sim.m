@@ -71,7 +71,7 @@ delay_est_filt_len = 128;   % Delay estimation filter length
 % Packet selection
 packet_selection   = 1;     % Enable packet selection
 sel_window_len     = 2^10;    % Selection window length
-ls_estimator       = 1;     % Use least-squares for the packet selection
+sel_strategy       = 1;     % Selection strategy: 0) Mean; 1) LS; 2) RLS
 sample_win_delay   = 0;     % Sample the delay to be used along the window
 
 %%%%%%% Network %%%%%%%%
@@ -137,8 +137,14 @@ hScope.YLimits       = queueing_mean*1e9*[0 3];
 hScope.AxesScaling   = 'Auto';
 
 if (debug_sel_window)
+    if (sel_strategy > 0)
+        n_sel_win_scope_ports = 3;
+    else
+        n_sel_win_scope_ports = 2;
+    end
+
     hScopeSelWindow = dsp.TimeScope(...
-        'NumInputPorts', 2 + ls_estimator, ...
+        'NumInputPorts', n_sel_win_scope_ports, ...
         'ShowGrid', 1, ...
         'ShowLegend', 1, ...
         'BufferLength', sel_window_len, ...
@@ -277,8 +283,8 @@ while (1)
 
         % Update the RTC seconds count:
         if (Rtc(iRtc).ns_cnt + elapsed_ns > 1e9)
-             Rtc(iRtc).sec_cnt =  Rtc(iRtc).sec_cnt + ...
-                 floor((Rtc(iRtc).ns_cnt + elapsed_ns)/1e9);
+            Rtc(iRtc).sec_cnt =  Rtc(iRtc).sec_cnt + ...
+                floor((Rtc(iRtc).ns_cnt + elapsed_ns)/1e9);
         end
 
         % Update the RTC nanoseconds count:
@@ -555,7 +561,7 @@ while (1)
             % When using the LS estimator, save also a "time axis", formed
             % by the master time for each estimator, considering the first
             % master instant to be time 0
-            if (ls_estimator)
+            if (sel_strategy == 1)
                 % Get the start time
                 if (i_toffset_est == 1)
                     toffset_sel_window_t_start = ...
@@ -579,88 +585,90 @@ while (1)
                 i_toffset_est = 0;
 
                 % Selection strategy (sample-mean or Least-Squares)
-                if (ls_estimator)
-                    % Time vector
-                    t_n = cat(1,toffset_sel_window.t)/1e9;
+                switch (sel_strategy)
+                    case 1
+                        % Time vector
+                        t_n = cat(1,toffset_sel_window.t)/1e9;
 
-                    % Observation Matrix
-                    H = [ones(sel_window_len, 1), t_n];
-                    % This matrix comes from a model where:
-                    %
-                    %   x[n] = A + B*t[n]
-                    %
-                    % where A is the initial time offset within the
-                    % selection window and B is the frequency offset in
-                    % ppb, namely the increase/decrease in the time offset
-                    % over time given in ns per second (given the second
-                    % column of the observation matrix is the time in
-                    % seconds).
+                        % Observation Matrix
+                        H = [ones(sel_window_len, 1), t_n];
+                        % This matrix comes from a model where:
+                        %
+                        %   x[n] = A + B*t[n]
+                        %
+                        % where A is the initial time offset within the
+                        % selection window and B is the frequency offset in
+                        % ppb, namely the increase/decrease in the time
+                        % offset over time given in ns per second (given
+                        % the second column of the observation matrix is
+                        % the time in seconds).
 
-                    % Observed time offsets in ns:
-                    x_obs = cat(1, toffset_sel_window.ns) + ...
-                        1e9 * (cat(1, toffset_sel_window.sec) - ...
-                        toffset_sel_window(1).sec);
-                    % Note the fluctuations within the vector of time
-                    % offsets in seconds are considered.
+                        % Observed time offsets in ns:
+                        x_obs = cat(1, toffset_sel_window.ns) + ...
+                            1e9 * (cat(1, toffset_sel_window.sec) - ...
+                            toffset_sel_window(1).sec);
+                        % Note the fluctuations within the vector of time
+                        % offsets in seconds are considered.
 
-                    % Estimate using Least-Squares:
-                    time_freq_offset_est = ...
-                        H \ x_obs;
-                    % Resulting initial time-offset in ns:
-                    A = time_freq_offset_est(1);
-                    % Resulting freq-offset in ppb:
-                    B = time_freq_offset_est(2);
+                        % Estimate using Least-Squares:
+                        time_freq_offset_est = ...
+                            H \ x_obs;
+                        % Resulting initial time-offset in ns:
+                        A = time_freq_offset_est(1);
+                        % Resulting freq-offset in ppb:
+                        B = time_freq_offset_est(2);
 
-                    % "Fitted" time-offset vector in ns:
-                    x_fit = A + t_n*B;
+                        % "Fitted" time-offset vector in ns:
+                        x_fit = A + t_n*B;
 
-                    % Predicted final offsets (at the end of the window):
-                    Rtc_error.sec = toffset_sel_window(1).sec;
-                    Rtc_error.ns  = x_fit(end);
+                        % Predicted final offsets (at the end of the
+                        % window):
+                        Rtc_error.sec = toffset_sel_window(1).sec;
+                        Rtc_error.ns  = x_fit(end);
 
-                    % After the above step, we check once again whether a
-                    % wrap occurs within the ns counter and adjust
-                    % accordingly:
-                    if (Rtc_error.ns >= 1e9)
-                        Rtc_error.ns  = Rtc_error.ns - 1e9;
-                        Rtc_error.sec = Rtc_error.sec + 1;
-                    end
+                        % After the above step, we check once again whether
+                        % a wrap occurs within the ns counter and adjust
+                        % accordingly:
+                        if (Rtc_error.ns >= 1e9)
+                            Rtc_error.ns  = Rtc_error.ns - 1e9;
+                            Rtc_error.sec = Rtc_error.sec + 1;
+                        end
 
-                    % Debug the selection window:
-                    if (debug_sel_window)
-                        step(hScopeSelWindow, ...
-                            cat(1,toffset_sel_window.sec), ...
-                            cat(1,toffset_sel_window.ns), ...
-                            x_fit);
-                    end
-                else
-                    % "Select" (compute) a ns and a sec time offset
-                    % estimation
+                        % Debug the selection window:
+                        if (debug_sel_window)
+                            step(hScopeSelWindow, ...
+                                cat(1,toffset_sel_window.sec), ...
+                                cat(1,toffset_sel_window.ns), ...
+                                x_fit);
+                        end
+                    case 0
+                        % "Select" (compute) a ns and a sec time offset
+                        % estimation
 
-                    % First compute the mean of the seconds
-                    mean_sec      = mean(cat(1,toffset_sel_window.sec));
-                    % The seconds error in the RTC is the integer part of
-                    % that:
-                    Rtc_error.sec = round(mean_sec);
-                    % The ns error, in turn, is the mean of the ns time
-                    % offsets in the selection window + the fractional part
-                    % of the mean sec time offset:
-                    Rtc_error.ns  = ...
-                        round(mean(cat(1,toffset_sel_window.ns))) + ...
-                        round((mean_sec - round(mean_sec)) * 1e9);
-                    % After the above step, we check once again whether a
-                    % wrap occurs within the ns counter:
-                    if (Rtc_error.ns >= 1e9)
-                        Rtc_error.ns  = Rtc_error.ns - 1e9;
-                        Rtc_error.sec = Rtc_error.sec + 1;
-                    end
+                        % First compute the mean of the seconds
+                        mean_sec      = mean(cat(1,toffset_sel_window.sec));
+                        % The seconds error in the RTC is the integer part
+                        % of that:
+                        Rtc_error.sec = round(mean_sec);
+                        % The ns error, in turn, is the mean of the ns time
+                        % offsets in the selection window + the fractional
+                        % part of the mean sec time offset:
+                        Rtc_error.ns  = ...
+                            round(mean(cat(1,toffset_sel_window.ns))) + ...
+                            round((mean_sec - round(mean_sec)) * 1e9);
+                        % After the above step, we check once again whether
+                        % a wrap occurs within the ns counter:
+                        if (Rtc_error.ns >= 1e9)
+                            Rtc_error.ns  = Rtc_error.ns - 1e9;
+                            Rtc_error.sec = Rtc_error.sec + 1;
+                        end
 
-                    % And debug the selection window
-                    if (debug_sel_window)
-                        step(hScopeSelWindow, ...
-                            cat(1,toffset_sel_window.sec), ...
-                            cat(1,toffset_sel_window.ns));
-                    end
+                        % And debug the selection window
+                        if (debug_sel_window)
+                            step(hScopeSelWindow, ...
+                                cat(1,toffset_sel_window.sec), ...
+                                cat(1,toffset_sel_window.ns));
+                        end
                 end
                 % Important to remember: the resulting RTC error depends on
                 % the original time offset from when the system started and
@@ -867,8 +875,8 @@ while (1)
             %% Print Frequency Offset Estimation
             if (print_freq_offset_est)
                 fprintf(...
-                'Estimated FreqOffset:\t%6g ppb\t NewInc:\t%.20f ns\n', ...
-                norm_freq_offset*1e9, new_rtc_inc);
+                    'Estimated FreqOffset:\t%6g ppb\t NewInc:\t%.20f ns\n', ...
+                    norm_freq_offset*1e9, new_rtc_inc);
             end
         end
 
