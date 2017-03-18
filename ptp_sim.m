@@ -104,6 +104,17 @@ for iRtc = 1:nRtcs
     Rtc(iRtc).clk_period = (1/Rtc(iRtc).clk_freq);
 end
 
+% Check the resolution of the syntonization using solely the RTC increment,
+% for the given number of fractional ns bits
+if (en_fp_inc_val)
+    min_adjusted_rtc_inc_ns = default_rtc_inc_ns + ...
+        (1/(2^n_inc_val_frc_bits));
+    closer_out_freq = (1 / min_adjusted_rtc_inc_ns) * 1e9;
+    res_ppb = ((nominal_rtc_clk - closer_out_freq)/nominal_rtc_clk) * 1e9;
+    display('Fixed-point RTC increment value');
+    fprintf('Resolution in frequency:\t %g ppb\n', res_ppb);
+end
+
 %% System Objects
 
 % Observations
