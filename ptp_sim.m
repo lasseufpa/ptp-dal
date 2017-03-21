@@ -16,6 +16,47 @@
 % constant (not varying over time). After that, by estimating precisely
 % this constant time offset and updating the time offset registers, a
 % stable synchronized time scale can be derived at the slave RTC.
+%
+% The complete process of time synchronization is now organized into four
+% stages, summarized in the sequel:
+%
+%   - Stage #1: Acquisition of a "stable" one-way delay estimation.
+%
+%   - Stage #2: Syntonization of the RTC increment value in hardware.
+%
+%   After this stage, the RTC increment value is left fixed. This phase can
+%   be interpreted as the "coarse" syntonization. After that, the time
+%   offset is still expected to be linearly increasing/decreasing with
+%   significant slope, since the RTC increment may leave a residual
+%   frequency offset in the order of several or hundreds of ppbs due to its
+%   finite resolution in terms of sub-nanoseconds bits
+%
+%   - Stage #3: Finer syntonization in software.
+%
+%   This is done without ever changing the actual RTC increment value in
+%   hardware. More specifically, it is done by estimating a constant time
+%   offset value to be applied every SYNC interval at the time offset
+%   register. Whenever a SYNC frame arrives, this correction is triggered.
+%   The constant value, in turn, is obtained by estimating the slope of the
+%   time series of time offset estimations, which is assumed to follow the
+%   linear model:
+%           x = B*t + A,
+%   where A is the initial time offset for a given window and B is the
+%   slope in nanoseconds per SYNC period. Both A and B can be approximately
+%   solved by using least-squares (LS), but in this stage only B is used.
+%
+%   This phase lasts for a single packet selection, since we adopt only one
+%   shot to estimate the slope (a single selection). However, a very long
+%   selection window is used in this phase for maximum accuracy. After this
+%   stage, the synchronized time offset is expected to present almost
+%   negligible slope, such that a constant time offset remains.
+%
+%   - Stage #4: Final (constant) time offset correction.
+%
+%   While the previous stage left a constant error over time, this stage
+%   should bring this constant error closer to 0. It should also be used
+%   for keeping track of any "wander" that accumulates over longer
+%   intervals.
 
 clearvars, clc
 
@@ -63,14 +104,17 @@ en_fp_inc_val      = 1;     % Simulate increment value as a fixed-point num
 n_inc_val_int_bits = 26;    % Total number of bits in the increment value
 n_inc_val_frc_bits = 20;    % Number of fractional bits in the increment
 % Filtering of RTC Increment Value
-filter_rtc_inc     = 1;     % Enable moving average for RTC increment
-rtc_inc_filt_len   = 128;   % RTC increment filter length
+filter_rtc_inc     = 0;     % Enable moving average for RTC increment
+rtc_inc_filt_len   = 16;    % RTC increment filter length
 % Filtering of Delay Estimations
 filter_delay_est   = 1;     % Enable moving average for delay estimations
 delay_est_filt_len = 128;   % Delay estimation filter length
 % Packet selection
-packet_selection   = 1;     % Enable packet selection
-sel_window_len     = 2^10;    % Selection window length
+packet_selection   = 1;      % Enable packet selection
+sel_window_len_1   = 2^6;    % Selection window length
+sel_window_len_2   = 2^9;    % Selection window length
+sel_window_len_3   = 2^14;   % Selection window length
+sel_window_len_4   = 2^10;   % Selection window length
 sel_strategy       = 1;     % Selection strategy: 0) Mean; 1) LS; 2) RLS
 sample_win_delay   = 0;     % Sample the delay to be used along the window
 
@@ -84,6 +128,12 @@ nRtcs              = length(Rtc);
 default_rtc_inc_ns = (1/nominal_rtc_clk)*1e9;
 sync_period        = 1 / sync_rate;
 pdelay_req_period  = 1 / pdelay_req_rate;
+
+% Synchronization stages:
+DELAY_EST_SYNC_STAGE   = 1;
+COARSE_SYNT_SYNC_STAGE = 2;
+FINE_SYNT_SYNC_STAGE   = 3;
+CONST_TOFF_SYNC_STAGE  = 4;
 
 %% Derivations
 
@@ -111,9 +161,15 @@ if (en_fp_inc_val)
         (1/(2^n_inc_val_frc_bits));
     closer_out_freq = (1 / min_adjusted_rtc_inc_ns) * 1e9;
     res_ppb = ((nominal_rtc_clk - closer_out_freq)/nominal_rtc_clk) * 1e9;
-    display('Fixed-point RTC increment value');
+    disp('Fixed-point RTC increment value');
     fprintf('Resolution in frequency:\t %g ppb\n', res_ppb);
 end
+
+% Define a struct containg info about the sync stages
+Sync_cfg.stage1.sel_window_len = sel_window_len_1;
+Sync_cfg.stage2.sel_window_len = sel_window_len_2;
+Sync_cfg.stage3.sel_window_len = sel_window_len_3;
+Sync_cfg.stage4.sel_window_len = sel_window_len_4;
 
 %% System Objects
 
@@ -125,7 +181,7 @@ hScope = dsp.TimeScope(...
     'BufferLength', 1e5, ...
     'LayoutDimensions', [3 1], ...
     'TimeSpanOverrunAction', 'Scroll', ...
-    'TimeSpan', 1e4*sync_period, ...
+    'TimeSpan', 5e3*sync_period, ...
     'TimeUnits', 'Metric', ...
     'SampleRate', 1/sync_period);
 
@@ -158,10 +214,10 @@ if (debug_sel_window)
         'NumInputPorts', n_sel_win_scope_ports, ...
         'ShowGrid', 1, ...
         'ShowLegend', 1, ...
-        'BufferLength', sel_window_len, ...
+        'BufferLength', sel_window_len_3, ...
         'LayoutDimensions', [2 1], ...
         'TimeSpanOverrunAction', 'Wrap', ...
-        'TimeSpan', sel_window_len*sync_period, ...
+        'TimeSpan', sel_window_len_3*sync_period, ...
         'TimeUnits', 'Metric', ...
         'SampleRate', 1/sync_period);
 
@@ -240,9 +296,11 @@ i_delay_est         = 0;
 delay_est_filt_taps = zeros(delay_est_filt_len, 1);
 i_toffset_est       = 0;
 i_sel_done          = 0;
-toffset_sel_window  = repmat(struct('ns',0,'sec',0), sel_window_len, 1 );
 rtc_inc_est_strobe  = 0;
 toffset_corr_strobe = 0;
+sync_stage          = DELAY_EST_SYNC_STAGE; % starting stage
+sel_window_len      = sel_window_len_1; % starting selection window size
+toffset_sel_window  = repmat(struct('ns',0,'sec',0), sel_window_len, 1 );
 
 Sync.on_way         = 0;
 Pdelay_req.on_way   = 0;
@@ -438,6 +496,21 @@ while (1)
         else
             filt_delay_ns_no_tran = delay_est_ns;
         end
+
+        % After the filter transitory, change to the second SYNC stage:
+        if (sync_stage == DELAY_EST_SYNC_STAGE && ...
+                i_delay_est >= delay_est_filt_len)
+            % Change the coarse syntonization stage
+            [ sync_stage, sel_window_len, toffset_sel_window, ...
+                i_toffset_est ] = ...
+                changeSyncStage( Sync_cfg, COARSE_SYNT_SYNC_STAGE );
+
+            % And if debugging, prepare for an eventual change in the
+            % window length:
+            if (debug_sel_window)
+                hScopeSelWindow.release();
+            end
+        end
     end
 
     %% SYNC Transmission
@@ -585,6 +658,19 @@ while (1)
                     toffset_sel_window_t_start;
             end
 
+            % Take the slope estimated in SYNC stage #3 into account.
+            % Correcting the estimated time offsets by subtracting the time
+            % offset parcel at each instant due to the slope:
+            if (sync_stage == CONST_TOFF_SYNC_STAGE)
+                % Time offset due to slope for the given instant:
+                toffset_due_slope = toffset_slope * i_toffset_est;
+                % Correct the time offset that was registered in the
+                % window:
+                toffset_sel_window(i_toffset_est).ns = ...
+                    toffset_sel_window(i_toffset_est).ns - ...
+                    toffset_due_slope;
+            end
+
             % Trigger a time offset correction when the selection window is
             % full:
             toffset_corr_strobe = (i_toffset_est == sel_window_len);
@@ -720,6 +806,57 @@ while (1)
             toffset_corr_strobe = 1;
         end
 
+        %% Check slope for correction from stage #4 onwards
+
+        % Once the system is in stage #3, compute the slope (in
+        % ns/sync_period) and move to stage #4 right after. From this point
+        % onwards, use this slope as a "finer" frequency syntonization.
+        if (sync_stage == FINE_SYNT_SYNC_STAGE && toffset_corr_strobe)
+
+            % Slope in ns / SYNC period to be corrected:
+            toffset_slope = B * sync_period;
+            fprintf('Slope correction:\t %g ns/sync_period\n', ...
+                toffset_slope);
+
+            % Compare to the "true" slope that remained after the RTC
+            % increment value was tuned:
+            true_slope = (norm_freq_offset_to_nominal*1e9 - ...
+                Rtc(2).freq_offset_ppb) * sync_period;
+            fprintf('Ideal slope correction:\t %g ns/sync_period\n', ...
+                true_slope);
+
+            % Go to constant time error correction stage:
+            [ sync_stage, sel_window_len, toffset_sel_window, ...
+                i_toffset_est ] = ...
+                changeSyncStage( Sync_cfg, CONST_TOFF_SYNC_STAGE );
+
+            % And if debugging, prepare for an eventual change in the
+            % window length:
+            if (debug_sel_window)
+                hScopeSelWindow.release();
+            end
+        end
+
+        %% Time Offset Slope Correction
+        if (sync_stage > FINE_SYNT_SYNC_STAGE)
+            % Update the RTC time offset registers
+            Rtc(2).time_offset.ns = Rtc(2).time_offset.ns + ...
+                toffset_slope;
+            % The slope used above corresponds to the slope of the
+            % estimated time offsets. If it is positive, the time offset at
+            % the slave w.r.t. master is increasing, so the the slave's
+            % time offset register should be increased accordingly.
+
+            % Check for a positive or negative wrap in the ns count:
+            if (Rtc(2).time_offset.ns > 1e9)
+                Rtc(2).time_offset.sec = Rtc(2).time_offset.sec + 1;
+                Rtc(2).time_offset.ns =  Rtc(2).time_offset.ns - 1e9;
+            elseif (Rtc(2).time_offset.ns < 0)
+                Rtc(2).time_offset.sec = Rtc(2).time_offset.sec - 1;
+                Rtc(2).time_offset.ns =  Rtc(2).time_offset.ns + 1e9;
+            end
+        end
+
         %% Time Offset Correction
         % Note: the error is saved on the time offset registers, and never
         % corrected in the actual ns/sec count. The two informations are
@@ -736,16 +873,32 @@ while (1)
                 Rtc_error.sec = Rtc_error.sec - 1;
             end
 
-            % Update the RTC time offset registers
-            Rtc(2).time_offset.ns = Rtc_error.ns;
-            Rtc(2).time_offset.sec = Rtc_error.sec;
+            % Updates to the time offset register are applied either here
+            % or at the point where the "slope" is corrected. The
+            % difference is that the latter is corrected after every Rx
+            % SYNC, while the following correction is triggered only after
+            % a "time offset selection" (an interval of many SYNC
+            % receptions). Besides, note that the following triggers
+            % corrections both while in stage #1 and #4. This is because
+            % stage #2 and #3 are devoted solely to syntonization, so no
+            % time offset correction is applied. Regarding the correction
+            % in stage #1, it is done with the purpose of clearing initial
+            % "step" offsets (containing even seconds of difference).
+            if (sync_stage >= CONST_TOFF_SYNC_STAGE || ...
+                    sync_stage == DELAY_EST_SYNC_STAGE)
+                % Update the RTC time offset registers
+                Rtc(2).time_offset.ns = Rtc_error.ns;
+                Rtc(2).time_offset.sec = Rtc_error.sec;
+            end
         end
 
         %% Frequency Offset Estimation and RTC increment value computation
 
         % Check if the desirable number of SYNC receptions was already
-        % reached for estimating the frequency offset
-        if (rtc_inc_est_strobe)
+        % reached for estimating the frequency offset and updating the RTC
+        % increment. Note, however, that this is called only while in the
+        % **Coarse Syntonization** stage of the synchronization process.
+        if (rtc_inc_est_strobe && sync_stage == COARSE_SYNT_SYNC_STAGE)
 
             % Clear the strobe signal
             rtc_inc_est_strobe = 0;
@@ -810,11 +963,28 @@ while (1)
             % offset in nanoseconds accumulated at the slave RTC w.r.t the
             % master RTC after 1 full second.
 
+            %% Check if ready to leave the Coarse Syntonization stage
+            % Check if the frequency offset is already under half of the
+            % RTC increment resolution (namely the optimal choice):
+            if (abs(norm_freq_offset*1e9) < (res_ppb/2))
+                % Then proceed to the "Fine Syntonization" stage.
+                [ sync_stage, sel_window_len, toffset_sel_window, ...
+                    i_toffset_est ] = ...
+                    changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
+
+                % And if debugging, prepare for an eventual change in the
+                % window length:
+                if (debug_sel_window)
+                    hScopeSelWindow.release();
+                end
+            end
+
             if (abs(norm_freq_offset*1e9) > foffset_thresh_ppb)
                 warning('Frequency offset estimation exceed the maximum');
                 norm_freq_offset = 0;
             end
 
+            %% New Increment value
             % Compute the new increment value for the slave RTC:
             %
             % Note that, in contrast to time offsets, once an increment
@@ -876,6 +1046,7 @@ while (1)
             % Count how many increment value estimations so far
             i_rtc_inc_est = i_rtc_inc_est + 1;
 
+            %% Update the RTC increment
             % Use the filtered RTC increment after the filter transitory
             if (i_rtc_inc_est >= rtc_inc_filt_len)
                 Rtc(2).inc_val_ns = filtered_rtc_inc;
