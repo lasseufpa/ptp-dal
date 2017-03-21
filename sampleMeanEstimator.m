@@ -31,10 +31,12 @@ x_ns = round(mean(x_obs_ns)) + round((mean_sec - x_sec) * 1e9);
 
 % After the above step, check whether a wrap occurs within the ns counter
 % and adjust accordingly:
-if (x_ns >= 1e9)
+while (x_ns >= 1e9)
     x_ns = x_ns - 1e9;
     x_sec = x_sec + 1;
-elseif (x_ns < 0)
+end
+
+while (x_ns < 0)
     x_ns = x_ns + 1e9;
     x_sec = x_sec - 1;
 end

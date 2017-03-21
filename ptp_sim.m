@@ -637,6 +637,19 @@ while (1)
         % Note: it is actually computed as "(t1 + d) - t2" here.
         Rtc_error.sec = master_sec_sync_rx - slave_sec_sync_rx;
 
+        % Ensure that the nanoseconds error is within [0, 1e9). Any
+        % negative ns offset can be corrected by a positive ns offset plus
+        % a correction within the seconds count.
+        while (Rtc_error.ns < 0)
+            Rtc_error.ns = Rtc_error.ns + 1e9;
+            Rtc_error.sec = Rtc_error.sec - 1;
+        end
+
+        while (Rtc_error.ns >= 1e9)
+            Rtc_error.ns = Rtc_error.ns - 1e9;
+            Rtc_error.sec = Rtc_error.sec + 1;
+        end
+
         %% "Packet selection" for time offset estimation
 
         if (packet_selection)
@@ -818,14 +831,7 @@ while (1)
         % but are never changed by time offset corrections themselves.
 
         if (toffset_corr_strobe)
-            % First ensure that the nanoseconds error is not negative. It
-            % has to be a number between 0 and 1e9. Any negative ns offset
-            % can be corrected by a positive ns offset plus a correction
-            % within the seconds count.
-            if (Rtc_error.ns < 0)
-                Rtc_error.ns = Rtc_error.ns + 1e9;
-                Rtc_error.sec = Rtc_error.sec - 1;
-            end
+
 
             % Updates to the time offset register are applied either here
             % or at the point where the "slope" is corrected. The
