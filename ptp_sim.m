@@ -498,10 +498,11 @@ while (1)
 
         % Use the filtered RTC increment after the filter transitory
         if (i_delay_est >= delay_est_filt_len)
-            filt_delay_ns_no_tran = filtered_delay_est;
+            filt_delay_ns_no_tran = floor(filtered_delay_est);
         else
-            filt_delay_ns_no_tran = delay_est_ns;
+            filt_delay_ns_no_tran = floor(delay_est_ns);
         end
+        % Note: delay value is rounded down to an integer number of ns.
 
         % After the filter transitory, change to the second SYNC stage:
         if (sync_stage == DELAY_EST_SYNC_STAGE && ...
