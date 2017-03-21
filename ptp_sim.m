@@ -204,14 +204,9 @@ hScope.YLimits       = queueing_mean*1e9*[0 3];
 hScope.AxesScaling   = 'Auto';
 
 if (debug_sel_window)
-    if (sel_strategy > 0)
-        n_sel_win_scope_ports = 3;
-    else
-        n_sel_win_scope_ports = 2;
-    end
 
     hScopeSelWindow = dsp.TimeScope(...
-        'NumInputPorts', n_sel_win_scope_ports, ...
+        'NumInputPorts', 2, ...
         'ShowGrid', 1, ...
         'ShowLegend', 1, ...
         'BufferLength', sel_window_len_3, ...
@@ -644,21 +639,19 @@ while (1)
             toffset_sel_window(i_toffset_est).ns = Rtc_error.ns;
             toffset_sel_window(i_toffset_est).sec = Rtc_error.sec;
 
-            % When using the LS estimator, save also a "time axis", formed
-            % by the master time for each estimator, considering the first
-            % master instant to be time 0
-            if (sel_strategy == 1)
-                % Get the start time
-                if (i_toffset_est == 1)
-                    toffset_sel_window_t_start = ...
-                        (master_ns_sync_rx + 1e9*master_sec_sync_rx);
-                end
-                % Subtract the master time from the selection window start
-                % time
-                toffset_sel_window(i_toffset_est).t = ...
-                    (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
-                    toffset_sel_window_t_start;
+            % Save also a "time axis", formed by the master time for each
+            % estimator, considering the first master instant to be time 0
+
+            % Get the start time for the selection window:
+            if (i_toffset_est == 1)
+                toffset_sel_window_t_start = ...
+                    (master_ns_sync_rx + 1e9*master_sec_sync_rx);
             end
+
+            % Subtract the current time from the start time:
+            toffset_sel_window(i_toffset_est).t = ...
+                (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
+                toffset_sel_window_t_start;
 
             % Take the slope estimated in SYNC stage #3 into account.
             % Correcting the estimated time offsets by subtracting the time
@@ -686,94 +679,22 @@ while (1)
                 % Selection strategy (sample-mean or Least-Squares)
                 switch (sel_strategy)
                     case 1
-                        % Time vector
-                        t_n = cat(1,toffset_sel_window.t)/1e9;
-
-                        % Observation Matrix
-                        H = [ones(sel_window_len, 1), t_n];
-                        % This matrix comes from a model where:
-                        %
-                        %   x[n] = A + B*t[n]
-                        %
-                        % where A is the initial time offset within the
-                        % selection window and B is the frequency offset in
-                        % ppb, namely the increase/decrease in the time
-                        % offset over time given in ns per second (given
-                        % the second column of the observation matrix is
-                        % the time in seconds).
-
-                        % Observed time offsets in ns:
-                        x_obs = cat(1, toffset_sel_window.ns) + ...
-                            1e9 * (cat(1, toffset_sel_window.sec) - ...
-                            toffset_sel_window(1).sec);
-                        % Note the fluctuations within the vector of time
-                        % offsets in seconds are considered.
-
                         % Estimate using Least-Squares:
-                        time_freq_offset_est = ...
-                            H \ x_obs;
-                        % Resulting initial time-offset in ns:
-                        A = time_freq_offset_est(1);
-                        % Resulting freq-offset in ppb:
-                        B = time_freq_offset_est(2);
-
-                        % "Fitted" time-offset vector in ns:
-                        x_fit = A + t_n*B;
-
-                        % Predicted final offsets (at the end of the
-                        % window):
-                        Rtc_error.sec = toffset_sel_window(1).sec;
-                        Rtc_error.ns  = x_fit(end);
-
-                        % After the above step, we check once again whether
-                        % a wrap occurs within the ns counter and adjust
-                        % accordingly:
-                        if (Rtc_error.ns >= 1e9)
-                            Rtc_error.ns  = Rtc_error.ns - 1e9;
-                            Rtc_error.sec = Rtc_error.sec + 1;
-                        end
-
-                        % Debug the selection window:
-                        if (debug_sel_window)
-                            step(hScopeSelWindow, ...
-                                cat(1,toffset_sel_window.sec), ...
-                                cat(1,toffset_sel_window.ns), ...
-                                x_fit);
-                        end
+                        [ Rtc_error.ns, Rtc_error.sec, B ] = ...
+                            lsTimeFreqOffset( toffset_sel_window );
                     case 0
-                        % "Select" (compute) a ns and a sec time offset
-                        % estimation
-
-                        % First compute the mean of the seconds
-                        mean_sec      = mean(cat(1,toffset_sel_window.sec));
-                        % The seconds error in the RTC is the integer part
-                        % of that:
-                        Rtc_error.sec = round(mean_sec);
-                        % The ns error, in turn, is the mean of the ns time
-                        % offsets in the selection window + the fractional
-                        % part of the mean sec time offset:
-                        Rtc_error.ns  = ...
-                            round(mean(cat(1,toffset_sel_window.ns))) + ...
-                            round((mean_sec - round(mean_sec)) * 1e9);
-                        % After the above step, we check once again whether
-                        % a wrap occurs within the ns counter:
-                        if (Rtc_error.ns >= 1e9)
-                            Rtc_error.ns  = Rtc_error.ns - 1e9;
-                            Rtc_error.sec = Rtc_error.sec + 1;
-                        end
-
-                        % And debug the selection window
-                        if (debug_sel_window)
-                            step(hScopeSelWindow, ...
-                                cat(1,toffset_sel_window.sec), ...
-                                cat(1,toffset_sel_window.ns));
-                        end
+                        % Apply the sample-mean estimator:
+                        [ Rtc_error.ns, Rtc_error.sec, B ] = ...
+                            sampleMeanEstimator( toffset_sel_window );
                 end
-                % Important to remember: the resulting RTC error depends on
-                % the original time offset from when the system started and
-                % the changes in time offset that are accumulated when the
-                % RTC increment is changed, but are never changed by time
-                % offset corrections themselves.
+
+
+                % And debug the selection window
+                if (debug_sel_window)
+                    step(hScopeSelWindow, ...
+                        cat(1,toffset_sel_window.sec), ...
+                        cat(1,toffset_sel_window.ns));
+                end
 
                 % Use the selected time offset estimation to compute and
                 % replace the slave-side timestamp that is used for
@@ -880,6 +801,11 @@ while (1)
         % corrected in the actual ns/sec count. The two informations are
         % always separately available and can be summed together to form a
         % synchronized (time aligned) ns/sec count.
+        %
+        % Furthermore, the RTC error at any time depends on the original
+        % time offset from when the system started and the changes in time
+        % offset that are accumulated when the RTC increment is changed,
+        % but are never changed by time offset corrections themselves.
 
         if (toffset_corr_strobe)
             % First ensure that the nanoseconds error is not negative. It
