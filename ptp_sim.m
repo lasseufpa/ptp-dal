@@ -178,10 +178,10 @@ hScope = dsp.TimeScope(...
     'NumInputPorts', 4, ...
     'ShowGrid', 1, ...
     'ShowLegend', 1, ...
-    'BufferLength', 1e5, ...
+    'BufferLength', sel_window_len_3, ...
     'LayoutDimensions', [3 1], ...
-    'TimeSpanOverrunAction', 'Scroll', ...
-    'TimeSpan', 5e3*sync_period, ...
+    'TimeSpanOverrunAction', 'Wrap', ...
+    'TimeSpan', sel_window_len_3*sync_period, ...
     'TimeUnits', 'Metric', ...
     'SampleRate', 1/sync_period);
 
@@ -301,6 +301,8 @@ toffset_corr_strobe = 0;
 sync_stage          = DELAY_EST_SYNC_STAGE; % starting stage
 sel_window_len      = sel_window_len_1; % starting selection window size
 toffset_sel_window  = repmat(struct('ns',0,'sec',0), sel_window_len, 1 );
+slope_corr_accum    = 0;
+applied_corr_accum  = 0;
 
 Sync.on_way         = 0;
 Pdelay_req.on_way   = 0;
@@ -838,14 +840,30 @@ while (1)
         end
 
         %% Time Offset Slope Correction
+        % The referred slope corresponds to the slope of the estimated time
+        % offsets. If it is positive, the time offset at the slave w.r.t.
+        % master is increasing, so the the slave's time offset register
+        % should be increased accordingly.
+
         if (sync_stage > FINE_SYNT_SYNC_STAGE)
-            % Update the RTC time offset registers
-            Rtc(2).time_offset.ns = Rtc(2).time_offset.ns + ...
-                toffset_slope;
-            % The slope used above corresponds to the slope of the
-            % estimated time offsets. If it is positive, the time offset at
-            % the slave w.r.t. master is increasing, so the the slave's
-            % time offset register should be increased accordingly.
+
+            % Accumulate the slope corrections:
+            slope_corr_accum = slope_corr_accum + toffset_slope;
+
+            % Check the difference of the accumulator value with respect to
+            % the already applied slope correction:
+            unapplied_slope_corr = slope_corr_accum - applied_corr_accum;
+
+            % If an integer amount of ns is pending to be applied, update
+            % the time offset register:
+            if (abs(floor(unapplied_slope_corr)) > 0)
+                % Update the RTC time offset registers:
+                Rtc(2).time_offset.ns = Rtc(2).time_offset.ns + ...
+                    floor(unapplied_slope_corr);
+                % Keep track of the last applied integer slope correction:
+                applied_corr_accum = applied_corr_accum + ...
+                    floor(unapplied_slope_corr);
+            end
 
             % Check for a positive or negative wrap in the ns count:
             if (Rtc(2).time_offset.ns > 1e9)
@@ -887,7 +905,8 @@ while (1)
             if (sync_stage >= CONST_TOFF_SYNC_STAGE || ...
                     sync_stage == DELAY_EST_SYNC_STAGE)
                 % Update the RTC time offset registers
-                Rtc(2).time_offset.ns = Rtc_error.ns;
+                Rtc(2).time_offset.ns = floor(Rtc_error.ns);
+                % Note the fractional part is thrown away here.
                 Rtc(2).time_offset.sec = Rtc_error.sec;
             end
         end
