@@ -115,7 +115,10 @@ sel_window_len_1   = 2^6;    % Selection window length
 sel_window_len_2   = 2^9;    % Selection window length
 sel_window_len_3   = 2^14;   % Selection window length
 sel_window_len_4   = 2^10;   % Selection window length
-sel_strategy       = 1;     % Selection strategy: 0) Mean; 1) LS; 2) RLS
+sel_strategy_1     = 1;     % Selection strategy: 0) Mean; 1) LS;
+sel_strategy_2     = 1;     % Selection strategy: 0) Mean; 1) LS;
+sel_strategy_3     = 1;     % Selection strategy: 0) Mean; 1) LS;
+sel_strategy_4     = 1;     % Selection strategy: 0) Mean; 1) LS;
 sample_win_delay   = 0;     % Sample the delay to be used along the window
 
 %%%%%%% Network %%%%%%%%
@@ -167,9 +170,13 @@ end
 
 % Define a struct containg info about the sync stages
 Sync_cfg.stage1.sel_window_len = sel_window_len_1;
+Sync_cfg.stage1.sel_strategy = sel_strategy_1;
 Sync_cfg.stage2.sel_window_len = sel_window_len_2;
+Sync_cfg.stage2.sel_strategy = sel_strategy_2;
 Sync_cfg.stage3.sel_window_len = sel_window_len_3;
+Sync_cfg.stage3.sel_strategy = sel_strategy_3;
 Sync_cfg.stage4.sel_window_len = sel_window_len_4;
+Sync_cfg.stage4.sel_strategy = sel_strategy_4;
 
 %% System Objects
 
@@ -289,13 +296,10 @@ i_rtc_inc_est       = 0;
 rtc_inc_filt_taps   = zeros(rtc_inc_filt_len, 1);
 i_delay_est         = 0;
 delay_est_filt_taps = zeros(delay_est_filt_len, 1);
-i_toffset_est       = 0;
 i_sel_done          = 0;
 rtc_inc_est_strobe  = 0;
 toffset_corr_strobe = 0;
-sync_stage          = DELAY_EST_SYNC_STAGE; % starting stage
-sel_window_len      = sel_window_len_1; % starting selection window size
-toffset_sel_window  = repmat(struct('ns',0,'sec',0), sel_window_len, 1 );
+
 slope_corr_accum    = 0;
 applied_corr_accum  = 0;
 
@@ -309,6 +313,11 @@ i_sync_rx_event     = 0;
 next_pdelay_req_tx  = 0;
 next_pdelay_req_rx  = inf;
 next_pdelay_resp_rx = inf;
+
+% Start at synchronization stage DELAY_EST_SYNC_STAGE:
+[ sync_stage, sel_strategy, sel_window_len, ...
+                toffset_sel_window, i_toffset_est ] = ...
+                changeSyncStage( Sync_cfg, DELAY_EST_SYNC_STAGE );
 
 %% Infinite Loop
 while (1)
@@ -498,8 +507,8 @@ while (1)
         if (sync_stage == DELAY_EST_SYNC_STAGE && ...
                 i_delay_est >= delay_est_filt_len)
             % Change the coarse syntonization stage
-            [ sync_stage, sel_window_len, toffset_sel_window, ...
-                i_toffset_est ] = ...
+            [ sync_stage, sel_strategy, sel_window_len, ...
+                toffset_sel_window, i_toffset_est ] = ...
                 changeSyncStage( Sync_cfg, COARSE_SYNT_SYNC_STAGE );
 
             % And if debugging, prepare for an eventual change in the
@@ -749,9 +758,10 @@ while (1)
                 true_slope);
 
             % Go to constant time error correction stage:
-            [ sync_stage, sel_window_len, toffset_sel_window, ...
-                i_toffset_est ] = ...
+            [ sync_stage, sel_strategy, sel_window_len, ...
+                toffset_sel_window, i_toffset_est ] = ...
                 changeSyncStage( Sync_cfg, CONST_TOFF_SYNC_STAGE );
+
 
             % And if debugging, prepare for an eventual change in the
             % window length:
@@ -913,9 +923,9 @@ while (1)
             % RTC increment resolution (namely the optimal choice):
             if (abs(norm_freq_offset*1e9) < (res_ppb/2))
                 % Then proceed to the "Fine Syntonization" stage.
-                [ sync_stage, sel_window_len, toffset_sel_window, ...
-                    i_toffset_est ] = ...
-                    changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
+                [ sync_stage, sel_strategy, sel_window_len, ...
+                toffset_sel_window, i_toffset_est ] = ...
+                changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
 
                 % And if debugging, prepare for an eventual change in the
                 % window length:
