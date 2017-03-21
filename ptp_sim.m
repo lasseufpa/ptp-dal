@@ -821,30 +821,31 @@ while (1)
         end
 
         %% Time Offset Correction
-        % Note: the error is saved on the time offset registers, and never
-        % corrected in the actual ns/sec count. The two informations are
-        % always separately available and can be summed together to form a
-        % synchronized (time aligned) ns/sec count.
+        % First of all, observe that the error is saved on the time offset
+        % registers, and never corrected in the actual ns/sec count. The
+        % two informations are always separately available and can be
+        % summed together to form a synchronized (time aligned) ns/sec
+        % count.
         %
-        % Furthermore, the RTC error at any time depends on the original
-        % time offset from when the system started and the changes in time
-        % offset that are accumulated when the RTC increment is changed,
-        % but are never changed by time offset corrections themselves.
+        % Secondly, note that updates to the time offset register are
+        % applied either here or at the point where the "slope" is
+        % corrected. The difference is that the latter is corrected after
+        % every Rx SYNC, while the following correction is triggered only
+        % after a "time offset selection" (an interval of many SYNC
+        % receptions). Besides, note that the following triggers
+        % corrections both while in stage #1 and #4. This is because stage
+        % #2 and #3 are devoted solely to syntonization, so no time offset
+        % correction is applied. Regarding the correction in stage #1, it
+        % is done with the purpose of clearing initial "step" offsets
+        % (containing even seconds of difference).
+        %
+        % Finally, note that the RTC error at any time depends on the
+        % original time offset from when the system started and the changes
+        % in time offset that are accumulated when the RTC increment is
+        % tuned (syntonized), but are never changed by time offset
+        % corrections themselves.
 
         if (toffset_corr_strobe)
-
-
-            % Updates to the time offset register are applied either here
-            % or at the point where the "slope" is corrected. The
-            % difference is that the latter is corrected after every Rx
-            % SYNC, while the following correction is triggered only after
-            % a "time offset selection" (an interval of many SYNC
-            % receptions). Besides, note that the following triggers
-            % corrections both while in stage #1 and #4. This is because
-            % stage #2 and #3 are devoted solely to syntonization, so no
-            % time offset correction is applied. Regarding the correction
-            % in stage #1, it is done with the purpose of clearing initial
-            % "step" offsets (containing even seconds of difference).
             if (sync_stage >= CONST_TOFF_SYNC_STAGE || ...
                     sync_stage == DELAY_EST_SYNC_STAGE)
                 % Update the RTC time offset registers
