@@ -318,6 +318,7 @@ next_pdelay_resp_rx = inf;
 [ sync_stage, sel_strategy, sel_window_len, ...
                 toffset_sel_window, i_toffset_est ] = ...
                 changeSyncStage( Sync_cfg, DELAY_EST_SYNC_STAGE );
+next_sync_stage = sync_stage;
 
 %% Infinite Loop
 while (1)
@@ -508,7 +509,7 @@ while (1)
         if (sync_stage == DELAY_EST_SYNC_STAGE && ...
                 i_delay_est >= delay_est_filt_len)
             % Change the coarse syntonization stage
-            [ sync_stage, sel_strategy, sel_window_len, ...
+            [ next_sync_stage, sel_strategy, sel_window_len, ...
                 toffset_sel_window, i_toffset_est ] = ...
                 changeSyncStage( Sync_cfg, COARSE_SYNT_SYNC_STAGE );
 
@@ -772,7 +773,7 @@ while (1)
                 true_slope);
 
             % Go to constant time error correction stage:
-            [ sync_stage, sel_strategy, sel_window_len, ...
+            [ next_sync_stage, sel_strategy, sel_window_len, ...
                 toffset_sel_window, i_toffset_est ] = ...
                 changeSyncStage( Sync_cfg, CONST_TOFF_SYNC_STAGE );
 
@@ -931,7 +932,7 @@ while (1)
             % RTC increment resolution (namely the optimal choice):
             if (abs(norm_freq_offset*1e9) < (res_ppb/2))
                 % Then proceed to the "Fine Syntonization" stage.
-                [ sync_stage, sel_strategy, sel_window_len, ...
+                [ next_sync_stage, sel_strategy, sel_window_len, ...
                 toffset_sel_window, i_toffset_est ] = ...
                 changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
 
@@ -1080,6 +1081,9 @@ while (1)
             fprintf('True TOffset\t%g ns\n', ...
                 actual_ns_error);
         end
+
+        %% Update the synchronization stage
+        sync_stage = next_sync_stage;
     end
 
     %% Increase simulation step
