@@ -120,6 +120,9 @@ sel_strategy_2     = 1;     % Selection strategy: 0) Mean; 1) LS;
 sel_strategy_3     = 1;     % Selection strategy: 0) Mean; 1) LS;
 sel_strategy_4     = 1;     % Selection strategy: 0) Mean; 1) LS;
 sample_win_delay   = 0;     % Sample the delay to be used along the window
+% Time-locked loop
+Kp                 = 0.1;   % Proportional gain in the PI controller
+Ki                 = 0.05;  % Integral gain in the PI controller
 
 %%%%%%% Network %%%%%%%%
 % Queueing statistics
@@ -136,7 +139,7 @@ pdelay_req_period  = 1 / pdelay_req_rate;
 DELAY_EST_SYNC_STAGE   = 1;
 COARSE_SYNT_SYNC_STAGE = 2;
 FINE_SYNT_SYNC_STAGE   = 3;
-CONST_TOFF_SYNC_STAGE  = 4;
+TLL_SYNC_STAGE         = 4;
 
 %% Derivations
 
@@ -292,16 +295,21 @@ delay_est_ns        = 0;
 filt_delay_ns_no_tran = 0;
 norm_freq_offset    = 0;
 norm_freq_offset_to_nominal = 0;
+
 i_rtc_inc_est       = 0;
 rtc_inc_filt_taps   = zeros(rtc_inc_filt_len, 1);
 i_delay_est         = 0;
 delay_est_filt_taps = zeros(delay_est_filt_len, 1);
+
 i_sel_done          = 0;
 rtc_inc_est_strobe  = 0;
 toffset_corr_strobe = 0;
 
 slope_corr_accum    = 0;
 applied_corr_accum  = 0;
+
+tll_slope_adj       = 0;
+filt_error_i        = 0;
 
 Sync.on_way         = 0;
 Pdelay_req.on_way   = 0;
@@ -677,19 +685,6 @@ while (1)
                 (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
                 toffset_sel_window_t_start;
 
-            % Take the slope estimated in SYNC stage #3 into account.
-            % Correcting the estimated time offsets by subtracting the time
-            % offset parcel at each instant due to the slope:
-            if (sync_stage == CONST_TOFF_SYNC_STAGE)
-                % Time offset due to slope for the given instant:
-                toffset_due_slope = toffset_slope * i_toffset_est;
-                % Correct the time offset that was registered in the
-                % window:
-                toffset_sel_window(i_toffset_est).ns = ...
-                    toffset_sel_window(i_toffset_est).ns - ...
-                    toffset_due_slope;
-            end
-
             % Trigger a time offset correction when the selection window is
             % full:
             toffset_corr_strobe = (i_toffset_est == sel_window_len);
@@ -772,10 +767,10 @@ while (1)
             fprintf('Ideal slope correction:\t %g ns/sync_period\n', ...
                 true_slope);
 
-            % Go to constant time error correction stage:
+            % Go to constant time-locked loop sync stage:
             [ next_sync_stage, sel_strategy, sel_window_len, ...
                 toffset_sel_window, i_toffset_est ] = ...
-                changeSyncStage( Sync_cfg, CONST_TOFF_SYNC_STAGE );
+                changeSyncStage( Sync_cfg, TLL_SYNC_STAGE );
 
 
             % And if debugging, prepare for an eventual change in the
@@ -794,7 +789,13 @@ while (1)
         if (sync_stage > FINE_SYNT_SYNC_STAGE)
 
             % Accumulate the slope corrections:
-            slope_corr_accum = slope_corr_accum + toffset_slope;
+            slope_corr_accum = slope_corr_accum + ...
+                (toffset_slope + tll_slope_adj);
+            % Note the addition of the term "tll_slope_adj", which comes
+            % from the filtered error within the TLL (time-locked loop).
+            % This slope correction accumulator lies within feedback of the
+            % TLL, and is analogous to the implementation of the phase
+            % accumulator within the DDS of a conventional digital PLL.
 
             % Check the difference of the accumulator value with respect to
             % the already applied slope correction:
@@ -821,34 +822,130 @@ while (1)
             end
         end
 
-        %% Time Offset Correction
-        % First of all, observe that the error is saved on the time offset
-        % registers, and never corrected in the actual ns/sec count. The
-        % two informations are always separately available and can be
-        % summed together to form a synchronized (time aligned) ns/sec
-        % count.
-        %
-        % Secondly, note that updates to the time offset register are
-        % applied either here or at the point where the "slope" is
-        % corrected. The difference is that the latter is corrected after
-        % every Rx SYNC, while the following correction is triggered only
-        % after a "time offset selection" (an interval of many SYNC
-        % receptions). Besides, note that the following triggers
-        % corrections both while in stage #1 and #4. This is because stage
-        % #2 and #3 are devoted solely to syntonization, so no time offset
-        % correction is applied. Regarding the correction in stage #1, it
-        % is done with the purpose of clearing initial "step" offsets
-        % (containing even seconds of difference).
-        %
-        % Finally, note that the RTC error at any time depends on the
-        % original time offset from when the system started and the changes
-        % in time offset that are accumulated when the RTC increment is
-        % tuned (syntonized), but are never changed by time offset
-        % corrections themselves.
+        %% Time Locked Loop
+        % When the system is within the time-locked loop sync state,
+        % "large" time offsets at the end of selection windows are never
+        % directly applied to the time offset register. Instead, the
+        % correction is based on the "slope correction", which consists in
+        % a small value written to the time offset registers every Rx SYNC.
 
+        if (toffset_corr_strobe && sync_stage == TLL_SYNC_STAGE)
+
+            %%%%%%%%%%%%%%%
+            % Error detector
+            %%%%%%%%%%%%%%%
+            %
+            % Time offset "error" detector (difference between the
+            % estimated time offset and the time offset that is predicted
+            % based on the current software-based slope correction:
+            toffset_error = (Rtc_error.ns - Rtc(2).time_offset.ns) ...
+            + 1e9*(Rtc_error.sec - Rtc(2).time_offset.sec);
+            % Note that at this point the slope has been corrected several
+            % times, so there is only the above estimated difference
+            % remaining to be corrected.
+
+            %%%%%%%%%%%%%%%
+            % PI Controller
+            %%%%%%%%%%%%%%%
+            %
+            % Loop filter (PI controller)
+            filt_error_p = Kp * toffset_error;
+            filt_error_i = filt_error_i + (Ki*toffset_error);
+            filt_toffset_error = filt_error_p + filt_error_i;
+
+            %%%%%%%%%%%%%%%
+            % "Plant"
+            %%%%%%%%%%%%%%%
+            %
+            % The filtered error (output of the PI controller) tends to a
+            % constant value in steady-state, which can be interepreted as
+            % correspond to a residual frequency offset.
+            %
+            % By dividing the filtered time offset error by the window
+            % length, we obtain the error (in ns) accumulated per SYNC
+            % period. This number should be used to adjust the fixed
+            % "slope" correction value. If the error is positive, it means
+            % that the predicted time offset is exceeding the amount of
+            % offset that is accumulated by slope correction ove the same
+            % period, so the slope correction value should be increased.
+            % Hence, the adjustment term below shall be positive
+            % (considering it is summed to the fixed slope correction
+            % value):
+            tll_slope_adj = (filt_toffset_error/sel_window_len);
+            % The adjusted slope, then, feeds back through the loop. An
+            % analogy is that it serves just like the adjustments to the
+            % nominal phase increment value of what would be a DDS of a
+            % conventional digital PLL.
+            %
+            % The remainder of the "plant" is implemented within the "Time
+            % Offset Slope Correction" section.
+        end
+
+        %% "Step" Time Offset Correction
+        % First of all, observe that the error is saved on the time offset
+        % registers, and not corrected for example in a single ns/sec
+        % count. The two informations (non-synchronized time count and time
+        % offset) are always separately available and can be summed
+        % together to form a synchronized (time aligned) ns/sec count.
+        %
+        % Furthermore, because of this separation between the time offset
+        % and the syntonized (non-synchronized) time count, and because
+        % time offsets are estimated using syntonized time, the time offset
+        % that is to be estimated at any time depends solely on the slave's
+        % starting time offset (from when the system was turned on) and the
+        % changes in the (syntonized) time offset that are accumulated over
+        % time as the RTC increment is tuned, but does not depend on the
+        % time offset corrections (corrections made to the time offset
+        % register). Thus, even if the time offset correction becomes very
+        % precise, such that they perfectly align the slave's synchronized
+        % time w.r.t the master, the time offset that will be estimated
+        % after that will continue to be the same value (it does not
+        % decrease while corrections are applied).
+        %
+        % Third, note that updates to the time offset register are applied
+        % either here or at the point where the time offset "slope" is
+        % corrected. The difference is that the latter is corrected after
+        % every Rx SYNC, while the former (the following correction
+        % routine) is triggered solely after a "time offset selection"
+        % (after an interval of many SYNC receptions). Given the latter
+        % tends to consist of much larger offsets (accumulated over longer
+        % periods), we can call it "step" corrections to differentiate from
+        % the smaller "slope" correction.
+        %
+        % Finally, note that the following step corrections are applied
+        % only when the system is at certain sync stages. The reason for
+        % applying or not applying at the sync stages are summarized below:
+        %
+        %   Stage #1: this is a short stage during initialization, in which
+        %   the mean of the delay is estimated. Since normally a PTP system
+        %   starts with a very large offset (epoch + sec + ns), at this
+        %   point the large ("step") corrections are enabled. The primary
+        %   goal is to clear the main part of the offset (including
+        %   seconds), without any commitment to achieve ns accuracy.
+        %
+        %   Stage #2: at this point the focus is to obtain the best
+        %   estimation for the RTC increment as possible. Since the latter
+        %   is obtained using syntonized time stamps, the time offset
+        %   corrections won't hurt, so they can be left enabled. Besides,
+        %   note that at this stage ns accuracy is stil not sought.
+        %
+        %   Stage #3: this stage is similar to the previous (#2). Its goal
+        %   is to achieve finer syntonization, by estimating the slope
+        %   correction value. The latter, again, relies on syntonized
+        %   timestamps, so the time offset correction can be left enabled.
+        %
+        %   Stage #4: from this point onwards, the system enters the
+        %   so-called "time-locked-loop" stage, where high ns accuracy is
+        %   the primary goal. At this stage, time offsets are corrected by
+        %   continuously adjusting the slope correction value, rather than
+        %   applying step corrections. This is analogous to phase-locked
+        %   loops, where any constant or linearly-increasing phase offset
+        %   (equivalent to a frequency offset) are corrected by adjusting
+        %   the phase increment value adopted in the DDS, rather than
+        %   applying corrections to the DDS phase itself.
+        %
         if (toffset_corr_strobe)
-            if (sync_stage >= CONST_TOFF_SYNC_STAGE || ...
-                    sync_stage == DELAY_EST_SYNC_STAGE)
+            if (sync_stage < TLL_SYNC_STAGE)
                 % Update the RTC time offset registers
                 Rtc(2).time_offset.ns = floor(Rtc_error.ns);
                 % Note the fractional part is thrown away here.
