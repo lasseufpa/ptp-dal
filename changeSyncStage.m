@@ -15,6 +15,7 @@ fprintf('Entering synchronization stage #%d\n', target_stage);
 strategies_str = cell(2, 1);
 strategies_str{1} = 'sample-mean';
 strategies_str{2} = 'least-squares';
+strategies_str{3} = 'efficient least-squares';
 
 % Get the selection window parameters:
 switch (target_stage)

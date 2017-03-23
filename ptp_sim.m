@@ -40,25 +40,27 @@
 %   The constant value, in turn, is obtained by estimating the slope of the
 %   time series of time offset estimations, which is assumed to follow the
 %   linear model:
-%           x = B*t + A,
-%   where A is the initial time offset for a given window and B is the
-%   slope in nanoseconds per SYNC period. Both A and B can be approximately
-%   solved by using least-squares (LS), but in this stage only B is used.
+%           x[n] = y*t[n] + x[0],
+%   where x[0] is the initial time offset for a given window and y is the
+%   slope in nanoseconds per SYNC period. Both x[0] and y can be
+%   approximately solved using least-squares (LS).
 %
 %   This phase lasts for a single packet selection, since we adopt only one
 %   shot to estimate the slope (a single selection). However, a very long
 %   selection window is used in this phase for maximum accuracy. After this
 %   stage, the synchronized time offset is expected to present almost
-%   negligible slope, such that a constant time offset remains.
+%   negligible slope, such that an almost constant time offset remains.
 %
-%   - Stage #4: Final (constant) time offset correction.
+%   - Stage #4: Time locked loop.
 %
-%   While the previous stage left a constant error over time, this stage
+%   While the previous stage left an almost constant time error, this stage
 %   should bring this constant error closer to 0. It should also be used
 %   for keeping track of any "wander" that accumulates over longer
-%   intervals.
+%   intervals. The adopted approach is based on a feedback loop.
 
 clearvars, clc
+
+clear lsTimeFreqOffsetEfficient
 
 %% Debug
 
@@ -111,15 +113,18 @@ filter_delay_est   = 1;     % Enable moving average for delay estimations
 delay_est_filt_len = 128;   % Delay estimation filter length
 % Packet selection
 packet_selection   = 1;      % Enable packet selection
-sel_window_len_1   = 2^6;    % Selection window length
-sel_window_len_2   = 2^9;    % Selection window length
-sel_window_len_3   = 2^14;   % Selection window length
-sel_window_len_4   = 2^10;   % Selection window length
-sel_strategy_1     = 1;     % Selection strategy: 0) Mean; 1) LS;
-sel_strategy_2     = 1;     % Selection strategy: 0) Mean; 1) LS;
-sel_strategy_3     = 1;     % Selection strategy: 0) Mean; 1) LS;
-sel_strategy_4     = 1;     % Selection strategy: 0) Mean; 1) LS;
-sample_win_delay   = 0;     % Sample the delay to be used along the window
+% Selection window length for each sync stage:
+sel_window_len_1   = 2^6;
+sel_window_len_2   = 2^9;
+sel_window_len_3   = 2^14;
+sel_window_len_4   = 2^13;
+% Selection strategy for each sync stage:
+%   0) Mean; 1) LS; 2) Efficient LS
+sel_strategy_1     = 2;
+sel_strategy_2     = 2;
+sel_strategy_3     = 2;
+sel_strategy_4     = 2;
+sample_win_delay   = 1;     % Sample the delay to be used along the window
 % Time-locked loop
 Kp                 = 0.1;   % Proportional gain in the PI controller
 Ki                 = 0.05;  % Integral gain in the PI controller
@@ -141,6 +146,10 @@ COARSE_SYNT_SYNC_STAGE = 2;
 FINE_SYNT_SYNC_STAGE   = 3;
 TLL_SYNC_STAGE         = 4;
 
+% Selection strategies
+SAMPLE_MEAN            = 0;
+LEAST_SQUARES          = 1;
+EFFICIENT_LS           = 2;
 %% Derivations
 
 % Derive the actual clock frequencies (in Hz) of the clock signals that
@@ -324,8 +333,8 @@ next_pdelay_resp_rx = inf;
 
 % Start at synchronization stage DELAY_EST_SYNC_STAGE:
 [ sync_stage, sel_strategy, sel_window_len, ...
-                toffset_sel_window, i_toffset_est ] = ...
-                changeSyncStage( Sync_cfg, DELAY_EST_SYNC_STAGE );
+    toffset_sel_window, i_toffset_est ] = ...
+    changeSyncStage( Sync_cfg, DELAY_EST_SYNC_STAGE );
 next_sync_stage = sync_stage;
 
 %% Infinite Loop
@@ -685,6 +694,16 @@ while (1)
                 (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
                 toffset_sel_window_t_start;
 
+            % When using the efficient LS implementation, due to its
+            % recursive nature, the function has to be called for every Rx
+            % SYNC, rather than solely the last:
+            if (sel_strategy == EFFICIENT_LS)
+                [x_ns_els, x_sec_els, B_els_ppb] = ...
+                    efficientLsTimeFreqOffset(Rtc_error.ns, ...
+                    Rtc_error.sec, i_toffset_est, sel_window_len, ...
+                    sync_rate);
+            end
+
             % Trigger a time offset correction when the selection window is
             % full:
             toffset_corr_strobe = (i_toffset_est == sel_window_len);
@@ -697,13 +716,21 @@ while (1)
 
                 % Selection strategy (sample-mean or Least-Squares)
                 switch (sel_strategy)
-                    case 1
+                    case EFFICIENT_LS
+                        % Estimate using the efficient LS implementation:
+                        % Just pass the last estimated values.
+                        Rtc_error.ns  = x_ns_els;
+                        Rtc_error.sec = x_sec_els;
+                        y_ppb          = B_els_ppb;
+
+                    case LEAST_SQUARES
                         % Estimate using Least-Squares:
-                        [ Rtc_error.ns, Rtc_error.sec, B ] = ...
+                        [ Rtc_error.ns, Rtc_error.sec, y_ppb ] = ...
                             lsTimeFreqOffset( toffset_sel_window );
-                    case 0
+
+                    case SAMPLE_MEAN
                         % Apply the sample-mean estimator:
-                        [ Rtc_error.ns, Rtc_error.sec, B ] = ...
+                        [ Rtc_error.ns, Rtc_error.sec, y_ppb ] = ...
                             sampleMeanEstimator( toffset_sel_window );
                 end
 
@@ -756,7 +783,7 @@ while (1)
         if (sync_stage == FINE_SYNT_SYNC_STAGE && toffset_corr_strobe)
 
             % Slope in ns / SYNC period to be corrected:
-            toffset_slope = B * sync_period;
+            toffset_slope = y_ppb * sync_period;
             fprintf('Slope correction:\t %g ns/sync_period\n', ...
                 toffset_slope);
 
@@ -839,7 +866,7 @@ while (1)
             % estimated time offset and the time offset that is predicted
             % based on the current software-based slope correction:
             toffset_error = (Rtc_error.ns - Rtc(2).time_offset.ns) ...
-            + 1e9*(Rtc_error.sec - Rtc(2).time_offset.sec);
+                + 1e9*(Rtc_error.sec - Rtc(2).time_offset.sec);
             % Note that at this point the slope has been corrected several
             % times, so there is only the above estimated difference
             % remaining to be corrected.
@@ -1030,8 +1057,8 @@ while (1)
             if (abs(norm_freq_offset*1e9) < (res_ppb/2))
                 % Then proceed to the "Fine Syntonization" stage.
                 [ next_sync_stage, sel_strategy, sel_window_len, ...
-                toffset_sel_window, i_toffset_est ] = ...
-                changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
+                    toffset_sel_window, i_toffset_est ] = ...
+                    changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
 
                 % And if debugging, prepare for an eventual change in the
                 % window length:
