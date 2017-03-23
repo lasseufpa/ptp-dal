@@ -124,6 +124,7 @@ sel_strategy_1     = 2;
 sel_strategy_2     = 2;
 sel_strategy_3     = 2;
 sel_strategy_4     = 2;
+coarse_sync_countd = 2;     % Countdown to leave the coarse sync stage
 sample_win_delay   = 1;     % Sample the delay to be used along the window
 % Time-locked loop
 Kp                 = 0.1;   % Proportional gain in the PI controller
@@ -335,7 +336,8 @@ next_pdelay_resp_rx = inf;
 [ sync_stage, sel_strategy, sel_window_len, ...
     toffset_sel_window, i_toffset_est ] = ...
     changeSyncStage( Sync_cfg, DELAY_EST_SYNC_STAGE );
-next_sync_stage = sync_stage;
+next_sync_stage   = sync_stage;
+coarse_sync_count = 1;
 
 %% Infinite Loop
 while (1)
@@ -1055,16 +1057,25 @@ while (1)
             % Check if the frequency offset is already under half of the
             % RTC increment resolution (namely the optimal choice):
             if (abs(norm_freq_offset*1e9) < (res_ppb/2))
-                % Then proceed to the "Fine Syntonization" stage.
-                [ next_sync_stage, sel_strategy, sel_window_len, ...
-                    toffset_sel_window, i_toffset_est ] = ...
-                    changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
+                % Wait for the sync stage switch condition to be met
+                % "coarse_sync_countd" consecutive times. Then proceed to
+                % the "Fine Syntonization" stage.
+                if (coarse_sync_count == coarse_sync_countd)
+                    [ next_sync_stage, sel_strategy, sel_window_len, ...
+                        toffset_sel_window, i_toffset_est ] = ...
+                        changeSyncStage( Sync_cfg, FINE_SYNT_SYNC_STAGE );
+                else
+                    coarse_sync_count = coarse_sync_count + 1;
+                end
 
                 % And if debugging, prepare for an eventual change in the
                 % window length:
                 if (debug_sel_window)
                     hScopeSelWindow.release();
                 end
+            else
+                % Reset the count (the condition must be met consecutively)
+                coarse_sync_count = 1;
             end
 
             if (abs(norm_freq_offset*1e9) > foffset_thresh_ppb)
