@@ -682,18 +682,18 @@ while (1)
             toffset_sel_window(i_toffset_est).ns = Rtc_error.ns;
             toffset_sel_window(i_toffset_est).sec = Rtc_error.sec;
 
-            % Save also a "time axis", formed by the master time for each
-            % estimator, considering the first master instant to be time 0
+            % Save also a "time axis", formed by the slave time for each
+            % estimation, considering the first slave instant to be time 0
 
             % Get the start time for the selection window:
             if (i_toffset_est == 1)
                 toffset_sel_window_t_start = ...
-                    (master_ns_sync_rx + 1e9*master_sec_sync_rx);
+                    (slave_ns_sync_rx + 1e9*slave_sec_sync_rx);
             end
 
             % Subtract the current time from the start time:
             toffset_sel_window(i_toffset_est).t = ...
-                (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
+                (slave_ns_sync_rx + 1e9*slave_sec_sync_rx) - ...
                 toffset_sel_window_t_start;
 
             % When using the efficient LS implementation, due to its
@@ -723,7 +723,7 @@ while (1)
                         % Just pass the last estimated values.
                         Rtc_error.ns  = x_ns_els;
                         Rtc_error.sec = x_sec_els;
-                        y_ppb          = B_els_ppb;
+                        y_ppb         = B_els_ppb;
 
                     case LEAST_SQUARES
                         % Estimate using Least-Squares:

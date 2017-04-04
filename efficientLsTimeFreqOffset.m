@@ -25,9 +25,9 @@ function [ x_ns, x_sec, y ] = efficientLsTimeFreqOffset( x_obs_ns, ...
 %
 % The following linear model is assumed for time offsets:
 %
-%   x[n] = x[0] + y*t[n]
+%   x[n] = x_0 + y*t[n]
 %
-% where x[0] is the initial time offset within the selection window and y
+% where x_0 is the initial time offset within the selection window and y
 % is the frequency offset in ppb, namely the increase/decrease in the time
 % offset over time given in ns per second. For a block of N samples, then,
 % this model can be put in matrix form as:
