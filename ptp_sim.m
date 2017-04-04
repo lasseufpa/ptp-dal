@@ -655,7 +655,13 @@ while (1)
 
         % RTC error:
         Rtc_error.ns = master_ns_sync_rx - slave_ns_sync_rx;
-        % Note: it is actually computed as "(t1 + d) - t2" here.
+        % Note: it is actually computed as "(t1 + d) - t2" here. The reason
+        % for doing so is that the time offset register, when summed to the
+        % slave time, should be equal to the master time. So the equation
+        % becomes:
+        %   SlaveSyntonizedTime + Time Offset = MasterSyntonizedTime
+        % By isolating the time offset, then, yields:
+        %   Time Offset = MasterSyntonizedTime - SlaveSyntonizedTime
         Rtc_error.sec = master_sec_sync_rx - slave_sec_sync_rx;
 
         % Ensure that the nanoseconds error is within [0, 1e9). Any
@@ -754,7 +760,28 @@ while (1)
                 slave_sec_sync_rx = master_sec_sync_rx - Rtc_error.sec;
                 % Note:
                 % master time - (master time + slave time) = slave time
+            end
+        else
+            % When packet selection is not used, time offsets are corrected
+            % after every Rx SYNC, so the strobe signal is always asserted
+            toffset_corr_strobe = 1;
+        end
 
+        %% RTC Increment Update Strobe
+
+        % If packet selection is adopted, there are two possibilities for
+        % the RTC increment update strobe:
+        %
+        % 1) The update is performed after every two consecutive packet
+        % selections. This is adopted when the sample mean strategy is
+        % used.
+        %
+        % 2) The update is performed after every single packet selection.
+        % This is possible when LS is adopted, since this strategy
+        % estimates both time and frequency offset for every selection
+        % window.
+        if (packet_selection && sel_strategy == SAMPLE_MEAN)
+            if (toffset_corr_strobe)
                 % Keep track of how many selections were already concludedy
                 i_sel_done = i_sel_done + 1;
 
@@ -766,15 +793,15 @@ while (1)
                     i_sel_done = 0;
                 end
             end
-        else
+        elseif (packet_selection && (sel_strategy == LEAST_SQUARES || ...
+                sel_strategy == EFFICIENT_LS))
+            % Make it equal to the time offset correction strobe
+            rtc_inc_est_strobe = toffset_corr_strobe;
+        elseif (~packet_selection)
             % When packet selection is not used, the strobe to trigger the
             % RTC increment estimation occurs after every
             % "rtc_inc_est_period".
             rtc_inc_est_strobe = (i_sync_rx_event == rtc_inc_est_period);
-
-            % In this case, time offsets are corrected after every Rx SYNC,
-            % so the strobe signal is always asserted
-            toffset_corr_strobe = 1;
         end
 
         %% Check slope for correction from stage #4 onwards
@@ -791,8 +818,9 @@ while (1)
 
             % Compare to the "true" slope that remained after the RTC
             % increment value was tuned:
-            true_slope = (norm_freq_offset_to_nominal*1e9 - ...
-                Rtc(2).freq_offset_ppb) * sync_period;
+            remaining_offset_ppb = (norm_freq_offset_to_nominal*1e9 - ...
+                Rtc(2).freq_offset_ppb);
+            true_slope = remaining_offset_ppb * sync_period;
             fprintf('Ideal slope correction:\t %g ns/sync_period\n', ...
                 true_slope);
 
@@ -894,7 +922,7 @@ while (1)
             % length, we obtain the error (in ns) accumulated per SYNC
             % period. This number should be used to adjust the fixed
             % "slope" correction value. If the error is positive, it means
-            % that the predicted time offset is exceeding the amount of
+            % that the estimated time offset is exceeding the amount of
             % offset that is accumulated by slope correction ove the same
             % period, so the slope correction value should be increased.
             % Hence, the adjustment term below shall be positive
@@ -996,63 +1024,86 @@ while (1)
             % Reset SYNC event counter
             i_sync_rx_event = 0;
 
-            % Duration in ns at the master side between the two SYNCs:
-            master_sync_interval_ns = ...
-                (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
-                (prev_master_ns_sync_rx + 1e9*prev_master_sec_sync_rx);
-            % Note #1: In practice, this interval could be known a priori.
-            % However, since a standardized PTP master does not need to
-            % inform the SYNC rate to the slave, a generic implementation
-            % would measure the sync interval.
-            %
-            % Note #2: normally we can measure only the nanosecond
-            % difference and infer any wrapping by checking whether the
-            % difference is negative. In this case, however, when packet
-            % selection is adopted, it is possible to have effective SYNC
-            % intervals of more than 1 second. For example, if the SYNC
-            % rate is 128 packet-per-second and the packet selection length
-            % is 256, there is one selected time offset for each 2 seconds
-            % and one RTC increment est after 4 seconds. Thus, the
-            % computation has to use the full "unwrapped" nanosecond
-            % counts.
+            % When not using packet selection, or using the packet
+            % selection with the sample mean strategy, compute the
+            % frequency offset using two consecutive time offset
+            % estimations (or selections).
+            if (~packet_selection || ...
+                    packet_selection && sel_strategy == SAMPLE_MEAN)
+                % Duration in ns at the master side between the two SYNCs:
+                master_sync_interval_ns = ...
+                    (master_ns_sync_rx + 1e9*master_sec_sync_rx) - ...
+                    (prev_master_ns_sync_rx + 1e9*prev_master_sec_sync_rx);
+                % Note #1: In practice, this interval could be known a
+                % priori. However, since a standardized PTP master does not
+                % need to inform the SYNC rate to the slave, a generic
+                % implementation would measure the sync interval.
+                %
+                % Note #2: normally we can measure only the nanosecond
+                % difference and infer any wrapping by checking whether the
+                % difference is negative. In this case, however, when
+                % packet selection is adopted, it is possible to have
+                % effective SYNC intervals of more than 1 second. For
+                % example, if the SYNC rate is 128 packet-per-second and
+                % the packet selection length is 256, there is one selected
+                % time offset for each 2 seconds and one RTC increment est
+                % after 4 seconds. Thus, the computation has to use the
+                % full "unwrapped" nanosecond counts.
 
-            % Check a negative duration, which can happen whenever the ns
-            % counter (used for the timestampts) wraps:
-            if (master_sync_interval_ns < 0)
-                master_sync_interval_ns = master_sync_interval_ns + 1e9;
+                % Check a negative duration, which can happen whenever the
+                % ns counter (used for the timestampts) wraps:
+                if (master_sync_interval_ns < 0)
+                    master_sync_interval_ns = master_sync_interval_ns + ...
+                        1e9;
+                end
+
+                % Duration at the slave side between the two SYNC frames:
+                slave_sync_interval_ns = ...
+                    (slave_ns_sync_rx + 1e9*slave_sec_sync_rx) - ...
+                    (prev_slave_ns_sync_rx + 1e9*prev_slave_sec_sync_rx);
+                % Here, again, the unwrapped ns count is used due to the
+                % fact that the intervals can be larger than one second.
+
+                % Check a negative duration, which, again, happens whenever
+                % the ns counter (used for the timestampts) wraps:
+                if (slave_sync_interval_ns < 0)
+                    slave_sync_interval_ns = slave_sync_interval_ns + 1e9;
+                end
+
+                % Slave error in ns:
+                slave_error_ns = ...
+                    slave_sync_interval_ns - master_sync_interval_ns;
+                % Note: a positive "slave_error_ns" means the duration for
+                % the master was smaller than the duration measured for the
+                % slave, namely that the slave's RTC is running faster.
+                % Thus, the slave's increment value has to be reduced. The
+                % sign of the "norm_freq_offset" in the computation of the
+                % "slave_est_clk_freq" below takes care of that.
+
+                % Estimate the Normalized Frequency offset
+                norm_freq_offset = slave_error_ns / ...
+                    master_sync_interval_ns;
+                % Note: by definition, a normalized frequency offset
+                % corresponds to the time error accumulated over 1 second.
+                % For example, an offset expressed in ppb corresponds to
+                % the time offset in nanoseconds accumulated at the slave
+                % RTC w.r.t the master RTC after 1 full second.
+            else
+                % When using packet selection with an estimator that
+                % already provides the frequency offset estimation, use the
+                % estimation directly, rather than computing a new one:
+                norm_freq_offset = -y_ppb*1e-9;
+                % Note that y_ppb comes from the LS estimation and that the
+                % time offset measurements that are processed within the LS
+                % are given as "x[n] = (t1[n] + d) - t2[n]". Hence,
+                % differentiation of x[n] gives:
+                %
+                % x[n+1] - x[n] = (t1[n+1] - t1[n]) - (t2[n+1] - t2[n]),
+                %
+                % namely the opposite if "slave_error_ns". Hence, to use
+                % the same sign in the computations that follow, we take
+                % "-y_ppb" instead.
             end
-
-            % Duration at the slave side between the two SYNC frames:
-            slave_sync_interval_ns = ...
-                (slave_ns_sync_rx + 1e9*slave_sec_sync_rx) - ...
-                (prev_slave_ns_sync_rx + 1e9*prev_slave_sec_sync_rx);
-            % Here, again, the unwrapped ns count is used due to the fact
-            % that the intervals can be larger than one second.
-
-            % Check a negative duration, which, again, happens whenever the
-            % ns counter (used for the timestampts) wraps:
-            if (slave_sync_interval_ns < 0)
-                slave_sync_interval_ns = slave_sync_interval_ns + 1e9;
-            end
-
-            % Slave error in ns:
-            slave_error_ns = ...
-                slave_sync_interval_ns - master_sync_interval_ns;
-            % Note: a positive "slave_error_ns" means the duration for the
-            % master was smaller than the duration measured for the slave,
-            % namely that the slave's RTC is running faster. Thus, the
-            % slave's increment value has to be reduced. The sign of
-            % the "norm_freq_offset" in the computation of the
-            % "slave_est_clk_freq" below takes care of that.
-
-            % Estimate the Normalized Frequency offset
-            norm_freq_offset = slave_error_ns / master_sync_interval_ns;
-            % Note: by definition, a normalized frequency offset
-            % corresponds to the time error accumulated over 1 second. For
-            % example, an offset expressed in ppb corresponds to the time
-            % offset in nanoseconds accumulated at the slave RTC w.r.t the
-            % master RTC after 1 full second.
-
             %% Check if ready to leave the Coarse Syntonization stage
             % Check if the frequency offset is already under half of the
             % RTC increment resolution (namely the optimal choice):
