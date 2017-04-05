@@ -838,10 +838,23 @@ while (1)
         end
 
         %% Time Offset Slope Correction
-        % The referred slope corresponds to the slope of the estimated time
-        % offsets. If it is positive, the time offset at the slave w.r.t.
-        % master is increasing, so the the slave's time offset register
-        % should be increased accordingly.
+        % The referred slope corresponds to the slope of the time offset
+        % measurements, which (again), are taken as "MasterTime" minus
+        % "SlaveTime". If the slope is positive, then, it means that the
+        % time scale at the slave is incrementing slower than the master
+        % time scale, so that the offset is increasing. Otherwise (if the
+        % slope is negative), it means that the slave time is progressing
+        % faster than the master time, since the offset is decreasing
+        % (consider that offset can actually become negative, so decreasing
+        % would mean that it is becoming even more negative). Recognizing
+        % that the time offset register must keep the "Master - Slave"
+        % difference, the following correspondence can be concluded:
+        %
+        % Positive slope -> Slave is slower -> Time offset register
+        % is adjusted by a positive value (it is increasing)
+        %
+        % Negative slope -> Slave is faster -> Time offset register
+        % is adjusted by a negative value (it is decreasing)
 
         if (sync_stage > FINE_SYNT_SYNC_STAGE)
 
@@ -900,6 +913,15 @@ while (1)
             % Note that at this point the slope has been corrected several
             % times, so there is only the above estimated difference
             % remaining to be corrected.
+            %
+            % Regarding the sign of the error, if it is positive, it means
+            % that the estimated offset is larger than the predicted final
+            % offset within the observation window, so the slope should
+            % actually be higher than it is. Since the slope adjustment is
+            % added (not subtracted) to the original slope correction
+            % value, the sign of the above error should be kept as it is,
+            % since by this sign the positive error would induce an
+            % increase in the slope, as desired.
 
             %%%%%%%%%%%%%%%
             % PI Controller
