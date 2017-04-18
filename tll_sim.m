@@ -157,9 +157,7 @@ for i_run = 1:n_distinct_runs
             toffset_noise = zeros(N, n_iterations);
         case 1
             % Zero-mean Gaussian noise
-            tic
             toffset_noise = sqrt(gaussian_n_var)*randn(N, n_iterations);
-            toc
         case 2
             % Generate zero-mean Erlang noise (null mean implies that the
             % mean delay estimation is perfect):
