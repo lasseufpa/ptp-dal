@@ -1,10 +1,10 @@
-function [ x_ns, x_sec, y ] = efficientLsTimeFreqOffset( x_obs_ns, ...
-    x_obs_sec, i_est, w_len, sync_rate )
+function [ x_ns, x_sec, y_hat ] = efficientLsTimeFreqOffset( x_obs_ns, ...
+    x_obs_sec, i_est, N, sync_rate )
 % Efficient LS implementation for time/frequency offset estimation
 %
 % Computes the LS solution using pre-computed matrices and approximating
 % the time vector as composed by integer multiples of the SYNC period,
-% rather than composed by the actual SYNC master timestamps (t1). This
+% rather than composed by the actual SYNC arrival timestamps (t2). This
 % allows huge savings in both computational cost and memory usage.
 %
 % %%%%%%%%%%%%%%%%%
@@ -13,7 +13,7 @@ function [ x_ns, x_sec, y ] = efficientLsTimeFreqOffset( x_obs_ns, ...
 % x_obs_ns  -> i-th ns time offset estimation
 % x_obs_ns  -> i-th sec time offset estimation
 % i_est     -> index i
-% w_len     -> Selection window length (number of observations)
+% N         -> Selection window length (number of observations)
 % sync_rate -> SYNC rate, used to compute the LS time vector
 %
 % Outputs:
@@ -58,6 +58,8 @@ function [ x_ns, x_sec, y ] = efficientLsTimeFreqOffset( x_obs_ns, ...
 % arbitrarily large selection windows can be employed.
 
 persistent Q_1 Q_2 x_obs_sec_start
+% Q_1 is the accumulator for the sum of x[n]
+% Q_2 is the accumulator for the sum of n*x[n]
 
 if (i_est == 1)
     Q_1 = 0; % Reset accumulator
@@ -65,20 +67,23 @@ if (i_est == 1)
     x_obs_sec_start = x_obs_sec; % Sample in the beginning
 end
 
-% Observed time offset in ns:
+% Current observation - time offset in ns:
 x_obs = x_obs_ns + 1e9*(x_obs_sec - x_obs_sec_start);
 % Consider the fluctuations within the vector of time offsets in seconds.
 
+% SYNC Period:
+T = (1/sync_rate);
 
-sync_period = (1/sync_rate);
+% Measurement index (starting from 0):
+n   = i_est - 1;
 
 % Define
 %   Q = H' * x_vector
 %
 % As explained above, the two elements of Q (Q_1 and Q_2) can be computed
 % iteratively by accumulators:
-Q_1 = Q_1 + x_obs;
-Q_2 = Q_2 + ((i_est - 1) * sync_period * x_obs);
+Q_1 = Q_1 + x_obs; % sum of x[n]
+Q_2 = Q_2 + (n * x_obs); % sum of n*x[n]
 
 %% Default output (before the end of the selection window)
 % Default offset output (bypassed input):
@@ -86,27 +91,31 @@ x_ns = x_obs_ns;
 x_sec = x_obs_sec;
 
 % Return no frequency offset by default
-y = 0;
+y_hat = 0;
+
+% Note that these are not used before the end of the observation interval,
+% anyways.
 
 %% Actual estimation (at the end of the selection window)
-if (i_est == w_len)
+if (i_est == N)
 
-    % Load the precomputed 2x2 matrix containing the result of "inv(H'*H)":
-    filename = ['data/inv_H_star_H_loglen_', num2str(log2(w_len)),...
-        '_syncrate_', num2str(sync_rate), '.mat'];
-    load(filename);
+    % Computed the 2x2 matrix that multiplies the vector containing the
+    % accumulators Q_1 and Q_2
+    P = (2 / (N*(N+1))) * [(2*N - 1), -3; -3, 6/(N-1)];
+    % Note this matrix P depends on both N and T.
 
     % Complete the efficient least-squares estimation:
-    time_freq_offset_est = P * [Q_1; Q_2];
+    Theta = P * [Q_1; Q_2];
 
     % Estimated initial time-offset in ns:
-    x_init = time_freq_offset_est(1);
+    x_0_hat = Theta(1);
 
     % Estimated freq-offset in ppb:
-    y = time_freq_offset_est(2);
+    y_hat_times_T = Theta(2);
+    y_hat = y_hat_times_T / T;
 
     % Last value of a "fitted" time-offset vector in ns:
-    x_fit_end = x_init + ((w_len - 1)*sync_period*y);
+    x_fit_end = x_0_hat + (N*y_hat_times_T);
 
     % Resulting time offsets:
     x_sec = x_obs_sec_start;
