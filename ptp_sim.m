@@ -115,9 +115,9 @@ delay_est_filt_len = 128;   % Delay estimation filter length
 packet_selection   = 1;      % Enable packet selection
 % Selection window length for each sync stage:
 sel_window_len_1   = 2^6;
-sel_window_len_2   = 2^9;
-sel_window_len_3   = 2^14;
-sel_window_len_4   = 2^13;
+sel_window_len_2   = 2^12;
+sel_window_len_3   = 2^13;
+sel_window_len_4   = 2^10;
 % Selection strategy for each sync stage:
 %   0) Mean; 1) LS; 2) Efficient LS
 sel_strategy_1     = 2;
@@ -127,8 +127,8 @@ sel_strategy_4     = 2;
 coarse_sync_countd = 2;     % Countdown to leave the coarse sync stage
 sample_win_delay   = 1;     % Sample the delay to be used along the window
 % Time-locked loop
-Kp                 = 0.1;   % Proportional gain in the PI controller
-Ki                 = 0.05;  % Integral gain in the PI controller
+Kp                 = 0.026311;   % Proportional gain in the PI controller
+Ki                 = 0.000351;   % Integral gain in the PI controller
 
 %%%%%%% Network %%%%%%%%
 % Queueing statistics
