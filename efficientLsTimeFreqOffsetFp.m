@@ -60,7 +60,7 @@ function [ x_ns, x_sec, y_hat ] = efficientLsTimeFreqOffsetFp(x_obs_ns, ...
 
 %% Parameters
 
-n_frac_P = 20; % Fractional bits adopted for the elements of matrix P
+n_frac_P = 40; % Fractional bits adopted for the elements of matrix P
 
 %%
 % First cast the input
@@ -77,7 +77,6 @@ if (i_est == 1)
 
     % Check whether the first offset is closer to the "next second" to
     % minimize the magnitude of the ns offset numbers.
-%     x_obs_sec_start = x_obs_sec;
     if (x_obs_ns > 5e8)
         x_obs_sec_start = x_obs_sec + 1; % Sample in the beginning
     else
@@ -101,8 +100,23 @@ n   = i_est - 1;
 %
 % As explained above, the two elements of Q (Q_1 and Q_2) can be computed
 % iteratively by accumulators:
-Q_1 = Q_1 + x_obs; % sum of x[n]
-Q_2 = Q_2 + (n * x_obs); % sum of n*x[n]
+
+% Monitor saturation:
+Q_1_next = Q_1 + x_obs;
+if (x_obs > 0 && (Q_1_next == Q_1))
+    error('Saturation after positive overflow in Q_1');
+elseif (x_obs < 0 && (Q_1_next == Q_1))
+    error('Saturation after negative overflow in Q_1');
+end
+Q_1 = Q_1_next; % sum of x[n]
+
+Q_2_next =  Q_2 + (n * x_obs);
+if ((n * x_obs) > 0 && (Q_2_next == Q_2))
+    error('Saturation after positive overflow in Q_2');
+elseif ((n * x_obs) < 0 && (Q_2_next == Q_2))
+    error('Saturation after negative overflow in Q_2');
+end
+Q_2 = Q_2_next; % sum of n*x[n]
 
 %% Default output (before the end of the selection window)
 % Default offset output (bypassed input):
@@ -129,28 +143,62 @@ if (i_est == N)
     P_fp = int64(2^n_frac_P * P);
 
     % Complete the efficient least-squares estimation:
-    Theta(1) = P_fp(1,1) * Q_1 + P_fp(1,2) * Q_2;
-    Theta(2) = P_fp(2,1) * Q_1 + P_fp(2,2) * Q_2;
+
+    % First estimate:
+    Theta_1_1 = P_fp(1,1) * Q_1;
+    if (Theta_1_1 == intmin('int64') || Theta_1_1 == intmax('int64'))
+        error('Overflow in Theta_1_1')
+    end
+    Theta_1_2 = P_fp(1,2) * Q_2;
+    if (Theta_1_2 == intmin('int64') || Theta_1_2 == intmax('int64'))
+        error('Overflow in Theta_1_2');
+    end
+    Theta(1) = Theta_1_1 + Theta_1_2;
+    if (Theta(1) == intmin('int64') || Theta(1) == intmax('int64'))
+        error('Overflow in Theta(1)');
+    end
+
+    % Second estimate
+    Theta_2_1 = P_fp(2,1) * Q_1;
+    if (Theta_2_1 == intmin('int64') || Theta_2_1 == intmax('int64'))
+        error('Overflow in Theta_2_1');
+    end
+    Theta_2_2 = P_fp(2,2) * Q_2;
+    if (Theta_2_2 == intmin('int64') || Theta_2_2 == intmax('int64'))
+        error('Overflow in Theta_2_2');
+    end
+    Theta(2) = Theta_2_1 + Theta_2_2;
+    if (Theta(2) == intmin('int64') || Theta(2) == intmax('int64'))
+        error('Overflow in Theta(2)');
+    end
     % Assume that Q_1 and Q_2 are Qm.0 numbers (signed integers). The
     % result of multiplication, then, is Qm.n_frac_P.
 
-    % Ultimately, the fractional nanoseconds in Theta(1) or Theta(2) are
-    % not too much relevant, so we can revert back to Qm.0 numbers for
-    % integer nanoseconds.
-    Theta_1 =  bitshift(Theta(1), -n_frac_P);
-    Theta_2 =  bitshift(Theta(2), -n_frac_P);
+    % Ultimately, the fractional nanoseconds in Theta(1) are not too much
+    % relevant, so we can revert back to a Qm.0 numbers for integer
+    % nanoseconds. However, for Theta(2), the fractional nanoseconds indeed
+    % make a great difference, so we do not remove them yet.
+    Theta_1_rounded  = Theta(1) + bitshift(1, n_frac_P-1);
+    Theta_1_unscaled = bitshift(Theta_1_rounded, -n_frac_P);
 
     % Estimated initial time-offset in ns:
-    x_0_hat = Theta_1;
+    x_0_hat = Theta_1_unscaled;
 
     % Estimated freq-offset in ppb:
-    y_hat_times_T = Theta_2;
-    y_hat = bitshift(y_hat_times_T, log_sync_rate);
+    y_hat_times_T_scaled = Theta(2);
+    y_hat_scaled         = bitshift(y_hat_times_T_scaled, log_sync_rate);
+    % Note: shift to the left by log_sync_rate is the same as dividing by T
+    % or multiplying by 1/T.
+    y_hat_rounded        = y_hat_scaled + bitshift(1, n_frac_P-1);
+    y_hat                = bitshift(y_hat_rounded, -n_frac_P);
     % shift by "log_sync_rate" is the same as multiplying by sync_rate
     % (namely 1/T);
 
     % Last value of a "fitted" time-offset vector in ns:
-    x_fit_end = x_0_hat + (N*y_hat_times_T);
+    delta_x_ns_scaled  = N*y_hat_times_T_scaled;
+    delta_x_ns_rounded = delta_x_ns_scaled + bitshift(1, n_frac_P-1);
+    delta_x_ns = bitshift(delta_x_ns_rounded, -n_frac_P);
+    x_fit_end = x_0_hat + delta_x_ns;
 
     % Resulting time offsets:
     x_sec = x_obs_sec_start;
@@ -167,6 +215,7 @@ if (i_est == N)
         x_ns = x_ns + 1e9;
         x_sec = x_sec - 1;
     end
+
 end
 
 end

@@ -49,6 +49,8 @@ x_fit = x_init + t_n*y;
 x_sec = x_obs_sec(1);
 x_ns  = x_fit(end);
 
+% The difference "x_fit(end) - x_init" should then be equal to "y*t_n(end)"
+
 % After the above step, check whether a wrap occurs within the ns counter
 % and adjust accordingly:
 while (x_ns >= 1e9)

@@ -16,6 +16,7 @@ strategies_str = cell(2, 1);
 strategies_str{1} = 'sample-mean';
 strategies_str{2} = 'least-squares';
 strategies_str{3} = 'efficient least-squares';
+strategies_str{4} = 'efficient LS fixed-point';
 
 % Get the selection window parameters:
 switch (target_stage)

@@ -119,11 +119,12 @@ sel_window_len_2   = 2^12;
 sel_window_len_3   = 2^13;
 sel_window_len_4   = 2^10;
 % Selection strategy for each sync stage:
-%   0) Mean; 1) LS; 2) Efficient LS
-sel_strategy_1     = 2;
-sel_strategy_2     = 2;
-sel_strategy_3     = 2;
-sel_strategy_4     = 2;
+%   0) Mean; 1) LS; 2) Efficient LS; 3) Efficient LS in Fixed-point
+fixed_sel_strategy = 3;
+sel_strategy_1     = fixed_sel_strategy;
+sel_strategy_2     = fixed_sel_strategy;
+sel_strategy_3     = fixed_sel_strategy;
+sel_strategy_4     = fixed_sel_strategy;
 coarse_sync_countd = 2;     % Countdown to leave the coarse sync stage
 sample_win_delay   = 1;     % Sample the delay to be used along the window
 % Time-locked loop
@@ -151,6 +152,7 @@ TLL_SYNC_STAGE         = 4;
 SAMPLE_MEAN            = 0;
 LEAST_SQUARES          = 1;
 EFFICIENT_LS           = 2;
+EFFICIENT_LS_FP        = 3;
 %% Derivations
 
 % Derive the actual clock frequencies (in Hz) of the clock signals that
@@ -388,6 +390,11 @@ while (1)
         % the sub-nanosecond bits of the RTC increment accumulator. In
         % contrast, the timestamps added to the PTP frames are always
         % integer numbers (the integer part of these counters).
+
+        % Check whether the offset is negative
+        if (Rtc(iRtc).time_offset.sec < 0)
+            error('Negative ns offset');
+        end
     end
 
     if (print_sim_time)
@@ -710,6 +717,11 @@ while (1)
                     efficientLsTimeFreqOffset(Rtc_error.ns, ...
                     Rtc_error.sec, i_toffset_est, sel_window_len, ...
                     sync_rate);
+            elseif (sel_strategy == EFFICIENT_LS_FP)
+                [x_ns_els_fp, x_sec_els_fp, B_els_ppb_fp] = ...
+                    efficientLsTimeFreqOffsetFp(Rtc_error.ns, ...
+                    Rtc_error.sec, i_toffset_est, sel_window_len, ...
+                    sync_rate);
             end
 
             % Trigger a time offset correction when the selection window is
@@ -724,6 +736,13 @@ while (1)
 
                 % Selection strategy (sample-mean or Least-Squares)
                 switch (sel_strategy)
+                    case EFFICIENT_LS_FP
+                        % Estimate using the efficient LS implementation:
+                        % Just pass the last estimated values.
+                        Rtc_error.ns  = double(x_ns_els_fp);
+                        Rtc_error.sec = double(x_sec_els_fp);
+                        y_ppb         = double(B_els_ppb_fp);
+
                     case EFFICIENT_LS
                         % Estimate using the efficient LS implementation:
                         % Just pass the last estimated values.
@@ -793,8 +812,10 @@ while (1)
                     i_sel_done = 0;
                 end
             end
-        elseif (packet_selection && (sel_strategy == LEAST_SQUARES || ...
-                sel_strategy == EFFICIENT_LS))
+        elseif (packet_selection && ...
+                (sel_strategy == LEAST_SQUARES || ...
+                sel_strategy == EFFICIENT_LS || ...
+                sel_strategy == EFFICIENT_LS_FP))
             % Make it equal to the time offset correction strobe
             rtc_inc_est_strobe = toffset_corr_strobe;
         elseif (~packet_selection)

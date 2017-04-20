@@ -109,7 +109,6 @@ y_hat = 0;
 
 %% Actual estimation (at the end of the selection window)
 if (i_est == N)
-
     % Computed the 2x2 matrix that multiplies the vector containing the
     % accumulators Q_1 and Q_2
     P = (2 / (N*(N+1))) * [(2*N - 1), -3; -3, 6/(N-1)];
