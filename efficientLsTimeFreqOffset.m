@@ -64,7 +64,18 @@ persistent Q_1 Q_2 x_obs_sec_start
 if (i_est == 1)
     Q_1 = 0; % Reset accumulator
     Q_2 = 0; % Reset accumulator
-    x_obs_sec_start = x_obs_sec; % Sample in the beginning
+
+    % Check whether the first offset is closer to the "next higher second"
+    % in order to minimize the magnitude of the ns offset numbers. This
+    % way, it is more likely that the observations "x_obs" will oscillate
+    % over positive and negative values. This approach is safe, since in
+    % the end the ns offset is processed once again to avoid negative
+    % offsets (by changing the sec offset).
+    if (x_obs_ns > 5e8) % 5e8 is half a second in ns
+        x_obs_sec_start = x_obs_sec + 1; % Sample in the beginning
+    else
+        x_obs_sec_start = x_obs_sec;
+    end
 end
 
 % Current observation - time offset in ns:
