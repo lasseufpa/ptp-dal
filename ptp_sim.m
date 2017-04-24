@@ -718,10 +718,26 @@ while (1)
                     Rtc_error.sec, i_toffset_est, sel_window_len, ...
                     sync_rate);
             elseif (sel_strategy == EFFICIENT_LS_FP)
+                [x_ns_els, x_sec_els, B_els_ppb] = ...
+                    efficientLsTimeFreqOffset(Rtc_error.ns, ...
+                    Rtc_error.sec, i_toffset_est, sel_window_len, ...
+                    sync_rate);
                 [x_ns_els_fp, x_sec_els_fp, B_els_ppb_fp] = ...
                     efficientLsTimeFreqOffsetFp(Rtc_error.ns, ...
                     Rtc_error.sec, i_toffset_est, sel_window_len, ...
                     sync_rate);
+                if (abs(x_ns_els_fp - x_ns_els) > 1)
+                    abs(x_ns_els_fp - x_ns_els)
+                    warning('high error in ns');
+                end
+                if (abs(x_sec_els_fp - x_sec_els) > 1)
+                    abs(x_sec_els_fp - x_sec_els)
+                    warning('high error in sec');
+                end
+                if (abs(B_els_ppb_fp - B_els_ppb) > 1)
+                    abs(B_els_ppb_fp - B_els_ppb)
+                    warning('high error in freq');
+                end
             end
 
             % Trigger a time offset correction when the selection window is
