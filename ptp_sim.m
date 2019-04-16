@@ -6,19 +6,16 @@
 % - Synchronized    Aligned in time and frequency.
 % - Syntonized      Aligned in frequency only.
 %
-% In this simulator, following common practices for PTP implementations,
-% the timestamps that are actually added to PTP frames are always taken
-% using the syntonized RTC values, not the synchronized RTC. By doing so,
-% the actual time-offset of the slave RTC w.r.t. the master will always be
-% present and potentially could be estimated. In PTP implementations, the
-% goal is firstly to synchronize the RTC increment values, such that the
-% time offset between the two (master and slave) RTCs eventually becomes
-% constant (not varying over time). After that, by estimating precisely
-% this constant time offset and updating the time offset registers, a
-% stable synchronized time scale can be derived at the slave RTC.
 %
-% The complete process of time synchronization is now organized into four
-% stages, summarized in the sequel:
+% Synchronized vs. Syntonized Timestamps
+%
+% In this simulator, the timestamps are always taken using the syntonized
+% RTC values, not the synchronized RTC. Thus, the time-offset of the slave
+% w.r.t. the master won't converge to 0.
+%
+% Implementation:
+%
+% The complete processing is organized into four stages:
 %
 %   - Stage #1: Acquisition of a "stable" one-way delay estimation.
 %
@@ -65,9 +62,10 @@ clear lsTimeFreqOffsetEfficient
 %% Debug
 
 log_ptp_frames           = 0;
+log_timestamps           = 0;
 print_true_time_offsets  = 0;
 print_freq_offset_est    = 1;
-debug_scopes             = 1;
+debug_scopes             = 0;
 debug_sel_window         = 0;
 print_sim_time           = 0;
 
@@ -344,10 +342,11 @@ coarse_sync_count = 1;
 %% Infinite Loop
 while (1)
 
-    i_iteration  = i_iteration + 1;
+    i_iteration = i_iteration + 1;
 
-    t_sim_ns = mod(t_sim*1e9, 1e9);
-    t_sim_sec = floor(t_sim);
+    % Current simulation time in ns and seconds
+    t_sim_ns    = mod(t_sim * 1e9, 1e9);
+    t_sim_sec   = floor(t_sim);
 
     %% Time elapsed since the previous iteration
     elapsed_time = t_sim - prev_t_sim;
@@ -369,7 +368,7 @@ while (1)
         % account yet
         new_incs = n_incs - Rtc(iRtc).iInc;
 
-        % Elapsed time since last update:
+        % Elapsed time at the RTC since last update:
         elapsed_ns = new_incs * Rtc(iRtc).inc_val_ns;
         % Note: the elapsed time depends on the increment value that is
         % currently configured at the RTC. The number of increments, in
@@ -379,10 +378,8 @@ while (1)
         Rtc(iRtc).iInc = n_incs;
 
         % Update the RTC seconds count:
-        if (Rtc(iRtc).ns_cnt + elapsed_ns > 1e9)
-            Rtc(iRtc).sec_cnt =  Rtc(iRtc).sec_cnt + ...
-                floor((Rtc(iRtc).ns_cnt + elapsed_ns)/1e9);
-        end
+        Rtc(iRtc).sec_cnt =  Rtc(iRtc).sec_cnt + ...
+            floor((Rtc(iRtc).ns_cnt + elapsed_ns)/1e9);
 
         % Update the RTC nanoseconds count:
         Rtc(iRtc).ns_cnt = mod(Rtc(iRtc).ns_cnt + elapsed_ns, 1e9);
@@ -391,7 +388,7 @@ while (1)
         % contrast, the timestamps added to the PTP frames are always
         % integer numbers (the integer part of these counters).
 
-        % Check whether the offset is negative
+        % Sainity check: check whether the offset is negative
         if (Rtc(iRtc).time_offset.sec < 0)
             error('Negative ns offset');
         end
@@ -425,6 +422,11 @@ while (1)
         % the fact that the sub-nanosecond bits are "ignored" for the
         % timestamping.
 
+        % TODO: model timestamp resolution
+
+        % TODO: support multiple slave RTCs (substitute the hard-coded
+        % index 2 in the Rtc above).
+
         % Mark the Pdelay_req frame as "on its way" towards the master
         Pdelay_req.on_way = 1;
 
@@ -438,6 +440,9 @@ while (1)
         % Schedule the next Pdelay_req transmission
         next_pdelay_req_tx = next_pdelay_req_tx + pdelay_req_period;
         eventQueue.add(next_pdelay_req_tx);
+
+        % TODO: model software uncertainty regarding the message
+        % transmission interval, which is not perfectly periodic.
     end
 
     %% Peer Delay Request Reception
@@ -454,12 +459,20 @@ while (1)
         % Note timestamps come from the syntonized (not synchronized) RTC
         % and are also integer numbers.
 
+        % TODO: model timestamp resolution
+
+        % TODO: substitute index 1 above by a constant such as "i_master".
+
         if (log_ptp_frames)
             fprintf('--- Event: ---\n');
             fprintf('Pdelay_req received at time %g\n', t_sim);
         end
 
         % Now a Pdelay_resp must be sent back to the slave
+
+        % TODO: model the random interval between Pdelay_req reception and
+        % Pdelay_resp transmission. The response is not immediate, as it is
+        % triggered by software. Use a separate event for Pdelay_resp.
 
         % Mark the Pdelay_resp frame as "on its way" towards the slave
         Pdelay_resp.on_way = 1;
@@ -469,6 +482,8 @@ while (1)
         Pdelay.t3.sec = floor(Rtc(1).sec_cnt);
         % Note timestamps come from the syntonized (not synchronized) RTC
         % and are also integer numbers.
+
+        % TODO: model timestamp resolution
 
         % Generate a random frame delay
         frame_delay = sum(exprnd(queueing_mean/erlang_K, 1, erlang_K));
@@ -492,12 +507,16 @@ while (1)
         % Note timestamps come from the syntonized (not synchronized) RTC
         % and are also integer numbers.
 
+        % TODO: model timestamp resolution
+
         if (log_ptp_frames)
             fprintf('--- Event: ---\n');
             fprintf('Pdelay_resp received at time %g\n', t_sim);
         end
 
-        %% Delay Estimation
+        % ====== Delay Estimation
+
+        % TODO: move delay estimation to function
 
         t4_minus_t1 = Pdelay.t4.ns - Pdelay.t1.ns;
         % If the ns counter wraps, this difference would become negative.
@@ -516,7 +535,10 @@ while (1)
         % One-way delay estimation (in ns):
         delay_est_ns = (t4_minus_t1 - t3_minus_t2) / 2;
 
-        %% Filter the delay estimation
+        % ======  Filter the delay estimation
+
+        % TODO: move filter to function
+
         delay_est_filt_taps = [delay_est_ns; delay_est_filt_taps(1:end-1)];
         filtered_delay_est  = (delay_est_filt_taps.') * h_delay_est;
 
@@ -563,6 +585,8 @@ while (1)
         % Note timestamps come from the syntonized (not synchronized) RTC
         % and are also integer numbers.
 
+        % TODO: model timestamp resolution.
+
         % Mark the SYNC frame as "on its way" towards the slave
         Sync.on_way = 1;
 
@@ -579,6 +603,9 @@ while (1)
         % Schedule the next SYNC transmission
         next_sync_tx = next_sync_tx + sync_period;
         eventQueue.add(next_sync_tx);
+
+        % TODO: model software uncertainty regarding the message
+        % transmission interval, which is not perfectly periodic.
     end
 
     %% SYNC Reception
@@ -597,10 +624,10 @@ while (1)
         % Note timestamps come from the syntonized (not synchronized) RTC
         % and are also integer numbers.
 
-        % First save the previous time offset estimation:
-        prev_rtc_error_ns = rtc_error_ns;
 
-        % Increment time offset number
+        % TODO: model timestamp resolution
+
+        % Increment Sync seq number
         i_sync_rx_event = i_sync_rx_event + 1;
 
         if (log_ptp_frames)
@@ -608,6 +635,13 @@ while (1)
             fprintf('Sync[%d] received at time %g\n', ...
                 i_sync_rx_event, t_sim);
         end
+
+        % ===== Time offset estimation
+
+        % TODO: move this to a separate function
+
+        % First save the previous time offset estimation:
+        prev_rtc_error_ns = rtc_error_ns;
 
         % Delay to correct the master timestamp:
         if (perfect_delay_est)
@@ -658,8 +692,6 @@ while (1)
             master_sec_sync_rx = master_sec_sync_rx + 1;
         end
 
-        %% Standard Time offset estimation
-
         % RTC error:
         Rtc_error.ns = master_ns_sync_rx - slave_ns_sync_rx;
         % Note: it is actually computed as "(t1 + d) - t2" here. The reason
@@ -684,7 +716,9 @@ while (1)
             Rtc_error.sec = Rtc_error.sec + 1;
         end
 
-        %% "Packet selection" for time offset estimation
+        % ==== "Packet selection" for time offset estimation
+
+        % TODO: move to a separate function
 
         if (packet_selection)
             % Count the number of time offset estimations accumulated so
