@@ -514,6 +514,14 @@ while (1)
             fprintf('Pdelay_resp received at time %g\n', t_sim);
         end
 
+        if (log_timestamps)
+            fprintf('--- Peer-delay timestamps: ---\n');
+            fprintf('t1 = %u sec %u ns\n', Pdelay.t1.sec, Pdelay.t1.ns);
+            fprintf('t2 = %u sec %u ns\n', Pdelay.t2.sec, Pdelay.t2.ns);
+            fprintf('t3 = %u sec %u ns\n', Pdelay.t3.sec, Pdelay.t3.ns);
+            fprintf('t4 = %u sec %u ns\n', Pdelay.t4.sec, Pdelay.t4.ns);
+        end
+
         % ====== Delay Estimation
 
         % TODO: move delay estimation to function
@@ -624,6 +632,11 @@ while (1)
         % Note timestamps come from the syntonized (not synchronized) RTC
         % and are also integer numbers.
 
+        if (log_timestamps)
+            fprintf('--- Sync timestamps: ---\n');
+            fprintf('t1 = %u sec %u ns\n', Sync.t1.sec, Sync.t1.ns);
+            fprintf('t2 = %u sec %u ns\n', Sync.t2.sec, Sync.t2.ns);
+        end
 
         % TODO: model timestamp resolution
 
