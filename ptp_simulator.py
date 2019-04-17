@@ -25,7 +25,7 @@ class TimeReg():
 
     def __str__(self):
         """Print sec and ns values"""
-        return '{} sec, {} ns'.format(self.sec, self.ns)
+        return '{} sec, {:9} ns'.format(self.sec, math.floor(self.ns))
 
     def add(self, delta_ns):
         """Add an interval to the time count
@@ -141,7 +141,9 @@ class PtpEvt():
         self.on_way     = False
         self.next_tx    = float("inf")
         self.next_rx    = float("inf")
-        self.seq_num    = 0
+        self.seq_num    = None
+        self.tx_tstamp  = None
+        self.rx_tstamp  = None
 
     def _sched_next_tx(self, tx_sim_time):
         """Compute next transmission time for periodic message
@@ -178,8 +180,15 @@ class PtpEvt():
             evts        : Event heap queue
 
         """
+        assert (self.period_sec is None), \
+            "Only non-periodic PTP msgs should be scheduled"
+
         self.next_tx = tx_sim_time
         heapq.heappush(evts, self.next_tx)
+
+        logger = logging.getLogger("PtpEvt")
+        logger.debug("Schedule %s transmission to %f ns" %(self.name,
+                                                           self.next_tx * 1e9))
 
     def tx(self, sim_time, rtc_timestamp, evts):
         """Transmit message
@@ -189,29 +198,41 @@ class PtpEvt():
             rtc_timestamp : RTC Time
             evts          : Event heap queue
 
+        Returns:
+            True when effectively transmitted
         """
 
         # Do not transmit before scheduled time or if there is already an
         # ongoing transmission
-        if ((sim_time < self.next_tx) or self.on_way):
-            return
+        if ((self.next_tx is None) or (sim_time < self.next_tx) or self.on_way):
+            return False
 
         # Proceed with transmission
         self.on_way         = True
         self.tx_tstamp      = rtc_timestamp
-        self.seq_num       += 1
+
+        if (self.seq_num is None):
+            self.seq_num = 0
+        else:
+            self.seq_num += 1
 
         logger = logging.getLogger("PtpEvt")
-        logger.debug("Transmitting %s at %s" %(self.name, sim_time))
+        logger.debug("Transmitting %s #%d at %s" %(self.name, self.seq_num,
+                                                   sim_time))
 
-        # Schedule the next transmission for periodic messages
+        # Schedule the next transmission for periodic messages. For non-periodic
+        # messages, just clear the next Tx time.
         if (self.period_sec is not None):
             self._sched_next_tx(sim_time)
             heapq.heappush(evts, self.next_tx)
+        else:
+            self.next_tx = None
 
         # Schedule the reception
         self._sched_rx(sim_time)
         heapq.heappush(evts, self.next_rx)
+
+        return True
 
     def rx(self, sim_time, rtc_timestamp):
         """Receive Message
@@ -234,7 +255,8 @@ class PtpEvt():
         self.rx_tstamp      = rtc_timestamp
 
         logger = logging.getLogger("PtpEvt")
-        logger.debug("Received %s at %s" %(self.name, sim_time))
+        logger.debug("Received %s #%d at %s" %(self.name, self.seq_num,
+                                               sim_time))
 
         return True
 
@@ -258,12 +280,62 @@ class SimTime():
         """Advance simulation time to a specified instant"""
         self.time = next_time
         logger = logging.getLogger("SimTime")
-        logger.debug("Advance simulation time to: %f ns" %(self.time))
+        logger.debug("Advance simulation time to: %f ns" %(self.time*1e9))
 
     def step(self):
         """Advance simulation time by the simulation step"""
         self.time += self.t_step
 
+
+class DelayReqResp():
+    def __init__(self, seq_num, t1):
+        """Delay request-response mechanism
+
+        Args:
+            seq_num : Sequence number
+            t1      : Sync departure timestamp
+        """
+        self.seq_num = seq_num
+        self.t1      = t1
+        self.t2      = None
+        self.t3      = None
+        self.t4      = None
+
+    def set_t2(self, seq_num, t2):
+        """Set Sync arrival timestamp
+
+        Args:
+            seq_num : Sequence number
+            t2      : Sync arrival timestamp
+        """
+        assert(self.seq_num == seq_num)
+        self.t2      = t2
+
+    def set_t3(self, seq_num, t3):
+        """Set Delay_Req departure timestamp
+
+        Args:
+            seq_num : Sequence number
+            t3      : Delay_Req departure timestamp
+        """
+        assert(self.seq_num == seq_num)
+        self.t3      = t3
+
+    def set_t4(self, seq_num, t4):
+        """Set Delay_Req departure timestamp
+
+        Args:
+            seq_num : Sequence number
+            t4      : Delay_Req departure timestamp
+        """
+        assert(self.seq_num == seq_num)
+        self.t4      = t4
+
+    def process(self):
+        """Process all four timestamps"""
+        logger = logging.getLogger("DelayReqResp")
+        logger.info("seq_num #%d\tt1: %s\tt2: %s\tt3: %s\tt4: %s" %(
+            self.seq_num, self.t1, self.t2, self.t3, self.t4))
 
 def run(n_iter, sim_t_step):
     """Main loop
@@ -290,9 +362,10 @@ def run(n_iter, sim_t_step):
     sim_timer = SimTime(sim_t_step)
 
     # Main loop
-    evts     = list()
-    stop     = False
-    i_msg    = 0
+    evts       = list()
+    stop       = False
+    i_msg      = 0
+    dreqresps  = list()
 
     # Start with a sync transmission
     sync.next_tx = 0
@@ -305,17 +378,37 @@ def run(n_iter, sim_t_step):
         slave_rtc.update(sim_time)
 
         # Try processing all events
-        sync.tx(sim_time, master_rtc.get_time(), evts)
-        sync_received = sync.rx(sim_time, slave_rtc.get_time())
-        dreq.tx(sim_time, slave_rtc.get_time(), evts)
-        dreq.rx(sim_time, master_rtc.get_time())
+        sync_transmitted = sync.tx(sim_time, master_rtc.get_time(), evts)
+        dreq_transmitted = dreq.tx(sim_time, slave_rtc.get_time(), evts)
+        sync_received    = sync.rx(sim_time, slave_rtc.get_time())
+        dreq_received    = dreq.rx(sim_time, master_rtc.get_time())
 
-        # Schedule the transmissions that need to be set manually:
+        # Post-processing for each message
+        if (sync_transmitted):
+            # Save Sync departure timestamp
+            dreqresp = DelayReqResp(sync.seq_num, sync.tx_tstamp)
+            dreqresps.insert(sync.seq_num, dreqresp)
+
         if (sync_received):
+            # Save Sync arrival timestamp
+            dreqresp = dreqresps[sync.seq_num]
+            dreqresp.set_t2(sync.seq_num, sync.rx_tstamp)
+            # Schedule the Delay_Req transmission
             dreq.sched_tx(sim_time, evts)
 
-        # Message exchange count
-        i_msg += 1
+        if (dreq_transmitted):
+            # Save Delay_Req departure timestamp
+            dreqresp = dreqresps[dreq.seq_num]
+            dreqresp.set_t3(dreq.seq_num, dreq.tx_tstamp)
+
+        if (dreq_received):
+            # Save Delay_Req arrival timestamp
+            dreqresp = dreqresps[dreq.seq_num]
+            dreqresp.set_t4(dreq.seq_num, dreq.rx_tstamp)
+            # Process all four timestamps
+            dreqresp.process()
+            # Message exchange count
+            i_msg += 1
 
         # Update simulation time
         if (len(evts) > 0):
@@ -339,14 +432,16 @@ def main():
                         default=1e-9,
                         type=float,
                         help='Simulation time step in seconds.')
-    parser.add_argument('--debug', action='store_true', help='Debug mode.')
+    parser.add_argument('--verbose', '-v', action='count', default=1,
+                        help="Verbosity (logging) level")
+    args     = parser.parse_args()
     args     = parser.parse_args()
     num_iter = args.num_iter
     sim_step = args.sim_step
+    verbose  = args.verbose
 
-    if (args.debug):
-        logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
-        logging.debug('[Debug Mode]')
+    logging_level = 70 - (10 * verbose) if verbose > 0 else 0
+    logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     run(num_iter, sim_step)
 
