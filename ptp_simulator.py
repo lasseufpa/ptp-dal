@@ -337,6 +337,31 @@ class DelayReqResp():
         logger.info("seq_num #%d\tt1: %s\tt2: %s\tt3: %s\tt4: %s" %(
             self.seq_num, self.t1, self.t2, self.t3, self.t4))
 
+def delay_estimation(t1_ns, t2_ns, t3_ns, t4_ns):
+    """Calculate and return one-way delay estimation in ns
+
+        Args: TODO: Improve this description
+            t1_ns : Timestamp the departure time from Master
+            t2_ns : Timestamp the receive time from Slave
+            t3_ns : Timestamp the departure delay request message from Slave
+            t4_ns : Timestamp the receive delay request message from Master
+    """
+
+    t4_minus_t1 = t4_ns - t1_ns
+    # If the ns counter wraps, this difference wold become negative.
+    # In this case, add one second back:
+    if (t4_minus_t1 < 0):
+        t4_minus_t1 = t4_minus_t1 + 1e9
+    
+    t3_minus_t2 = t3_ns - t2_ns
+    # If the ns counter wraps, this difference wold become negative.
+    # In this case, add one second back:
+    if (t3_minus_t2 < 0):
+        t3_minus_t2 = t3_minus_t2 + 1e9
+    
+    delay_est_ns = (t4_minus_t1 - t3_minus_t2) / 2
+    return (delay_est_ns)
+
 def run(n_iter, sim_t_step):
     """Main loop
 
