@@ -14,3 +14,10 @@ For 10 message exchanges and debugging verbosity level:
 ```
 python ptp_simulator.py -vvvvv -N 10
 ```
+
+## Unit tests
+
+```
+cd ptp
+python tests.py
+```
