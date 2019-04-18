@@ -331,40 +331,43 @@ class DelayReqResp():
         assert(self.seq_num == seq_num)
         self.t4      = t4
 
-    def process(self):
-        """Process all four timestamps"""
-        logger = logging.getLogger("DelayReqResp")
-        logger.info("seq_num #%d\tt1: %s\tt2: %s\tt3: %s\tt4: %s" %(
-            self.seq_num, self.t1, self.t2, self.t3, self.t4))
+    def _estimate_delay(self, t1_ns, t2_ns, t3_ns, t4_ns):
+        """Estimate the one-way delay
 
-def delay_estimation(t1_ns, t2_ns, t3_ns, t4_ns):
-    """One-way delay estimation
-
-        Args: 
-            t1_ns : Timestamp the departure time from Master
-            t2_ns : Timestamp the receive time from Slave
-            t3_ns : Timestamp the departure delay request message from Slave
-            t4_ns : Timestamp the receive delay request message from Master
-            TODO improve description
+        Args:
+            t1_ns : Sync departure timestamp from Master
+            t2_ns : Sync arrival timestamp from Slave
+            t3_ns : Delay_Req departure timestamp from Slave
+            t4_ns : Delay_Req arrival timestamp from Master
 
         Returns:
             The delay estimation in ns
-    """
+        """
 
-    t4_minus_t1 = t4_ns - t1_ns
-    # If the ns counter wraps, this difference wold become negative.
-    # In this case, add one second back:
-    if (t4_minus_t1 < 0):
-        t4_minus_t1 = t4_minus_t1 + 1e9
-    
-    t3_minus_t2 = t3_ns - t2_ns
-    # If the ns counter wraps, this difference wold become negative.
-    # In this case, add one second back:
-    if (t3_minus_t2 < 0):
-        t3_minus_t2 = t3_minus_t2 + 1e9
-    
-    delay_est_ns = (t4_minus_t1 - t3_minus_t2) / 2
-    return delay_est_ns
+        t4_minus_t1 = t4_ns - t1_ns
+
+        # If the ns counter wraps, this difference wold become negative.
+        # In this case, add one second back:
+        if (t4_minus_t1 < 0):
+            t4_minus_t1 = t4_minus_t1 + 1e9
+
+        t3_minus_t2 = t3_ns - t2_ns
+        # If the ns counter wraps, this difference wold become negative.
+        # In this case, add one second back:
+        if (t3_minus_t2 < 0):
+            t3_minus_t2 = t3_minus_t2 + 1e9
+
+        delay_est_ns = (t4_minus_t1 - t3_minus_t2) / 2
+        return delay_est_ns
+
+    def process(self):
+        """Process all four timestamps"""
+        delay  = self._estimate_delay(self.t1.ns, self.t2.ns, self.t3.ns,
+                                      self.t4.ns)
+        logger = logging.getLogger("DelayReqResp")
+        logger.info("seq_num #%d\tt1: %s\tt2: %s\tt3: %s\tt4: %s\tdelay: %u ns" %(
+            self.seq_num, self.t1, self.t2, self.t3, self.t4, delay))
+
 
 def run(n_iter, sim_t_step):
     """Main loop
