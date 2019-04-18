@@ -65,19 +65,23 @@ class Timestamp():
         else:
             raise ValueError("Timestamp sum expects timestamp/float/int")
 
-        if (sec < 0):
-            sec = 0
-            ns  = 0
-
         assert(isinstance(self.sec, int))
         assert(isinstance(self.ns, float))
         assert(ns >= 0)
         assert(ns < 1e9)
         return Timestamp(sec, ns)
 
+    def __truediv__(self, other):
+        """Divide timestamp"""
+        ns  = (self.sec * 1e9) + self.ns
+        ns /= other
+        sec = math.floor(ns/1e9)
+        ns  = ns % 1e9
+        return Timestamp(sec, ns)
+
     def __str__(self):
         """Print sec and ns values"""
-        return '{} sec, {:9} ns'.format(self.sec, math.floor(self.ns))
+        return '{:5} sec, {:9} ns'.format(self.sec, math.floor(self.ns))
 
     def __float__(self):
         """Cast timestamp to float"""

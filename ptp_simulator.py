@@ -75,6 +75,8 @@ def run(n_iter, sim_t_step):
     # Start with a sync transmission
     sync.next_tx = 0
 
+    DelayReqResp(0,0).log_header()
+
     while (not stop):
         sim_time = sim_timer.get_time()
 
@@ -119,7 +121,8 @@ def run(n_iter, sim_t_step):
             dreqresp.set_backward_delay(dreq.seq_num,
                                         dreq.one_way_delay)
             # Process all four timestamps
-            dreqresp.process()
+            dreqresp.process(master_rtc.get_time(),
+                             slave_rtc.get_time())
             #TODO: include ground truth on processing step
             # Message exchange count
             i_msg += 1

@@ -51,13 +51,13 @@ class TestTimestamping(unittest.TestCase):
         self.assertEqual(z.sec, 1)
         self.assertEqual(z.ns, 999999920)
 
-    def test_positiveness(self):
-        """Subtraction where total result would become negative"""
+    def test_neg_timestamp(self):
+        """Subtraction where seconds count becomes negative"""
         x = Timestamp(1, 200)
         y = Timestamp(3, 120)
         z = x - y
-        self.assertEqual(z.sec, 0)
-        self.assertEqual(z.ns, 0)
+        self.assertEqual(z.sec, -2)
+        self.assertEqual(z.ns, 80)
 
     def test_add_float(self):
         """Add float with no ns wrapping"""
@@ -152,6 +152,14 @@ class TestTimestamping(unittest.TestCase):
         z = int(x)
 
         self.assertEqual(z, 1000000200)
+
+    def test_division(self):
+        """Divide a timestamp"""
+        x = Timestamp(100, 200)
+        z = x / 2
+
+        self.assertEqual(z.sec, 50)
+        self.assertEqual(z.ns, 100)
 
 if __name__ == '__main__':
     unittest.main()

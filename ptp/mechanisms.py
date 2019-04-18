@@ -1,6 +1,7 @@
 """PTP packet exchange mechanisms
 """
 import logging
+from .timestamping import *
 
 
 class DelayReqResp():
@@ -18,6 +19,17 @@ class DelayReqResp():
         self.t4      = None
         self.d_fw    = None
         self.d_bw    = None
+
+    def log_header(self):
+        """Print logging header"""
+
+        header = '{:>4} {:^23} {:^23} {:^23} {:^23} {:^9} {:^9} {:^11}'.format(
+            "idx", "t1", "t2", "t3", "t4", "delay_est",
+            "asymmetry", "toffset_err"
+        )
+
+        logger = logging.getLogger("DelayReqResp")
+        logger.info(header)
 
     def set_t2(self, seq_num, t2):
         """Set Sync arrival timestamp
@@ -76,40 +88,55 @@ class DelayReqResp():
         assert(self.seq_num == seq_num)
         self.d_bw = delay
 
-    def _estimate_delay(self, t1_ns, t2_ns, t3_ns, t4_ns):
+    def _estimate_delay(self):
         """Estimate the one-way delay
 
-        Args:
-            t1_ns : Sync departure timestamp from Master
-            t2_ns : Sync arrival timestamp from Slave
-            t3_ns : Delay_Req departure timestamp from Slave
-            t4_ns : Delay_Req arrival timestamp from Master
-
         Returns:
-            The delay estimation in ns
+            The delay estimation in ns as a float
         """
-
-        t4_minus_t1 = t4_ns - t1_ns
-
-        # If the ns counter wraps, this difference wold become negative.
-        # In this case, add one second back:
-        if (t4_minus_t1 < 0):
-            t4_minus_t1 = t4_minus_t1 + 1e9
-
-        t3_minus_t2 = t3_ns - t2_ns
-        # If the ns counter wraps, this difference wold become negative.
-        # In this case, add one second back:
-        if (t3_minus_t2 < 0):
-            t3_minus_t2 = t3_minus_t2 + 1e9
-
-        delay_est_ns = (t4_minus_t1 - t3_minus_t2) / 2
+        delay_est_ns = (float(self.t4 - self.t1) - float(self.t3 - self.t2)) / 2
         return delay_est_ns
 
-    def process(self):
-        """Process all four timestamps"""
-        delay_est = self._estimate_delay(self.t1.ns, self.t2.ns, self.t3.ns,
-                                         self.t4.ns)
+    def _estimate_time_offset(self):
+        """Estimate the time offset from master
+
+        Returns:
+            The time offset as a Timestamp object
+        """
+        offset_from_master = ((self.t2 - self.t1) - (self.t4 - self.t3)) / 2
+        return offset_from_master
+
+    def process(self, master_tstamp, slave_tstamp):
+        """Process all four timestamps
+
+        Wrap-up the delay request-response exchange by computing the associated
+        metrics with the four collected timestamps. Use also the supplied RTC
+        timestamps to assess the true time offset at this point and evaluate the
+        estimation.
+
+        Args:
+            master_tstamp : Timestamp from the master RTC
+            slave_tstamp  : Timestamp from the slave RTC
+        """
+
+        # True values:
+        toffset   = slave_tstamp - master_tstamp
+        asymmetry = (self.d_fw - self.d_bw) / 2
+
+        # Estimations
+        delay_est     = self._estimate_delay()
+        toffset_est   = self._estimate_time_offset()
+
+        # Estimation error
+        toffset_err = float(toffset_est - toffset)
+
         logger = logging.getLogger("DelayReqResp")
-        logger.info("seq_num #%d\tt1: %s\tt2: %s\tt3: %s\tt4: %s\tdelay: %u ns" %(
-            self.seq_num, self.t1, self.t2, self.t3, self.t4, delay_est))
-        logger.info("m-to-s delay: %f\ts-to-m delay: %f" %(self.d_fw, self.d_bw))
+        line = '{:>4d} {:^23} {:^23} {:^23} {:^23} {:^9.1f} {:^9.1f} {:11.1f}'.format(
+            self.seq_num, str(self.t1), str(self.t2), str(self.t3),
+            str(self.t4), delay_est, asymmetry, toffset_err
+        )
+        logger.info(line)
+        logger.debug("m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
+            self.d_fw, self.d_bw, asymmetry))
+        logger.debug("time offset: %s\testimated: %s\terr: %s" %(
+            toffset, toffset_est, toffset_err))

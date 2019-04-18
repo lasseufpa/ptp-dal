@@ -15,7 +15,7 @@ class Rtc():
         """
 
         # Start the rtc with a random time and phase
-        sec_0 = random.randint(0, 1000)
+        sec_0 = random.randint(0, 100)
         ns_0  = random.uniform(0, 1e9)
 
         # Nominal increment value in nanoseconds
