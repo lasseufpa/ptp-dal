@@ -191,8 +191,6 @@ if (i_est == N)
     % or multiplying by 1/T.
     y_hat_rounded        = y_hat_scaled + bitshift(1, n_frac_P-1);
     y_hat                = bitshift(y_hat_rounded, -n_frac_P);
-    % shift by "log_sync_rate" is the same as multiplying by sync_rate
-    % (namely 1/T);
 
     % Last value of a "fitted" time-offset vector in ns:
     delta_x_ns_scaled  = N*y_hat_times_T_scaled;

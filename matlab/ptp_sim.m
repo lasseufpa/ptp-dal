@@ -11,7 +11,7 @@
 %
 % In this simulator, the timestamps are always taken using the syntonized
 % RTC values, not the synchronized RTC. Thus, the time-offset of the slave
-% w.r.t. the master won't converge to 0.
+% w.r.t. the master wont converge to 0.
 %
 % Implementation:
 %
@@ -56,6 +56,7 @@
 %   intervals. The adopted approach is based on a feedback loop.
 
 clearvars, clc
+addpath lib/
 
 clear lsTimeFreqOffsetEfficient
 

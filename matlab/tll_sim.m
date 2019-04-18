@@ -1,6 +1,7 @@
 clearvars
 close all
 clc
+addpath lib/
 % Time-locked loop PLL Implementation
 %
 % Implements a DSP-based Phase-Locked Loop featured with a PI controller.
