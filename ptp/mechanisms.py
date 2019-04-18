@@ -16,6 +16,8 @@ class DelayReqResp():
         self.t2      = None
         self.t3      = None
         self.t4      = None
+        self.d_fw    = None
+        self.d_bw    = None
 
     def set_t2(self, seq_num, t2):
         """Set Sync arrival timestamp
@@ -46,6 +48,33 @@ class DelayReqResp():
         """
         assert(self.seq_num == seq_num)
         self.t4      = t4
+
+    def set_forward_delay(self, seq_num, delay):
+        """Save the "true" master-to-slave one-way delay
+
+        This truth comes from the difference of RTC timestamps. Hence, although
+        close, it still suffers from uncertainties and quantization.
+
+        Args:
+            seq_num : Sequence number
+            delay   : Master-to-slave delay
+
+        """
+        assert(self.seq_num == seq_num)
+        self.d_fw = delay
+
+    def set_backward_delay(self, seq_num, delay):
+        """Save the "true" slave-to-master one-way delay
+
+        This truth comes from the difference of RTC timestamps.
+
+        Args:
+            seq_num : Sequence number
+            delay   : Slave-to-master delay
+
+        """
+        assert(self.seq_num == seq_num)
+        self.d_bw = delay
 
     def _estimate_delay(self, t1_ns, t2_ns, t3_ns, t4_ns):
         """Estimate the one-way delay
@@ -78,8 +107,9 @@ class DelayReqResp():
 
     def process(self):
         """Process all four timestamps"""
-        delay  = self._estimate_delay(self.t1.ns, self.t2.ns, self.t3.ns,
-                                      self.t4.ns)
+        delay_est = self._estimate_delay(self.t1.ns, self.t2.ns, self.t3.ns,
+                                         self.t4.ns)
         logger = logging.getLogger("DelayReqResp")
         logger.info("seq_num #%d\tt1: %s\tt2: %s\tt3: %s\tt4: %s\tdelay: %u ns" %(
-            self.seq_num, self.t1, self.t2, self.t3, self.t4, delay))
+            self.seq_num, self.t1, self.t2, self.t3, self.t4, delay_est))
+        logger.info("m-to-s delay: %f\ts-to-m delay: %f" %(self.d_fw, self.d_bw))

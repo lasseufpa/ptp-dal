@@ -139,5 +139,19 @@ class TestTimestamping(unittest.TestCase):
         self.assertEqual(z.sec, 0)
         self.assertEqual(z.ns, 999999980)
 
+    def test_float_cast(self):
+        """Cast timestamp into float"""
+        x = Timestamp(1, 200.2)
+        z = float(x)
+
+        self.assertEqual(z, 1000000200.2)
+
+    def test_int_cast(self):
+        """Cast timestamp into int"""
+        x = Timestamp(1, 200.2)
+        z = int(x)
+
+        self.assertEqual(z, 1000000200)
+
 if __name__ == '__main__':
     unittest.main()

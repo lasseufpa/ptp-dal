@@ -85,8 +85,10 @@ def run(n_iter, sim_t_step):
         # Try processing all events
         sync_transmitted = sync.tx(sim_time, master_rtc.get_time(), evts)
         dreq_transmitted = dreq.tx(sim_time, slave_rtc.get_time(), evts)
-        sync_received    = sync.rx(sim_time, slave_rtc.get_time())
-        dreq_received    = dreq.rx(sim_time, master_rtc.get_time())
+        sync_received    = sync.rx(sim_time, slave_rtc.get_time(),
+                                   master_rtc.get_time())
+        dreq_received    = dreq.rx(sim_time, master_rtc.get_time(),
+                                   slave_rtc.get_time())
 
         # Post-processing for each message
         if (sync_transmitted):
@@ -98,6 +100,9 @@ def run(n_iter, sim_t_step):
             # Save Sync arrival timestamp
             dreqresp = dreqresps[sync.seq_num]
             dreqresp.set_t2(sync.seq_num, sync.rx_tstamp)
+            # Save the true one-way delay
+            dreqresp.set_forward_delay(sync.seq_num,
+                                       sync.one_way_delay)
             # Schedule the Delay_Req transmission
             dreq.sched_tx(sim_time, evts)
 
@@ -110,6 +115,9 @@ def run(n_iter, sim_t_step):
             # Save Delay_Req arrival timestamp
             dreqresp = dreqresps[dreq.seq_num]
             dreqresp.set_t4(dreq.seq_num, dreq.rx_tstamp)
+            # Save the true one-way delay
+            dreqresp.set_backward_delay(dreq.seq_num,
+                                        dreq.one_way_delay)
             # Process all four timestamps
             dreqresp.process()
             #TODO: include ground truth on processing step

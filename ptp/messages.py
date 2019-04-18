@@ -18,14 +18,15 @@ class PtpEvt():
 
         """
 
-        self.name       = name
-        self.period_sec = period_sec
-        self.on_way     = False
-        self.next_tx    = float("inf")
-        self.next_rx    = float("inf")
-        self.seq_num    = None
-        self.tx_tstamp  = None
-        self.rx_tstamp  = None
+        self.name          = name
+        self.period_sec    = period_sec
+        self.on_way        = False
+        self.next_tx       = float("inf")
+        self.next_rx       = float("inf")
+        self.seq_num       = None
+        self.tx_tstamp     = None
+        self.rx_tstamp     = None
+        self.one_way_delay = None
 
     def _sched_next_tx(self, tx_sim_time):
         """Compute next transmission time for periodic message
@@ -116,15 +117,21 @@ class PtpEvt():
 
         return True
 
-    def rx(self, sim_time, rtc_timestamp):
+    def rx(self, sim_time, rx_rtc_tstamp, tx_rtc_tstamp):
         """Receive Message
+
+        Process the reception of the message. Take a timestamp from the RTC of
+        the receiver, and also measure the one-way delay of the message by using
+        a snapshot from the RTC of the message transmitter.
 
         Args:
             sim_time      : Simulation time in seconds
-            rtc_timestamp : RTC Time
+            rx_rtc_tstamp : Timestamp from RTC of message receiver
+            tx_rtc_tstamp : Timestamp from RTC of message transmitter
 
         Returns:
             True when effectively received
+
         """
 
         # Do not receive before scheduled time or if there isn't a message on
@@ -134,10 +141,12 @@ class PtpEvt():
 
         # Proceed with reception
         self.on_way         = False
-        self.rx_tstamp      = rtc_timestamp
+        self.rx_tstamp      = rx_rtc_tstamp
+        self.one_way_delay  = float(tx_rtc_tstamp - self.tx_tstamp)
 
         logger = logging.getLogger("PtpEvt")
         logger.debug("Received %s #%d at %s" %(self.name, self.seq_num,
                                                sim_time))
+        logger.debug("One-way delay: %f" %(self.one_way_delay))
 
         return True
