@@ -140,3 +140,16 @@ class DelayReqResp():
             self.d_fw, self.d_bw, asymmetry))
         logger.debug("time offset: %s\testimated: %s\terr: %s" %(
             toffset, toffset_est, toffset_err))
+
+        return {
+            "idx"       : self.seq_num,
+            "t1"        : self.t1,
+            "t2"        : self.t2,
+            "t3"        : self.t3,
+            "t4"        : self.t4,
+            "d_est"     : delay_est,
+            "x_est"     : float(toffset_est),
+            "asym"      : asymmetry,
+            "x"         : float(toffset),
+            "x_est_err" : toffset_err
+        }

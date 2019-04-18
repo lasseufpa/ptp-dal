@@ -13,6 +13,7 @@ import argparse, logging, sys, math, heapq
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
+from ptp.dataset import *
 
 
 class SimTime():
@@ -42,18 +43,19 @@ class SimTime():
         self.time += self.t_step
 
 
-def run(n_iter, sim_t_step):
+def run(n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
+        rtc_clk_freq = 125e6, rtc_resolution = 0, ds = None):
     """Main loop
 
     Args:
-        n_iter        : Number of iterations
-        sim_t_step    : Simulation time step in seconds
-    """
+        n_iter         : Number of iterations
+        sim_t_step     : Simulation time step in seconds
+        sync_period    : Sync transmission period in seconds
+        rtc_clk_freq   : RTC clock frequency in Hz
+        rtc_resolution : RTC representation resolution in ns
+        ds             : The dataset to generate
 
-    # Constants
-    sync_period    = 1.0/16 # in seconds
-    rtc_clk_freq   = 125e6  # in Hz
-    rtc_resolution = 0 # TODO
+    """
 
     # Register the PTP message objects
     sync = PtpEvt("Sync", sync_period)
@@ -71,6 +73,11 @@ def run(n_iter, sim_t_step):
     stop       = False
     i_msg      = 0
     dreqresps  = list()
+
+    if (ds is not None):
+        # Preallocate feature and label matrices
+        feature_mtx = np.zeros(ds_shape(ds, n_iter)[0])
+        label_mtx   = np.zeros(ds_shape(ds, n_iter)[1])
 
     # Start with a sync transmission
     sync.next_tx = 0
@@ -121,9 +128,14 @@ def run(n_iter, sim_t_step):
             dreqresp.set_backward_delay(dreq.seq_num,
                                         dreq.one_way_delay)
             # Process all four timestamps
-            dreqresp.process(master_rtc.get_time(),
-                             slave_rtc.get_time())
-            #TODO: include ground truth on processing step
+            data = dreqresp.process(master_rtc.get_time(),
+                                    slave_rtc.get_time())
+
+            if (ds is not None):
+                (feature_vec, label_vec) = ds_features(data, ds)
+                feature_mtx[i_msg, :] = feature_vec
+                label_mtx[i_msg, :]   = label_vec
+
             # Message exchange count
             i_msg += 1
 
@@ -137,6 +149,9 @@ def run(n_iter, sim_t_step):
         # Stop criterion
         if (i_msg >= n_iter):
             stop = True
+
+    if (ds is not None):
+        return(feature_mtx, label_mtx)
 
 
 def main():
@@ -160,7 +175,7 @@ def main():
     logging_level = 70 - (10 * verbose) if verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
-    run(num_iter, sim_step)
+    run(n_iter=num_iter, sim_t_step=sim_step)
 
 if __name__ == "__main__":
     main()
