@@ -62,8 +62,10 @@ def run(n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
     dreq = PtpEvt("Delay_Req")
 
     # RTCs
-    master_rtc = Rtc(rtc_clk_freq, rtc_resolution, "Master")
-    slave_rtc  = Rtc(rtc_clk_freq, rtc_resolution, "Slave")
+    master_ppb = 0
+    slave_ppb  = 60
+    master_rtc = Rtc(rtc_clk_freq, rtc_resolution, master_ppb, "Master")
+    slave_rtc  = Rtc(rtc_clk_freq, rtc_resolution, slave_ppb, "Slave")
 
     # Simulation time
     sim_timer = SimTime(sim_t_step)

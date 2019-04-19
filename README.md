@@ -17,7 +17,7 @@ python ptp_simulator.py -vvvvv -N 10
 
 ## Unit tests
 
+From the root folder:
 ```
-cd ptp
-python tests.py
+python -m unittest discover
 ```

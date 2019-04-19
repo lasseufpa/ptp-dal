@@ -1,5 +1,5 @@
 import unittest
-from timestamping import *
+from ptp.timestamping import *
 
 class TestTimestamping(unittest.TestCase):
 
@@ -160,6 +160,7 @@ class TestTimestamping(unittest.TestCase):
 
         self.assertEqual(z.sec, 50)
         self.assertEqual(z.ns, 100)
+
 
 if __name__ == '__main__':
     unittest.main()
