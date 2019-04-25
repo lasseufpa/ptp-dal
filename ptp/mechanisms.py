@@ -147,6 +147,7 @@ class DelayReqResp():
             "t2"        : self.t2,
             "t3"        : self.t3,
             "t4"        : self.t4,
+            "d"         : self.d_fw, # Sync one-way delay
             "d_est"     : delay_est,
             "x_est"     : float(toffset_est),
             "asym"      : asymmetry,

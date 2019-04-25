@@ -21,3 +21,9 @@ From the root folder:
 ```
 python -m unittest discover
 ```
+
+## Util scripts
+
+* `ptp_plots.py`: Demonstrates several plots that can be generated using the
+  `ptp.metrics` module.
+
