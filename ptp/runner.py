@@ -147,6 +147,10 @@ class Runner():
                 # Process all four timestamps
                 results = dreqresp.process(master_rtc.get_time(),
                                            slave_rtc.get_time())
+
+                # Include RTC state
+                results["rtc_y"] = slave_rtc.get_freq_offset()
+
                 # Append to all-time simulation data
                 self.data.append(results)
 

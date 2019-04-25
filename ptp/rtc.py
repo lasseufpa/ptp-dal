@@ -36,8 +36,8 @@ class Rtc():
         phase_0_ns = random.uniform(0, inc_val_ns)
 
         # Constants
-        self._nom_freq_hz = freq_hz      # Nominal driving clock freq.
-        self.label      = label
+        self._nom_freq_hz = nom_freq_hz      # Nominal driving clock freq.
+        self.label        = label
 
         # Variable over time:
         self.inc_cnt    = 0
@@ -136,3 +136,9 @@ class Rtc():
         """Get current RTC time
         """
         return self.time
+
+    def get_freq_offset(self):
+        """Get the current fractional frequency offset in ppb"""
+        return ((self.freq_hz - self._nom_freq_hz)/self._nom_freq_hz)*1e9
+
+
