@@ -80,12 +80,14 @@ class Runner():
         dreq = PtpEvt("Delay_Req")
 
         # RTCs
-        master_ppb = 0
-        slave_ppb  = 60
-        master_rtc = Rtc(self.rtc_clk_freq, self.rtc_resolution, master_ppb,
-                         "Master")
-        slave_rtc = Rtc(self.rtc_clk_freq, self.rtc_resolution, slave_ppb,
-                        "Slave")
+        master_ppb_tol       = 0
+        master_ppb_stability = 0
+        slave_ppb_tol        = 60
+        slave_ppb_stability  = 5
+        master_rtc = Rtc(self.rtc_clk_freq, self.rtc_resolution, master_ppb_tol,
+                         master_ppb_stability, "Master")
+        slave_rtc = Rtc(self.rtc_clk_freq, self.rtc_resolution, slave_ppb_tol,
+                        slave_ppb_stability, "Slave")
 
         # Main loop
         evts       = list()
@@ -102,8 +104,8 @@ class Runner():
             sim_time = self.sim_timer.get_time()
 
             # Update the RTCs
-            master_rtc.update(sim_time)
-            slave_rtc.update(sim_time)
+            master_rtc.update(sim_time, evts)
+            slave_rtc.update(sim_time, evts)
 
             # Try processing all events
             sync_transmitted = sync.tx(sim_time, master_rtc.get_time(), evts)

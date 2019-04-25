@@ -1,18 +1,20 @@
 """Real-time clock definitions
 """
 
-import random, logging, math
+import random, logging, math, heapq
 from ptp.timestamping import Timestamp
 
 
 class Rtc():
-    def __init__(self, nom_freq_hz, resolution_ns, ppb = 0, label="RTC"):
+    def __init__(self, nom_freq_hz, resolution_ns, tol_ppb = 0.0,
+                 stability_ppb = 0.0, label="RTC"):
         """Real-time Clock (RTC)
 
         Args:
         nom_freq_hz   : Nominal frequency (in Hz) of the driving clock signal
         resolution_ns : Timestamp resolution in nanoseconds
-        ppb           : Frequency tolerance in ppb
+        tol_ppb       : Frequency tolerance in ppb
+        stability_ppb : Frequency stability in ppb
         label         : RTC label
         """
 
@@ -24,8 +26,8 @@ class Rtc():
         inc_val_ns = (1.0/nom_freq_hz)*1e9
 
         # Actual initial driving frequency, considering the initial fractional
-        # freq. offset of the driving clock
-        freq_offset_0_ppb = random.uniform(-ppb, ppb)
+        # freq. offset of the driving clock due to "manufacture tolerance"
+        freq_offset_0_ppb = random.uniform(-tol_ppb, tol_ppb)
         freq_offset_0     = freq_offset_0_ppb * 1e-9
         freq_hz           = nom_freq_hz * (1 + freq_offset_0)
 
@@ -33,14 +35,23 @@ class Rtc():
         # where the rising edge is located
         phase_0_ns = random.uniform(0, inc_val_ns)
 
+        # Constants
+        self._nom_freq_hz = freq_hz      # Nominal driving clock freq.
+        self.label      = label
+
+        # Variable over time:
         self.inc_cnt    = 0
-        self.freq_hz    = freq_hz       # driving clock signal freq.
+        self.freq_hz    = freq_hz      # Current driving clock signal freq.
         self.inc_val_ns = inc_val_ns   # increment value
         self.phase_ns   = phase_0_ns   # phase
         self.time       = Timestamp(sec_0, ns_0)
         self.toffset    = Timestamp()
-        self.label      = label
         self.t_last_inc = 0
+
+        # Simulation of driving clock frequency
+        self.freq_noise_sdev_hz    = stability_ppb * freq_hz * 1e-9
+        self.freq_update_period_ns = 1e6
+        self.t_last_freq_update    = 0
 
         logger = logging.getLogger('Rtc')
         logger.debug("Initialized the %s RTC" %(self.label))
@@ -50,14 +61,51 @@ class Rtc():
             "Driving clock", self.freq_hz/1e6, 1.0/self.freq_hz))
         logger.debug("%-16s\t %s" %("Initial time:", self.time))
 
-    def update(self, t_sim):
+    def _randomize_driving_clk(self, t_sim_ns):
+        """Update the properties of the driving clock
+
+        Args:
+            t_sim_ns : Simulation time in ns
+
+        Returns:
+            True when udpated
+        """
+
+        if (t_sim_ns >= (self.t_last_freq_update + self.freq_update_period_ns)):
+            # Add zero-mean white frequency noise
+            self.freq_hz += random.gauss(0, self.freq_noise_sdev_hz)
+            self.t_last_freq_update = t_sim_ns
+
+            logger = logging.getLogger('Rtc')
+            logger.debug("[%-6s] New driving freq: %f MHz" %(self.label,
+                                                             self.freq_hz/1e6))
+
+            return True
+
+    def update(self, t_sim, evts=None):
         """Update the RTC time
+
+        When the event heap queue is passed by argument, it is assumed that the
+        caller controls events using this queue. In this case, this function
+        always schedules the next update to the RTC driving clock frequency.
 
         Args:
             t_sim : absolute simulation time in seconds
+            evts  : Event heap queue
+
         """
 
         t_sim_ns = t_sim * 1e9
+
+        # Simulate driving clock frequency.
+        #
+        # Schedule periodic wake-ups for the RTC in order to simulate its
+        # driving frequency randomly changing over time
+        if (evts is not None):
+            if (self._randomize_driving_clk(t_sim_ns)):
+                # Schedule next update
+                heapq.heappush(evts,
+                               (t_sim + (self.freq_update_period_ns * 1e-9)))
 
         # Based on the current RTC driving clock period (which changes over
         # time), check how many times the RTC has incremented since last time
