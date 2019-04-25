@@ -41,13 +41,13 @@ class Analyser():
         if (show_ls):
             idx_x_ls = list()
             x_ls     = list()
-            for res in self.data:
+            for idx, res in enumerate(self.data):
                 if ("x_ls" in res):
-                    idx_x_ls.append(res["idx"])
+                    idx_x_ls.append(idx)
                     x_ls.append(res["x_ls"])
 
             plt.scatter(idx_x_ls, x_ls,
-                        label="LS Estimations", marker="x", s=50)
+                        label="LS Estimations", marker="x", s=1.0)
 
         # Best raw measurements
         if (show_best):
@@ -57,11 +57,52 @@ class Analyser():
                         label="Accurate Measurements", s=50)
 
         plt.xlabel('Realization')
-        plt.ylabel('Time offset')
+        plt.ylabel('Time offset (ns)')
         plt.legend()
 
         if (save):
             plt.savefig("plots/toffset_vs_time")
+        else:
+            plt.show()
+
+    def plot_toffset_err_vs_time(self, show_ls=False, save=False):
+        """Plot time offset vs Time
+
+        A comparison between the measured time offset and the true time offset.
+
+        Args:
+            show_ls   : Show least-squares fit
+            save      : Save the figure
+
+        """
+        n_data      = len(self.data)
+
+        # Error of raw measurements
+        x_tilde_err = np.zeros(n_data)
+        for idx, results in enumerate(self.data):
+            x_tilde_err[idx] = results["x_est"] - results["x"]
+
+        plt.figure()
+        plt.scatter(range(0, n_data), x_tilde_err, label="Measurements", s = 1.0)
+
+        # Least-squares estimations
+        if (show_ls):
+            idx_x_ls = list()
+            x_ls_err = list()
+            for idx, res in enumerate(self.data):
+                if ("x_ls" in res):
+                    idx_x_ls.append(idx)
+                    x_ls_err.append(res["x_ls"] - res["x"])
+
+            plt.scatter(idx_x_ls, x_ls_err,
+                        label="LS Estimations", marker="x", s=1.0)
+
+        plt.xlabel('Realization')
+        plt.ylabel('Time offset Error (ns)')
+        plt.legend()
+
+        if (save):
+            plt.savefig("plots/toffset_err_vs_time")
         else:
             plt.show()
 
@@ -135,13 +176,13 @@ class Analyser():
         if (show_ls):
             idx_y_ls = list()
             y_ls     = list()
-            for res in self.data:
+            for idx, res in enumerate(self.data):
                 if ("y_ls" in res):
-                    idx_y_ls.append(res["idx"])
+                    idx_y_ls.append(idx)
                     y_ls.append(res["y_ls"])
 
             plt.scatter(idx_y_ls, y_ls,
-                        label="LS Estimations", marker="x", s=50)
+                        label="LS Estimations", marker="x", s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Frequency Offset (ppb)')
