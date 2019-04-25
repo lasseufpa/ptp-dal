@@ -15,13 +15,14 @@ class Analyser():
         """
         self.data = data
 
-    def plot_toffset_vs_time(self, show_best=False, save=False):
+    def plot_toffset_vs_time(self, show_best=False, show_ls=False, save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
 
         Args:
             show_best : Enable to highlight the best measurements.
+            show_ls   : Show least-squares fit
             save      : Save the figure
 
         """
@@ -36,11 +37,24 @@ class Analyser():
         plt.scatter(range(0, n_data), x_tilde, label="Measurements", s = 1.0)
         plt.scatter(range(0, n_data), x, label="True Values", s = 1.0)
 
+        # Least-squares estimations
+        if (show_ls):
+            idx_x_ls = list()
+            x_ls     = list()
+            for res in self.data:
+                if ("x_ls" in res):
+                    idx_x_ls.append(res["idx"])
+                    x_ls.append(res["x_ls"])
+
+            plt.scatter(idx_x_ls, x_ls,
+                        label="LS Estimations", marker="x", s=50)
+
+        # Best raw measurements
         if (show_best):
             err      = x_tilde - x
             best_idx = np.squeeze(np.where(abs(err) < 10))
             plt.scatter(best_idx, x_tilde[best_idx],
-                        label="Accurate Measurements", s=50, c="green")
+                        label="Accurate Measurements", s=50)
 
         plt.xlabel('Realization')
         plt.ylabel('Time offset')
