@@ -8,7 +8,7 @@ import numpy as np
 - toffset_regression
 """
 
-def ds_shape(model, m):
+def shape(model, m):
     """Computes the shape of the dataset
 
     Can be used to pre-allocate the dataset matrices.
@@ -26,7 +26,7 @@ def ds_shape(model, m):
     else:
         raise ValueError("Model choice %s unknown" %(features))
 
-def ds_features(data, model):
+def features(data, model):
     """Return array of features from given data
 
     Args:

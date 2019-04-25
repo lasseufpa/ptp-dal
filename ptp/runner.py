@@ -11,7 +11,7 @@ import logging, heapq
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
-from ptp.dataset import *
+import ptp.dataset
 
 
 class SimTime():
@@ -43,7 +43,7 @@ class SimTime():
 
 class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
-                 rtc_clk_freq = 125e6, rtc_resolution = 0, ds = None):
+                 rtc_clk_freq = 125e6, rtc_resolution = 0, target_ds = None):
         """PTP Runner class
 
         Args:
@@ -52,24 +52,26 @@ class Runner():
             sync_period    : Sync transmission period in seconds
             rtc_clk_freq   : RTC clock frequency in Hz
             rtc_resolution : RTC representation resolution in ns
-            ds             : The dataset to generate
+            target_ds      : The target dataset
         """
 
         self.n_iter         = n_iter
         self.sync_period    = sync_period
         self.rtc_clk_freq   = rtc_clk_freq
         self.rtc_resolution = rtc_resolution
-        self.ds             = ds
+        self.target_ds      = target_ds
 
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
+
+        # Simulation data
+        self.data = list()
 
     def run(self):
         """Main loop
 
         Simulates PTP delay request-response message exchanges with
-        corresponding time offset and delay estimations. If requested, collect
-        metrics along the simulation and return a dataset in the end.
+        corresponding time offset and delay estimations.
 
         """
 
@@ -88,13 +90,8 @@ class Runner():
         # Main loop
         evts       = list()
         stop       = False
-        i_msg      = 0
+        i_iter     = 0
         dreqresps  = list()
-
-        if (self.ds is not None):
-            # Preallocate feature and label matrices
-            feature_mtx = np.zeros(ds_shape(self.ds, self.n_iter)[0])
-            label_mtx   = np.zeros(ds_shape(self.ds, self.n_iter)[1])
 
         # Start with a sync transmission
         sync.next_tx = 0
@@ -145,17 +142,13 @@ class Runner():
                 dreqresp.set_backward_delay(dreq.seq_num,
                                             dreq.one_way_delay)
                 # Process all four timestamps
-                data = dreqresp.process(master_rtc.get_time(),
-                                        slave_rtc.get_time())
-
-                # Extract data to form dataset
-                if (self.ds is not None):
-                    (feature_vec, label_vec) = ds_features(data, self.ds)
-                    feature_mtx[i_msg, :] = feature_vec
-                    label_mtx[i_msg, :]   = label_vec
+                results = dreqresp.process(master_rtc.get_time(),
+                                           slave_rtc.get_time())
+                # Append to all-time simulation data
+                self.data.append(results)
 
                 # Message exchange count
-                i_msg += 1
+                i_iter += 1
 
             # Update simulation time
             if (len(evts) > 0):
@@ -165,9 +158,28 @@ class Runner():
                 self.sim_timer.step()
 
             # Stop criterion
-            if (i_msg >= self.n_iter):
+            if (i_iter >= self.n_iter):
                 stop = True
 
-        # Return dataset if so desired
-        if (self.ds is not None):
-            return(feature_mtx, label_mtx)
+    def generate_ds(self):
+        """Post-process simulation data and generate dataset
+        """
+
+        if (self.target_ds is None):
+            raise ValueError("Target dataset is missing")
+
+        # Preallocate feature and label matrices
+        feature_mtx = np.zeros(ptp.dataset.shape(self.target_ds,
+                                                 self.n_iter)[0])
+        label_mtx   = np.zeros(ptp.dataset.shape(self.target_ds,
+                                                 self.n_iter)[1])
+
+        for idx, results in enumerate(self.data):
+            # Extract data to form dataset
+            (feature_vec, label_vec) = ptp.dataset.features(results,
+                                                            self.target_ds)
+            feature_mtx[idx, :] = feature_vec
+            label_mtx[idx, :]   = label_vec
+
+        return(feature_mtx, label_mtx)
+
