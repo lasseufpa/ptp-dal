@@ -2,6 +2,12 @@
 """
 import numpy as np
 
+"""Supported datasets
+
+- asymmetry_classification
+- toffset_regression
+"""
+
 def ds_shape(model, m):
     """Computes the shape of the dataset
 
@@ -13,7 +19,9 @@ def ds_shape(model, m):
 
     """
 
-    if (model == "asymmetry"):
+    if (model == "asymmetry_classification"):
+        return [(m, 4), (m, 1)]
+    elif (model == "toffset_regression"):
         return [(m, 4), (m, 1)]
     else:
         raise ValueError("Model choice %s unknown" %(features))
@@ -27,7 +35,7 @@ def ds_features(data, model):
 
     """
 
-    if (model == "asymmetry"):
+    if (model == "asymmetry_classification"):
         t4_minus_t1 = float(data["t4"] - data["t1"])
         t3_minus_t2 = float(data["t3"] - data["t2"])
         d_est       = data["d_est"]
@@ -38,6 +46,15 @@ def ds_features(data, model):
         else:
             label_vec   = np.array([False])
 
+        return (feature_vec, label_vec)
+    elif (model == "toffset_regression"):
+        t4_minus_t1 = float(data["t4"] - data["t1"])
+        t3_minus_t2 = float(data["t3"] - data["t2"])
+        d_est       = data["d_est"]
+        x_est       = data["x_est"]
+        x           = data["x"]
+        feature_vec = np.array([t4_minus_t1, t3_minus_t2, d_est, x_est])
+        label_vec   = np.array([x])
         return (feature_vec, label_vec)
     else:
         raise ValueError("Model choice %s unknown" %(features))
