@@ -121,8 +121,8 @@ class PtpEvt():
         """Receive Message
 
         Process the reception of the message. Take a timestamp from the RTC of
-        the receiver, and also measure the one-way delay of the message by using
-        a snapshot from the RTC of the message transmitter.
+        the receiver, and also measure the true one-way delay of the message by
+        using a snapshot from the RTC of the message transmitter.
 
         Args:
             sim_time      : Simulation time in seconds

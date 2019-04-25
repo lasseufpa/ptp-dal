@@ -7,7 +7,7 @@ Conventions:
 - units are explicit within variable names where possible
 
 """
-import logging, heapq
+import logging, heapq, random
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
@@ -128,8 +128,9 @@ class Runner():
                 # Save the true one-way delay
                 dreqresp.set_forward_delay(sync.seq_num,
                                            sync.one_way_delay)
-                # Schedule the Delay_Req transmission
-                dreq.sched_tx(sim_time, evts)
+                # Schedule the Delay_Req transmission after a random delay
+                rndm_t2_to_t3 = random.gauss(5 * 1e-6, 1e-6)
+                dreq.sched_tx(sim_time + rndm_t2_to_t3, evts)
 
             if (dreq_transmitted):
                 # Save Delay_Req departure timestamp
