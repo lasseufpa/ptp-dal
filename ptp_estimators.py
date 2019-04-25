@@ -15,4 +15,5 @@ ls.process()
 # PTP analyser
 analyser = ptp.metrics.Analyser(runner.data)
 analyser.plot_toffset_vs_time(show_ls=True, show_best=True, save=True)
+analyser.plot_foffset_vs_time(show_ls=True, save=True)
 

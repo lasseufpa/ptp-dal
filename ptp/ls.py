@@ -55,4 +55,5 @@ class Ls():
 
             # Include LS estimations within the simulation data
             self.data[i_e - 1]["x_ls"] = x_f
+            self.data[i_e - 1]["y_ls"] = y*1e9
 

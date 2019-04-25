@@ -115,10 +115,11 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_foffset_vs_time(self, save=False):
+    def plot_foffset_vs_time(self, show_ls=False, save=False):
         """Plot freq. offset vs time
 
         Args:
+            show_ls   : Show least-squares estimations
             save      : Save the figure
 
         """
@@ -128,7 +129,20 @@ class Analyser():
             y[idx] = results["rtc_y"]
 
         plt.figure()
-        plt.scatter(range(0, n_data), y, label="Measurements", s = 1.0)
+        plt.scatter(range(0, n_data), y, label="True Values", s = 1.0)
+
+        # Least-squares estimations
+        if (show_ls):
+            idx_y_ls = list()
+            y_ls     = list()
+            for res in self.data:
+                if ("y_ls" in res):
+                    idx_y_ls.append(res["idx"])
+                    y_ls.append(res["y_ls"])
+
+            plt.scatter(idx_y_ls, y_ls,
+                        label="LS Estimations", marker="x", s=50)
+
         plt.xlabel('Realization')
         plt.ylabel('Frequency Offset (ppb)')
         plt.legend()
