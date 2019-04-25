@@ -29,14 +29,11 @@ class Ls():
         # Vector of Sync arrival timestamps
         t2      = [res["t2"] for res in self.data]
 
-        # Process over windows of observations
-        n_windows = int(len(self.data)/self.N)
-        x_est     = np.zeros(n_windows)
-
-        for i_window in range(0, n_windows):
+        # Iterate over sliding windows of observations
+        for i in range(0, len(x_obs) - self.N):
             # Window start and end indexes
-            i_s = i_window * self.N
-            i_e = (i_window + 1) * self.N
+            i_s = i
+            i_e = i + self.N
 
             # Observation window
             x_obs_w = x_obs[i_s:i_e]
