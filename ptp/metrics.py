@@ -192,3 +192,45 @@ class Analyser():
             plt.savefig("plots/foffset_vs_time")
         else:
             plt.show()
+
+    def plot_pdv_vs_time(self, save=False):
+        """Plot PDV over time
+
+        Each value represents the measured difference of the current Sync delay
+        with respect to the delay experienced by the previous Sync. Note that
+        the actual delay is not measurable, but the difference in delay is. We
+        define the PDV as follows:
+
+        pdv = (t2[k] - t2[k-1]) - (t1[k] - t1[k-1])
+        pdv = delta_t2[k] - delta_t1[k]
+
+        If delta_t2[k] == delta_t1[k], it means both Sync messsages experienced
+        the same delay, which we don't know.
+
+        Args:
+            save      : Save the figure
+
+        """
+        n_data  = len(self.data)
+
+        # Timestamps
+        t2      = [res["t2"] for res in self.data]
+        t1      = [res["t1"] for res in self.data]
+
+        # Deltas
+        delta_t1 = np.asarray([float(t1[i+1] - t) for i,t in enumerate(t1[:-1])])
+        delta_t2 = np.asarray([float(t2[i+1] - t) for i,t in enumerate(t2[:-1])])
+
+        # PDV
+        pdv = delta_t2 - delta_t1
+
+        plt.figure()
+        plt.scatter(range(0, n_data-1), pdv, s = 1.0)
+        plt.xlabel('Realization')
+        plt.ylabel('Delay Variation (ns)')
+
+        if (save):
+            plt.savefig("plots/pdv_vs_time")
+        else:
+            plt.show()
+
