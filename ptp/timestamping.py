@@ -1,7 +1,8 @@
 """Timestamp definitions
 """
 
-import math
+import numpy as np
+import logging
 
 class Timestamp():
     def __init__(self, sec_0 = 0, ns_0 = 0):
@@ -32,12 +33,12 @@ class Timestamp():
 
         if (isinstance(timestamp, Timestamp)):
             sec  = self.sec + timestamp.sec
-            sec += math.floor((self.ns + timestamp.ns)/1e9);
-            ns   = (self.ns + timestamp.ns) % 1e9
+            sec += np.floor((self.ns + timestamp.ns) / 1e9)
+            ns   = np.mod((self.ns + timestamp.ns), 1e9)
         elif (isinstance(timestamp, float) or isinstance(timestamp, int)):
             sec  = self.sec
-            sec += math.floor((self.ns + timestamp)/1e9);
-            ns   = (self.ns + timestamp) % 1e9
+            sec += np.floor((self.ns + timestamp)/1e9);
+            ns   = np.mod((self.ns + timestamp), 1e9)
         else:
             raise ValueError("Timestamp sum expects timestamp/float/int")
 
@@ -53,17 +54,23 @@ class Timestamp():
         Args:
             timestamp : the other timestamp to subtract
         """
-
         if (isinstance(timestamp, Timestamp)):
             sec  = self.sec - timestamp.sec
-            sec += math.floor((self.ns - timestamp.ns)/1e9);
-            ns   = (self.ns - timestamp.ns) % 1e9
+            sec += np.floor((self.ns - timestamp.ns)/1e9);
+            ns   = np.mod((self.ns - timestamp.ns), 1e9)
         elif (isinstance(timestamp, float) or isinstance(timestamp, int)):
             sec  = self.sec
-            sec += math.floor((self.ns - timestamp)/1e9);
-            ns   = (self.ns - timestamp) % 1e9
+            sec += np.floor((self.ns - timestamp)/1e9);
+            ns   = np.mod((self.ns - timestamp), 1e9)
         else:
             raise ValueError("Timestamp sum expects timestamp/float/int")
+
+        # Protect from the issue of subtracting small number.
+        # See https://docs.python.org/3/library/math.html#math.fmod
+        if (ns == 1e9):
+            logging.warning("Timestamp ns mod 1e9 resulted %e - set to 0" %(ns))
+            sec += 1
+            ns   = 0
 
         assert(isinstance(self.sec, int))
         assert(isinstance(self.ns, float))
@@ -75,17 +82,17 @@ class Timestamp():
         """Divide timestamp"""
         ns  = (self.sec * 1e9) + self.ns
         ns /= other
-        sec = math.floor(ns/1e9)
+        sec = np.floor(ns/1e9)
         ns  = ns % 1e9
         return Timestamp(sec, ns)
 
     def __str__(self):
         """Print sec and ns values"""
-        return '{:5} sec, {:9} ns'.format(self.sec, math.floor(self.ns))
+        return '{:5} sec, {:9} ns'.format(self.sec, np.floor(self.ns))
 
     def __float__(self):
         """Cast timestamp to float"""
-        return (self.sec * 1e9) + self.ns
+        return (float(self.sec) * 1e9) + self.ns
 
     def __int__(self):
         """Cast timestamp to int"""

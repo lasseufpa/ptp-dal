@@ -35,6 +35,15 @@ class TestTimestamping(unittest.TestCase):
         self.assertEqual(z.sec, 2)
         self.assertEqual(z.ns, 20)
 
+    def test_sub_small_vals(self):
+        """Subtract very small values (test math.fmod vs %) """
+        x = Timestamp(0, 1e-9)
+        y = Timestamp(1, 0)
+        z = y - x
+
+        self.assertEqual(z.sec, 1)
+        self.assertEqual(z.ns, 0)
+
     def test_wrap_positive(self):
         """Summation with positive ns wrapping"""
         x = Timestamp(1, 999999980)
