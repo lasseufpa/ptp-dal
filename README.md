@@ -30,6 +30,8 @@ python -m unittest discover
   post-process the PTP measurements and achieve better synchronization.
 * `ls_vs_window.py` : Evaluates LS performance with respect to the observation
   window length.
+* `psa_vs_window.py` : Evaluates PSA performance with respect to the observation
+  window length.
 * `test_kalman.py`: Demonstrates how to evaluate Kalman filtering.
 * `test_reader.py`: Demonstrates how pre-acquired data can be loaded into the
   simulator.
@@ -51,4 +53,3 @@ To process it fully without log, run:
 ```
 python test_reader.py -f data/example_log.json
 ```
-

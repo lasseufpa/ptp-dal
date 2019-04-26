@@ -61,8 +61,8 @@ class Analyser():
         return tau_array, mtie_array
 
     def plot_toffset_vs_time(self, show_best=False, show_ls=False,
-                             show_kf=False, show_true=True, n_skip_kf=0,
-                             save=False):
+                             show_pkts=False, show_kf=False, show_true=True,
+                             n_skip_kf=0, save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -70,6 +70,7 @@ class Analyser():
         Args:
             show_best : Enable to highlight the best measurements.
             show_ls   : Show least-squares fit
+            show_pkts : Show Packet Selection fit
             show_kf   : Show Kalman filtering results
             n_skip_kf : Number of initial Kalman filter samples to skip
             show_true : Show true values
@@ -116,6 +117,27 @@ class Analyser():
             plt.scatter(i_kf[n_skip_kf:], x_kf[n_skip_kf:],
                         label="Kalman" + skip_label, marker="v", s=1.0)
 
+        # Packet Selection estimation
+        if (show_pkts):
+            i_pkt_mean    = [r["idx"] for r in self.data if "x_pkts_mean" in r]
+            i_pkt_median  = [r["idx"] for r in self.data if "x_pkts_median" in r]
+            i_pkt_minimum = [r["idx"] for r in self.data if "x_pkts_min" in r]
+            x_pkt_mean    = [r["x_pkts_mean"] for r in self.data if "x_pkts_mean" in r]
+            x_pkt_median  = [r["x_pkts_median"] for r in self.data if "x_pkts_median" in r]
+            x_pkt_minimum = [r["x_pkts_min"] for r in self.data if "x_pkts_min" in r]
+
+            if (len(x_pkt_mean) > 0):
+                plt.scatter(i_pkt_mean, x_pkt_mean,
+                            label="Sample-mean", marker="s", s=1.0)
+
+            if (len(x_pkt_median) > 0):
+                plt.scatter(i_pkt_median, x_pkt_median,
+                            label="Sample-median", marker="P", s=1.0)
+
+            if (len(x_pkt_minimum) > 0):
+                plt.scatter(i_pkt_minimum, x_pkt_minimum,
+                            label="Sample-minimum", marker="h", s=1.0)
+
         # Best raw measurements
         if (show_best):
             assert(show_true), "show_best requires show_true"
@@ -134,7 +156,7 @@ class Analyser():
             plt.show()
 
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=False,
-                                 show_kf=False, save=False):
+                                 show_pkts=False, show_kf=False, save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -142,6 +164,7 @@ class Analyser():
         Args:
             show_raw  : Show raw measurements
             show_ls   : Show least-squares fit
+            show_pkts : Show packet selection fit
             show_kf   : Show Kalman filtering results
             save      : Save the figure
 
@@ -183,6 +206,27 @@ class Analyser():
             x_err_kf = [r["x_kf"] - r["x"] for r in self.data if "x_kf" in r]
             plt.scatter(i_kf, x_err_kf,
                         label="Kalman", marker="v", s=1.0)
+
+        # Packet Selection estimations
+        if (show_pkts):
+            i_pkt_mean    = [r["idx"] for r in self.data if "x_pkts_mean" in r]
+            i_pkt_median  = [r["idx"] for r in self.data if "x_pkts_median" in r]
+            i_pkt_minimum = [r["idx"] for r in self.data if "x_pkts_min" in r]
+            x_pkt_err_mean    = [r["x_pkts_mean"] - r["x"] for r in self.data if "x_pkts_mean" in r]
+            x_pkt_err_median  = [r["x_pkts_median"] - r["x"] for r in self.data if "x_pkts_median" in r]
+            x_pkt_err_minimum = [r["x_pkts_min"] - r["x"] for r in self.data if "x_pkts_min" in r]
+
+            if (len(x_pkt_err_mean) > 0):
+                plt.scatter(i_pkt_mean, x_pkt_err_mean,
+                            label="Sample-mean", marker="s", s=1.0)
+
+            if (len(x_pkt_err_median) > 0):
+                plt.scatter(i_pkt_median, x_pkt_err_median,
+                            label="Sample-median", marker="P", s=1.0)
+
+            if (len(x_pkt_err_minimum) > 0):
+                plt.scatter(i_pkt_minimum, x_pkt_err_minimum,
+                            label="Sample-minimum", marker="h", s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Time offset Error (ns)')
@@ -345,7 +389,7 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_mtie(self, show_ls=False, show_kf=False, save=False):
+    def plot_mtie(self, show_ls=False, show_pkts=False, show_kf=False, save=False):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time interval error (TIE) samples are assumed to be
@@ -360,9 +404,10 @@ class Analyser():
         is computed, but useful for the evaluation and simpler to implement.
 
         Args:
-            show_ls : Show least-squares fit
-            show_kf : Show Kalman filtering results
-            save    : Save the figure
+            show_ls   : Show least-squares fit
+            show_pkts : Show Packet Selection fit
+            show_kf   : Show Kalman filtering results
+            save      : Save the figure
 
         """
         plt.figure()
@@ -398,6 +443,31 @@ class Analyser():
                 tau_ls_eff, mtie_ls_eff = self.mtie(x_ls_err_eff)
                 plt.scatter(tau_ls_eff, mtie_ls_eff,
                             label="LSE (efficient)", marker="x")
+
+        # Packet Selection estimations
+        if (show_pkts):
+            i_pkts_mean       = [r["idx"] for r in self.data if "x_pkts_mean" in r]
+            i_pkts_median     = [r["idx"] for r in self.data if "x_pkts_median" in r]
+            i_pkts_minimum    = [r["idx"] for r in self.data if "x_pkts_min" in r]
+            x_pkts_err_mean   = [r["x_pkts_mean"] - r["x"] for r in self.data
+                            if"x_pkts_mean" in r]
+            x_pkts_err_median = [r["x_pkts_median"] - r["x"] for r in self.data
+                            if"x_pkts_median" in r]
+            x_pkts_err_min    = [r["x_pkts_min"] - r["x"] for r in self.data
+                            if "x_pkts_min" in r]
+
+            if (len(x_pkts_err_mean) > 0):
+                tau_pkts_mean, mtie_pkts_mean = self.mtie(x_pkts_err_mean)
+                plt.scatter(tau_pkts_mean, mtie_pkts_mean,
+                            label="PSA (mean)", marker="x")
+            if (len(x_pkts_err_median) > 0):
+                tau_pkts_median, mtie_pkts_median = self.mtie(x_pkts_err_median)
+                plt.scatter(tau_pkts_median, mtie_pkts_median,
+                            label="PSA (median)", marker="x")
+            if (len(x_pkts_err_min) > 0):
+                tau_pkts_min, mtie_pkts_min = self.mtie(x_pkts_err_min)
+                plt.scatter(tau_ls_eff, mtie_ls_eff,
+                            label="PSA (minimum)", marker="x")
 
         # Kalman filtering output
         if (show_kf):
