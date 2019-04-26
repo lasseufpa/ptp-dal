@@ -11,7 +11,6 @@ import logging, heapq, random
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
-import ptp.dataset
 
 
 class SimTime():
@@ -43,7 +42,7 @@ class SimTime():
 
 class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
-                 rtc_clk_freq = 125e6, rtc_resolution = 0, target_ds = None):
+                 rtc_clk_freq = 125e6, rtc_resolution = 0):
         """PTP Runner class
 
         Args:
@@ -52,14 +51,12 @@ class Runner():
             sync_period    : Sync transmission period in seconds
             rtc_clk_freq   : RTC clock frequency in Hz
             rtc_resolution : RTC representation resolution in ns
-            target_ds      : The target dataset
         """
 
         self.n_iter         = n_iter
         self.sync_period    = sync_period
         self.rtc_clk_freq   = rtc_clk_freq
         self.rtc_resolution = rtc_resolution
-        self.target_ds      = target_ds
 
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
@@ -168,26 +165,4 @@ class Runner():
             # Stop criterion
             if (i_iter >= self.n_iter):
                 stop = True
-
-    def generate_ds(self):
-        """Post-process simulation data and generate dataset
-        """
-
-        if (self.target_ds is None):
-            raise ValueError("Target dataset is missing")
-
-        # Preallocate feature and label matrices
-        feature_mtx = np.zeros(ptp.dataset.shape(self.target_ds,
-                                                 self.n_iter)[0])
-        label_mtx   = np.zeros(ptp.dataset.shape(self.target_ds,
-                                                 self.n_iter)[1])
-
-        for idx, results in enumerate(self.data):
-            # Extract data to form dataset
-            (feature_vec, label_vec) = ptp.dataset.features(results,
-                                                            self.target_ds)
-            feature_mtx[idx, :] = feature_vec
-            label_mtx[idx, :]   = label_vec
-
-        return(feature_mtx, label_mtx)
 

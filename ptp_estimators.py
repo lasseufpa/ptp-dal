@@ -4,7 +4,7 @@ import ptp.metrics
 
 # Run PTP simulation
 n_iter = 1000
-runner = ptp.runner.Runner(n_iter = n_iter, target_ds = 'toffset_regression')
+runner = ptp.runner.Runner(n_iter = n_iter)
 runner.run()
 
 # Least-squares estimator
