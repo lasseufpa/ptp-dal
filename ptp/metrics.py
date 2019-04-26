@@ -27,11 +27,8 @@ class Analyser():
 
         """
         n_data  = len(self.data)
-        x_tilde = np.zeros(n_data)
-        x       = np.zeros(n_data)
-        for idx, results in enumerate(self.data):
-            x_tilde[idx] = results["x_est"]
-            x[idx]       = results["x"]
+        x_tilde = np.array([r["x_est"] for r in self.data])
+        x       = np.array([r["x"] for r in self.data])
 
         plt.figure()
         plt.scatter(range(0, n_data), x_tilde, label="Measurements", s = 1.0)
@@ -39,15 +36,22 @@ class Analyser():
 
         # Least-squares estimations
         if (show_ls):
-            idx_x_ls = list()
-            x_ls     = list()
-            for idx, res in enumerate(self.data):
-                if ("x_ls" in res):
-                    idx_x_ls.append(idx)
-                    x_ls.append(res["x_ls"])
+            i_ls_t2  = [r["idx"] for r in self.data if "x_ls_t2" in r]
+            i_ls_t1  = [r["idx"] for r in self.data if "x_ls_t1" in r]
+            i_ls_eff = [r["idx"] for r in self.data if "x_ls_eff" in r]
+            x_ls_t2  = [r["x_ls_t2"] for r in self.data if "x_ls_t2" in r]
+            x_ls_t1  = [r["x_ls_t1"] for r in self.data if "x_ls_t1" in r]
+            x_ls_eff = [r["x_ls_eff"] for r in self.data if "x_ls_eff" in r]
 
-            plt.scatter(idx_x_ls, x_ls,
-                        label="LS Estimations", marker="x", s=1.0)
+            if (len(x_ls_t1) > 0):
+                plt.scatter(i_ls_t1, x_ls_t1,
+                            label="LS Estimations - t1", marker="x", s=1.0)
+            if (len(x_ls_t2) > 0):
+                plt.scatter(i_ls_t2, x_ls_t2,
+                            label="LS Estimations - t2", marker="v", s=1.0)
+            if (len(x_ls_eff) > 0):
+                plt.scatter(i_ls_eff, x_ls_eff,
+                            label="LS Estimations - eff", marker="d", s=1.0)
 
         # Best raw measurements
         if (show_best):
@@ -65,37 +69,48 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_toffset_err_vs_time(self, show_ls=False, save=False):
+    def plot_toffset_err_vs_time(self, show_raw=True, show_ls=False,
+                                 save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
 
         Args:
+            show_raw  : Show raw measurements
             show_ls   : Show least-squares fit
             save      : Save the figure
 
         """
         n_data      = len(self.data)
 
-        # Error of raw measurements
-        x_tilde_err = np.zeros(n_data)
-        for idx, results in enumerate(self.data):
-            x_tilde_err[idx] = results["x_est"] - results["x"]
-
         plt.figure()
-        plt.scatter(range(0, n_data), x_tilde_err, label="Measurements", s = 1.0)
+
+        if (show_raw):
+            # Error of raw measurements
+            x_tilde_err = [r["x_est"] - r["x"] for r in self.data]
+            plt.scatter(range(0, n_data), x_tilde_err, label="Measurements", s = 1.0)
 
         # Least-squares estimations
         if (show_ls):
-            idx_x_ls = list()
-            x_ls_err = list()
-            for idx, res in enumerate(self.data):
-                if ("x_ls" in res):
-                    idx_x_ls.append(idx)
-                    x_ls_err.append(res["x_ls"] - res["x"])
+            i_ls_t2      = [r["idx"] for r in self.data if "x_ls_t2" in r]
+            i_ls_t1      = [r["idx"] for r in self.data if "x_ls_t1" in r]
+            i_ls_eff     = [r["idx"] for r in self.data if "x_ls_eff" in r]
+            x_ls_err_t2  = [r["x_ls_t2"] - r["x"] for r in self.data
+                            if "x_ls_t2" in r]
+            x_ls_err_t1  = [r["x_ls_t1"] - r["x"] for r in self.data
+                            if "x_ls_t1" in r]
+            x_ls_err_eff = [r["x_ls_eff"] - r["x"] for r in self.data
+                            if "x_ls_eff" in r]
 
-            plt.scatter(idx_x_ls, x_ls_err,
-                        label="LS Estimations", marker="x", s=1.0)
+            if (len(x_ls_err_t1) > 0):
+                plt.scatter(i_ls_t1, x_ls_err_t1,
+                            label="LS Estimations - t1", marker="x", s=1.0)
+            if (len(x_ls_err_t2) > 0):
+                plt.scatter(i_ls_t2, x_ls_err_t2,
+                            label="LS Estimations - t2", marker="v", s=1.0)
+            if (len(x_ls_err_eff) > 0):
+                plt.scatter(i_ls_eff, x_ls_err_eff,
+                            label="LS Estimations - eff", marker="d", s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Time offset Error (ns)')
@@ -114,11 +129,8 @@ class Analyser():
 
         """
         n_data = len(self.data)
-        d      = np.zeros(n_data)
-        d_est  = np.zeros(n_data)
-        for idx, results in enumerate(self.data):
-            d[idx]     = results["d"]
-            d_est[idx] = results["d_est"]
+        d      = [r["d"] for r in self.data]
+        d_est  = [r['d_est'] for r in self.data]
 
         plt.figure()
         plt.scatter(range(0, n_data), d_est, label="Measurements", s = 1.0)
@@ -140,11 +152,8 @@ class Analyser():
 
         """
         n_data = len(self.data)
-        d      = np.zeros(n_data)
-        d_est  = np.zeros(n_data)
-        for idx, results in enumerate(self.data):
-            d[idx]     = results["d"]
-            d_est[idx] = results["d_est"]
+        d      = [r["d"] for r in self.data]
+        d_est  = [r["d_est"] for r in self.data]
 
         plt.figure()
         plt.scatter(range(0, n_data), d_est -d, s = 1.0)
@@ -165,24 +174,30 @@ class Analyser():
 
         """
         n_data = len(self.data)
-        y      = np.zeros(n_data)
-        for idx, results in enumerate(self.data):
-            y[idx] = results["rtc_y"]
+        y      = [r["rtc_y"] for r in self.data]
 
         plt.figure()
         plt.scatter(range(0, n_data), y, label="True Values", s = 1.0)
 
-        # Least-squares estimations
+        # Show least-squares estimations
         if (show_ls):
-            idx_y_ls = list()
-            y_ls     = list()
-            for idx, res in enumerate(self.data):
-                if ("y_ls" in res):
-                    idx_y_ls.append(idx)
-                    y_ls.append(res["y_ls"])
+            i_ls_t2  = [r["idx"] for r in self.data if "y_ls_t2" in r]
+            i_ls_t1  = [r["idx"] for r in self.data if "y_ls_t1" in r]
+            i_ls_eff = [r["idx"] for r in self.data if "y_ls_eff" in r]
+            y_ls_t2  = [r["y_ls_t2"] for r in self.data if "y_ls_t2" in r]
+            y_ls_t1  = [r["y_ls_t1"] for r in self.data if "y_ls_t1" in r]
+            y_ls_eff = [r["y_ls_eff"] for r in self.data if "y_ls_eff" in r]
 
-            plt.scatter(idx_y_ls, y_ls,
-                        label="LS Estimations", marker="x", s=1.0)
+            if (len(y_ls_t2) > 0):
+                plt.scatter(i_ls_t2, y_ls_t2,
+                            label="LS Estimations - t2", marker="x", s=1.0)
+            if (len(y_ls_t1) > 0):
+                plt.scatter(i_ls_t1, y_ls_t1,
+                            label="LS Estimations - t1", marker="v", s=1.0)
+            if (len(y_ls_eff) > 0):
+                plt.scatter(i_ls_eff, y_ls_eff,
+                            label="LS Estimations - t1 nominal", marker="d",
+                            s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Frequency Offset (ppb)')

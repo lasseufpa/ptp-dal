@@ -11,10 +11,12 @@ runner.run()
 N  = 64
 ls = ptp.ls.Ls(N, runner.data)
 ls.process()
+ls.process(impl="t1")
+ls.process(impl="eff")
 
 # PTP analyser
 analyser = ptp.metrics.Analyser(runner.data)
 analyser.plot_toffset_vs_time(show_ls=True, show_best=True, save=True)
-analyser.plot_toffset_err_vs_time(show_ls=True, save=True)
+analyser.plot_toffset_err_vs_time(show_raw=False, show_ls=True, save=True)
 analyser.plot_foffset_vs_time(show_ls=True, save=True)
 
