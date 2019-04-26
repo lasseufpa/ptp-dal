@@ -129,7 +129,8 @@ class Runner():
                 dreqresp.set_forward_delay(sync.seq_num,
                                            sync.one_way_delay)
                 # Schedule the Delay_Req transmission after a random delay
-                rndm_t2_to_t3 = random.gauss(5 * 1e-6, 1e-6)
+                rndm_t2_to_t3 = random.gauss(70 * 1e-6, 2e-6)
+                # NOTE: our testbed measures around 70 microseconds
                 dreq.sched_tx(sim_time + rndm_t2_to_t3, evts)
 
             if (dreq_transmitted):

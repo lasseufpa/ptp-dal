@@ -36,8 +36,11 @@ class PtpEvt():
 
         """
 
-        self.next_tx = tx_sim_time + self.period_sec
-        # TODO model message interval uncertainty
+        uncertainty_ns = np.random.normal(0, 1500)
+        # NOTE: we've measured around 1.5 microsecs of uncertainty on the
+        # interval between consecutive t1s
+
+        self.next_tx = tx_sim_time + self.period_sec + (uncertainty_ns * 1e-9)
 
     def _sched_rx(self, tx_sim_time):
         """Schedule Reception
