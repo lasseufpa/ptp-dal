@@ -15,4 +15,5 @@ analyser.plot_foffset_vs_time(save=True)
 analyser.plot_delay_vs_time(save=True)
 analyser.plot_delay_est_err_vs_time(save=True)
 analyser.plot_pdv_vs_time(save=True)
+analyser.plot_mtie(save=True, show_ls=False)
 
