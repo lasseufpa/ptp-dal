@@ -54,7 +54,7 @@ class Ls():
         # Vector of noisy time offset observations
         x_obs   = [res["x_est"] for res in self.data]
 
-        # Vector of mater timestamps
+        # Vector of master timestamps
         t1 = [res["t1"] for res in self.data]
 
         # For "t1" and "t2", initialize vector of timestamps. For "eff",
@@ -108,5 +108,5 @@ class Ls():
             # Include LS estimations within the simulation data
             self.data[i_e - 1]["x_ls_" + impl] = x_f
             if (impl != "eff"):
-                self.data[i_e - 1]["y_ls_" + impl] = y*1e9
+                self.data[i_e - 1]["y_ls_" + impl] = y
 

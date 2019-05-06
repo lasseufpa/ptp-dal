@@ -49,8 +49,9 @@ class Rtc():
         self.t_last_inc = 0
 
         # Simulation of driving clock frequency
-        self.freq_noise_sdev_hz    = stability_ppb * freq_hz * 1e-9
+        freq_stability             = stability_ppb * 1e-9
         self.freq_update_period_ns = 1e6
+        self.freq_noise_sdev_hz    = freq_stability * freq_hz
         self.t_last_freq_update    = 0
 
         logger = logging.getLogger('Rtc')
@@ -101,7 +102,7 @@ class Rtc():
         #
         # Schedule periodic wake-ups for the RTC in order to simulate its
         # driving frequency randomly changing over time
-        if (evts is not None):
+        if (evts is not None and self.freq_noise_sdev_hz != 0):
             if (self._randomize_driving_clk(t_sim_ns)):
                 # Schedule next update
                 heapq.heappush(evts,

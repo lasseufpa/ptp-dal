@@ -15,7 +15,8 @@ class Analyser():
         """
         self.data = data
 
-    def plot_toffset_vs_time(self, show_best=False, show_ls=False, save=False):
+    def plot_toffset_vs_time(self, show_best=False, show_ls=False,
+                             show_kf=False, save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -23,6 +24,7 @@ class Analyser():
         Args:
             show_best : Enable to highlight the best measurements.
             show_ls   : Show least-squares fit
+            show_kf   : Show Kalman filtering results
             save      : Save the figure
 
         """
@@ -31,7 +33,7 @@ class Analyser():
         x       = np.array([r["x"] for r in self.data])
 
         plt.figure()
-        plt.scatter(range(0, n_data), x_tilde, label="Measurements", s = 1.0)
+        plt.scatter(range(0, n_data), x_tilde, label="Raw Measurements", s = 1.0)
         plt.scatter(range(0, n_data), x, label="True Values", s = 1.0)
 
         # Least-squares estimations
@@ -53,6 +55,13 @@ class Analyser():
                 plt.scatter(i_ls_eff, x_ls_eff,
                             label="LS Estimations - eff", marker="d", s=1.0)
 
+        # Kalman filtering output
+        if (show_kf):
+            i_kf  = [r["idx"] for r in self.data if "x_kf" in r]
+            x_kf  = [r["x_kf"] for r in self.data if "x_kf" in r]
+            plt.scatter(i_kf, x_kf,
+                        label="Kalman", marker="v", s=1.0)
+
         # Best raw measurements
         if (show_best):
             err      = x_tilde - x
@@ -70,7 +79,7 @@ class Analyser():
             plt.show()
 
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=False,
-                                 save=False):
+                                 show_kf=False, save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -78,6 +87,7 @@ class Analyser():
         Args:
             show_raw  : Show raw measurements
             show_ls   : Show least-squares fit
+            show_kf   : Show Kalman filtering results
             save      : Save the figure
 
         """
@@ -88,7 +98,7 @@ class Analyser():
         if (show_raw):
             # Error of raw measurements
             x_tilde_err = [r["x_est"] - r["x"] for r in self.data]
-            plt.scatter(range(0, n_data), x_tilde_err, label="Measurements", s = 1.0)
+            plt.scatter(range(0, n_data), x_tilde_err, label="Raw Measurements", s = 1.0)
 
         # Least-squares estimations
         if (show_ls):
@@ -112,6 +122,13 @@ class Analyser():
                 plt.scatter(i_ls_eff, x_ls_err_eff,
                             label="LS Estimations - eff", marker="d", s=1.0)
 
+        # Kalman filtering output
+        if (show_kf):
+            i_kf     = [r["idx"] for r in self.data if "x_kf" in r]
+            x_err_kf = [r["x_kf"] - r["x"] for r in self.data if "x_kf" in r]
+            plt.scatter(i_kf, x_err_kf,
+                        label="Kalman", marker="v", s=1.0)
+
         plt.xlabel('Realization')
         plt.ylabel('Time offset Error (ns)')
         plt.legend()
@@ -133,7 +150,7 @@ class Analyser():
         d_est  = [r['d_est'] for r in self.data]
 
         plt.figure()
-        plt.scatter(range(0, n_data), d_est, label="Measurements", s = 1.0)
+        plt.scatter(range(0, n_data), d_est, label="Raw Measurements", s = 1.0)
         plt.scatter(range(0, n_data), d, label="True Values", s = 1.0)
         plt.xlabel('Realization')
         plt.ylabel('Delay Estimation (ns)')
@@ -165,28 +182,36 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_foffset_vs_time(self, show_ls=False, save=False):
+    def plot_foffset_vs_time(self, show_raw=True, show_ls=False, show_kf=False,
+                             save=False):
         """Plot freq. offset vs time
 
         Args:
+            show_raw  : Show raw measurements
             show_ls   : Show least-squares estimations
+            show_kf   : Show Kalman filtering results
             save      : Save the figure
 
         """
-        n_data = len(self.data)
-        y      = [r["rtc_y"] for r in self.data]
+        n_data    = len(self.data)
+        y         = [r["rtc_y"] for r in self.data]
 
         plt.figure()
         plt.scatter(range(0, n_data), y, label="True Values", s = 1.0)
+
+        if (show_raw):
+            i_y_tilde = [r["idx"] for r in self.data if "y_est" in r]
+            y_tilde   = [1e9*r["y_est"] for r in self.data if "y_est" in r]
+            plt.scatter(i_y_tilde, y_tilde, label="Raw Measurements", s = 2.0)
 
         # Show least-squares estimations
         if (show_ls):
             i_ls_t2  = [r["idx"] for r in self.data if "y_ls_t2" in r]
             i_ls_t1  = [r["idx"] for r in self.data if "y_ls_t1" in r]
             i_ls_eff = [r["idx"] for r in self.data if "y_ls_eff" in r]
-            y_ls_t2  = [r["y_ls_t2"] for r in self.data if "y_ls_t2" in r]
-            y_ls_t1  = [r["y_ls_t1"] for r in self.data if "y_ls_t1" in r]
-            y_ls_eff = [r["y_ls_eff"] for r in self.data if "y_ls_eff" in r]
+            y_ls_t2  = [1e9*r["y_ls_t2"] for r in self.data if "y_ls_t2" in r]
+            y_ls_t1  = [1e9*r["y_ls_t1"] for r in self.data if "y_ls_t1" in r]
+            y_ls_eff = [1e9*r["y_ls_eff"] for r in self.data if "y_ls_eff" in r]
 
             if (len(y_ls_t2) > 0):
                 plt.scatter(i_ls_t2, y_ls_t2,
@@ -198,6 +223,13 @@ class Analyser():
                 plt.scatter(i_ls_eff, y_ls_eff,
                             label="LS Estimations - t1 nominal", marker="d",
                             s=1.0)
+
+        # Kalman filtering output
+        if (show_kf):
+            i_kf  = [r["idx"] for r in self.data if "y_kf" in r]
+            y_kf  = [1e9*r["y_kf"] for r in self.data if "y_kf" in r]
+            plt.scatter(i_kf, y_kf,
+                        label="Kalman", s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Frequency Offset (ppb)')

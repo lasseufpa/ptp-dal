@@ -22,10 +22,11 @@ From the root folder:
 python -m unittest discover
 ```
 
-## Util scripts
+## Test/demo scripts
 
 * `ptp_plots.py`: Demonstrates several plots that can be generated using the
   `ptp.metrics` module.
 * `ptp_estimators.py`: Demonstrates several estimators that can be used to
   post-process the PTP measurements and achieve better synchronization.
+* `kalman_test.py`: Demonstrates how to evaluate Kalman filtering.
 

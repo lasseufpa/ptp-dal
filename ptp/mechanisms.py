@@ -127,7 +127,7 @@ class DelayReqResp():
         delay_est     = self._estimate_delay()
         toffset_est   = self._estimate_time_offset()
 
-        # Estimation error
+        # Time offset estimation error
         toffset_err = float(toffset_est - toffset)
 
         logger = logging.getLogger("DelayReqResp")

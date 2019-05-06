@@ -5,7 +5,7 @@ import numpy as np
 
 
 class PtpEvt():
-    def __init__(self, name, period_sec=None):
+    def __init__(self, name, period_sec=None, pdv_distr="Gamma"):
         """PTP Event Message
 
         Controls transmission and reception of a PTP event message. When the
@@ -15,6 +15,7 @@ class PtpEvt():
         Args:
             name       : Message name
             period_sec : Transmission period in seconds
+            pdv_distr  : PDV distribution
 
         """
 
@@ -27,6 +28,9 @@ class PtpEvt():
         self.tx_tstamp     = None
         self.rx_tstamp     = None
         self.one_way_delay = None
+        self.pdv_distr     = pdv_distr
+
+        assert(pdv_distr == "Gamma" or pdv_distr == "Gaussian")
 
     def _sched_next_tx(self, tx_sim_time):
         """Compute next transmission time for periodic message
@@ -50,8 +54,12 @@ class PtpEvt():
 
         """
 
-        delay_ns     = np.random.gamma(shape=2, scale=1000)
-        # FIXME set Gamma params
+        if (self.pdv_distr == "Gamma"):
+            delay_ns = np.random.gamma(shape=2, scale=1000)
+            # FIXME set Gamma params
+        elif (self.pdv_distr == "Gaussian"):
+            delay_ns = np.random.normal(loc=2000, scale=200)
+            # FIXME set Gaussian params
 
         self.next_rx = tx_sim_time + (delay_ns * 1e-9)
 
