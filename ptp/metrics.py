@@ -168,12 +168,11 @@ class Analyser():
             save      : Save the figure
 
         """
-        n_data = len(self.data)
-        d      = [r["d"] for r in self.data]
-        d_est  = [r["d_est"] for r in self.data]
+        n_data    = len(self.data)
+        d_est_err = [r["d_est"] - r["d"] for r in self.data]
 
         plt.figure()
-        plt.scatter(range(0, n_data), d_est -d, s = 1.0)
+        plt.scatter(range(0, n_data), d_est_err, s = 1.0)
         plt.xlabel('Realization')
         plt.ylabel('Delay Estimation Error (ns)')
 
