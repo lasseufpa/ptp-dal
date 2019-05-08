@@ -49,4 +49,6 @@ analyser.plot_foffset_vs_time(show_ls=True,
                               show_kf=True,
                               show_raw=False,
                               save=True)
-
+analyser.plot_mtie(show_ls=True,
+                   show_kf=True,
+                   save=True)

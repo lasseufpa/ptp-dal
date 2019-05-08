@@ -325,7 +325,7 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_mtie(self, show_ls=False, save=False):
+    def plot_mtie(self, show_ls=False, show_kf=False, save=False):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time interval error (TIE) samples are assumed to be
@@ -340,8 +340,9 @@ class Analyser():
         is computed, but useful for the evaluation and simpler to implement.
 
         Args:
-            show_ls   : Show least-squares fit
-            save : Save the figure
+            show_ls : Show least-squares fit
+            show_kf : Show Kalman filtering results
+            save    : Save the figure
 
         """
         plt.figure()
@@ -377,6 +378,16 @@ class Analyser():
                 tau_ls_eff, mtie_ls_eff = self.mtie(x_ls_err_eff)
                 plt.scatter(tau_ls_eff, mtie_ls_eff,
                             label="LS (Efficient)", marker="x")
+
+        # Kalman filtering output
+        if (show_kf):
+            # Kalman has a transitory. Try to skip it by throwing away an
+            # arbitrary number of initial values.
+            kf_data         = self.data[200:]
+            i_kf            = [r["idx"] for r in kf_data if "y_kf" in r]
+            x_err_kf        = [r["x_kf"] - r["x"] for r in kf_data if "x_kf" in r]
+            tau_kf, mtie_kf = self.mtie(x_err_kf)
+            plt.scatter(tau_kf, mtie_kf, label="Kalman")
 
         plt.xlabel ('Observation interval (samples)')
         plt.ylabel("MTIE (ns)")
