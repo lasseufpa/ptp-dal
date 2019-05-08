@@ -52,7 +52,7 @@ class Ls():
         N      = self.N
 
         # Vector of noisy time offset observations
-        x_obs   = [res["x_est"] for res in self.data]
+        x_obs   = np.array([res["x_est"] for res in self.data])
 
         # Vector of master timestamps
         t1 = [res["t1"] for res in self.data]
@@ -68,9 +68,40 @@ class Ls():
         else:
             raise ValueError("Unsupported LS timestamp mode")
 
+        # Vectorized and efficient implementation
+        #
+        # NOTE: the non-vectorized but efficient implementation can still be
+        # found below, as it helps for understanding. However, the following
+        # vectorized implementation is the one that is effectively used, as it
+        # is much faster.
+        if (impl == "eff"):
+            # Stack overlapping windows into columns of a matrix
+            n_windows = n_data - N + 1
+            X_obs     = np.zeros(shape=(N, n_windows))
+            for i in range(N):
+                X_obs[i, :] = x_obs[i:n_windows+i]
+
+            # Q1 and Q2 accumulator values for each window
+            Q      = np.zeros(shape=(2, n_windows))
+            Q[0,:] = np.sum(X_obs, axis=0)
+            Q[1,:] = np.dot(np.arange(N), X_obs)
+
+            # LS estimations
+            Theta     = np.dot(P,Q)
+            X0        = Theta[0,:]
+            Y_times_T = Theta[1,:]
+            Xf        = X0 + (Y_times_T * N)
+
+            # Indices where results will be placed
+            idx = np.arange(N, n_data)
+
+            for i_x, i_res in enumerate(idx):
+                self.data[i_res]["x_ls_" + impl] = Xf[i_x]
+
+            return
 
         # Iterate over sliding windows of observations
-        for i in range(0, n_data - N):
+        for i in range(0, n_data - N + 1):
             # Window start and end indexes
             i_s = i
             i_e = i + N
@@ -85,8 +116,8 @@ class Ls():
                     Q_1   = np.sum(x_obs_w)
                 else:
                     # Slide accumulator - throw away oldest and add new
-                    Q_1   -= x_obs[i_s - 1]
-                    Q_1   += x_obs[i_e]
+                    Q_1 -= x_obs[i_s - 1]
+                    Q_1 += x_obs[i_e -1]
 
                 # Accumulator 2
                 Q_2   = np.sum(np.multiply(np.arange(N), x_obs_w))
