@@ -80,9 +80,19 @@ class Ls():
 
             # LS estimation
             if (impl == "eff"):
-                # Accumulators
-                Q_1   = np.sum(x_obs_w)
+                # Accumulator 1
+                if (i == 0):
+                    Q_1   = np.sum(x_obs_w)
+                else:
+                    # Slide accumulator - throw away oldest and add new
+                    Q_1   -= x_obs[i_s - 1]
+                    Q_1   += x_obs[i_e]
+
+                # Accumulator 2
                 Q_2   = np.sum(np.multiply(np.arange(N), x_obs_w))
+                # NOTE: we can't slide Q_2 like Q_1. This is because all weights
+                # change from one window to the other.
+
                 Q     = np.array([Q_1, Q_2])
                 # LS Estimation
                 Theta     = np.dot(P,Q.T);
