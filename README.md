@@ -31,3 +31,24 @@ python -m unittest discover
 * `kalman_test.py`: Demonstrates how to evaluate Kalman filtering.
 * `ls_vs_window.py` : Evaluates LS performance with respect to the observation
   window length.
+* `test_reader.py`: Demonstrates how pre-acquired data can be loaded into the
+  simulator.
+
+### Running with acquired data
+
+The script named `test_reader.py` can load data acquired with real hardware and
+post-process it using the simulator's algorithms. An example log file is
+available at `data/example_log.json`. To process it, run:
+
+```
+python test_reader.py -vvvvvv -f data/example_log.json -N 10
+```
+
+This will run 10 iterations only, and with debugging prints enabled.
+
+To process it fully without log, run:
+
+```
+python test_reader.py -f data/example_log.json
+```
+

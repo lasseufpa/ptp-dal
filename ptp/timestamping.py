@@ -88,7 +88,7 @@ class Timestamp():
 
     def __str__(self):
         """Print sec and ns values"""
-        return '{:5} sec, {:9} ns'.format(self.sec, np.floor(self.ns))
+        return '{:5d} sec, {:9d} ns'.format(self.sec, int(np.floor(self.ns)))
 
     def __float__(self):
         """Cast timestamp to float"""
