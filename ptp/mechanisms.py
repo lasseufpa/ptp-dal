@@ -12,20 +12,21 @@ class DelayReqResp():
             seq_num : Sequence number
             t1      : Sync departure timestamp
         """
-        self.seq_num = seq_num
-        self.t1      = t1
-        self.t2      = None
-        self.t3      = None
-        self.t4      = None
-        self.d_fw    = None
-        self.d_bw    = None
+        self.seq_num   = seq_num
+        self.t1        = t1
+        self.t2        = None
+        self.t3        = None
+        self.t4        = None
+        self.d_fw      = None
+        self.d_bw      = None
+        self.toffset   = None
+        self.asymmetry = None
 
     def log_header(self):
         """Print logging header"""
 
-        header = '{:>4} {:^23} {:^23} {:^23} {:^23} {:^9} {:^9} {:^11}'.format(
-            "idx", "t1", "t2", "t3", "t4", "delay_est",
-            "asymmetry", "toffset_err"
+        header = '{:>4} {:^23} {:^23} {:^23} {:^23} {:^9} {:^9}'.format(
+            "idx", "t1", "t2", "t3", "t4", "delay_est", "x_est"
         )
 
         logger = logging.getLogger("DelayReqResp")
@@ -106,42 +107,42 @@ class DelayReqResp():
         offset_from_master = ((self.t2 - self.t1) - (self.t4 - self.t3)) / 2
         return offset_from_master
 
-    def process(self, master_tstamp, slave_tstamp):
-        """Process all four timestamps
+    def set_truth(self, master_tstamp, slave_tstamp):
+        """Save the true time offset and asymmetry within the dataset
 
-        Wrap-up the delay request-response exchange by computing the associated
-        metrics with the four collected timestamps. Use also the supplied RTC
-        timestamps to assess the true time offset at this point and evaluate the
-        estimation.
+        Use also the supplied RTC timestamps to assess the true time offset at
+        this point and evaluate the estimation.
 
         Args:
             master_tstamp : Timestamp from the master RTC
             slave_tstamp  : Timestamp from the slave RTC
+
         """
 
-        # True values:
-        toffset   = slave_tstamp - master_tstamp
-        asymmetry = (self.d_fw - self.d_bw) / 2
+        self.toffset   = slave_tstamp - master_tstamp
+        self.asymmetry = (self.d_fw - self.d_bw) / 2
+
+        logger = logging.getLogger("DelayReqResp")
+        logger.debug("m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
+            self.d_fw, self.d_bw, self.asymmetry))
+
+    def process(self):
+        """Process all four timestamps
+
+        Wrap-up the delay request-response exchange by computing the associated
+        metrics with the four collected timestamps.
+
+        Returns:
+            Dictionary with resulting metrics
+
+        """
 
         # Estimations
         delay_est     = self._estimate_delay()
         toffset_est   = self._estimate_time_offset()
 
-        # Time offset estimation error
-        toffset_err = float(toffset_est - toffset)
-
-        logger = logging.getLogger("DelayReqResp")
-        line = '{:>4d} {:^23} {:^23} {:^23} {:^23} {:^9.1f} {:^9.1f} {:11.1f}'.format(
-            self.seq_num, str(self.t1), str(self.t2), str(self.t3),
-            str(self.t4), delay_est, asymmetry, toffset_err
-        )
-        logger.info(line)
-        logger.debug("m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
-            self.d_fw, self.d_bw, asymmetry))
-        logger.debug("time offset: %s\testimated: %s\terr: %s" %(
-            toffset, toffset_est, toffset_err))
-
-        return {
+        # Save all relevant metrics on a dictionary
+        results = {
             "idx"       : self.seq_num,
             "t1"        : self.t1,
             "t2"        : self.t2,
@@ -150,7 +151,28 @@ class DelayReqResp():
             "d"         : self.d_fw, # Sync one-way delay
             "d_est"     : delay_est,
             "x_est"     : float(toffset_est),
-            "asym"      : asymmetry,
-            "x"         : float(toffset),
-            "x_est_err" : toffset_err
         }
+
+        logger = logging.getLogger("DelayReqResp")
+
+        # Append optionally-defined metrics
+        if (self.asymmetry is not None):
+            results["asym"] = self.asymmetry
+
+        if (self.toffset is not None):
+            # Time offset estimation error
+            toffset_err = float(toffset_est - self.toffset)
+            # Save on results
+            results["x"]         = float(self.toffset)
+            results["x_est_err"] = toffset_err
+
+            logger.debug("time offset: %s\testimated: %s\terr: %s" %(
+                self.toffset, toffset_est, toffset_err))
+
+        line = '{:>4d} {:^23} {:^23} {:^23} {:^23} {:^9.1f} {:^9.1f}'.format(
+            self.seq_num, str(self.t1), str(self.t2), str(self.t3),
+            str(self.t4), delay_est, float(toffset_est)
+        )
+        logger.info(line)
+
+        return results

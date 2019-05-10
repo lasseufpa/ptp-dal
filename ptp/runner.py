@@ -158,9 +158,12 @@ class Runner():
                 # Save the true one-way delay
                 dreqresp.set_backward_delay(dreq.seq_num,
                                             dreq.one_way_delay)
+                # Define true time offset and asymmetry
+                dreqresp.set_truth(master_rtc.get_time(),
+                                   slave_rtc.get_time())
+
                 # Process all four timestamps
-                results = dreqresp.process(master_rtc.get_time(),
-                                           slave_rtc.get_time())
+                results = dreqresp.process()
 
                 # Estimate frequency offset
                 y_est = freq_estimator.process(dreqresp.t1, dreqresp.t2)
