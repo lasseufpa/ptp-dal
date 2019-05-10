@@ -61,7 +61,7 @@ class Analyser():
         return tau_array, mtie_array
 
     def plot_toffset_vs_time(self, show_best=False, show_ls=False,
-                             show_kf=False, save=False):
+                             show_kf=False, show_true=True, save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -70,16 +70,19 @@ class Analyser():
             show_best : Enable to highlight the best measurements.
             show_ls   : Show least-squares fit
             show_kf   : Show Kalman filtering results
+            show_true : Show true values
             save      : Save the figure
 
         """
         n_data  = len(self.data)
         x_tilde = np.array([r["x_est"] for r in self.data])
-        x       = np.array([r["x"] for r in self.data])
 
         plt.figure()
         plt.scatter(range(0, n_data), x_tilde, label="Raw Measurements", s = 1.0)
-        plt.scatter(range(0, n_data), x, label="True Values", s = 1.0)
+
+        if (show_true):
+            x       = np.array([r["x"] for r in self.data])
+            plt.scatter(range(0, n_data), x, label="True Values", s = 1.0)
 
         # Least-squares estimations
         if (show_ls):
@@ -109,6 +112,7 @@ class Analyser():
 
         # Best raw measurements
         if (show_best):
+            assert(show_true), "show_best requires show_true"
             err      = x_tilde - x
             best_idx = np.squeeze(np.where(abs(err) < 10))
             plt.scatter(best_idx, x_tilde[best_idx],
