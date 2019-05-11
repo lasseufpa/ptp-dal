@@ -2,29 +2,40 @@ import logging, json
 import numpy as np
 from ptp.timestamping import Timestamp
 from ptp.mechanisms import *
+from ptp.estimators import *
 
 
 class Reader():
     """Reader of data acquired through the test
 
-    Captures data in real-time via serial communication or reads a log file with
-    previously acquired data. Saves the data into a list of dictionaries that
-    contain the same keys as produced by the PTP runner.
+    Captures timestamps in real-time via serial communication or reads a log
+    file with previously acquired timestamps. Post-processes the timestamps
+    following the same sequence that is adopted by the PTP runner and similarly
+    saves reults into a list of dictionaries containing the same keys as
+    produced by the runner.
 
     """
-    def __init__(self, log_file=None):
+    def __init__(self, log_file=None, freq_est_per = 1e9):
         """Constructor
 
         Args:
-            log_file : JSON log file to read from
+            log_file     : JSON log file to read from
+            freq_est_per : Raw freq. estimation period in ns
 
         """
-        self.running  = True
-        self.data     = list()
-        self.log_file = log_file
+        self.running         = True
+        self.data            = list()
+        self.log_file        = log_file
+        self.freq_est_per_ns = freq_est_per
 
     def process(self, max_len, infer_secs):
-        """Load the JSON data into self.data
+        """Loads timestamps and post-processes to generate PTP data
+
+        First loads a list containing sets of timestamps (t1, t2, t3 and t4)
+        from a JSON. Then, iteratively applies the timestamps into delay
+        request-response mechanism objects, using the latter to post-process the
+        timestamps and obtain PTP metrics. Save each metric into self.data just
+        like the PTP runner.
 
         Args:
             max_len    : Maximum number of entries to process
@@ -35,13 +46,19 @@ class Reader():
         with open(self.log_file) as fin:
             data = json.load(fin)
 
+        # Raw frequency offset estimator
+        freq_estimator = FreqEstimator(self.freq_est_per_ns)
+
+        # Debug print header
         DelayReqResp(0,0).log_header()
 
+        # Restrict number of iterations, if so desired
         if (max_len > 0):
             n_data = max_len
         else:
             n_data = len(data)
 
+        # Prepare to infer seconds, if so desired
         if (infer_secs):
             last_t1_ns = 0
             last_t2_ns = 0
@@ -100,6 +117,12 @@ class Reader():
 
             # Process and put results within self.data
             results = dreqresp.process()
+
+            # Estimate frequency offset
+            y_est = freq_estimator.process(dreqresp.t1, dreqresp.t2)
+            if (y_est is not None):
+                results["y_est"] = y_est
+
             self.data.append(results)
 
         return data

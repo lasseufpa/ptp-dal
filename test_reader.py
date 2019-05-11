@@ -2,6 +2,7 @@ import argparse, logging, sys
 import ptp.reader
 import ptp.ls
 import ptp.metrics
+import ptp.kalman
 
 def main():
     parser = argparse.ArgumentParser(description="PTP log reader test")
@@ -24,7 +25,7 @@ def main():
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     # Run PTP simulation
-    reader = ptp.reader.Reader(args.file)
+    reader = ptp.reader.Reader(args.file, freq_est_per = 0)
     reader.process(args.num_iter, args.infer_secs)
 
     # Least-squares estimator
@@ -33,11 +34,16 @@ def main():
     ls = ptp.ls.Ls(N, reader.data, T_ns)
     ls.process("eff")
 
+    # Kalman
+    kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)
+    kalman.process()
+
     # PTP analyser
     analyser = ptp.metrics.Analyser(reader.data)
-    analyser.plot_toffset_vs_time(show_ls=True, show_true=False, save=True)
-    analyser.plot_foffset_vs_time(show_ls=True, show_raw=False, show_true=False,
-                                  save=True)
+    analyser.plot_toffset_vs_time(show_ls=True, show_true=False, show_kf=True,
+                                  n_skip_kf=1000, save=True)
+    analyser.plot_foffset_vs_time(show_ls=True, show_raw=False, show_kf=True,
+                                  n_skip_kf=1000, show_true=False, save=True)
 
 
 if __name__ == "__main__":

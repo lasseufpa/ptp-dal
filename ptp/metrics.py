@@ -61,7 +61,8 @@ class Analyser():
         return tau_array, mtie_array
 
     def plot_toffset_vs_time(self, show_best=False, show_ls=False,
-                             show_kf=False, show_true=True, save=False):
+                             show_kf=False, show_true=True, n_skip_kf=0,
+                             save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -70,6 +71,7 @@ class Analyser():
             show_best : Enable to highlight the best measurements.
             show_ls   : Show least-squares fit
             show_kf   : Show Kalman filtering results
+            n_skip_kf : Number of initial Kalman filter samples to skip
             show_true : Show true values
             save      : Save the figure
 
@@ -107,8 +109,12 @@ class Analyser():
         if (show_kf):
             i_kf  = [r["idx"] for r in self.data if "x_kf" in r]
             x_kf  = [r["x_kf"] for r in self.data if "x_kf" in r]
-            plt.scatter(i_kf, x_kf,
-                        label="Kalman", marker="v", s=1.0)
+            if (n_skip_kf > 0):
+                skip_label = " (after first %d)" %(n_skip_kf)
+            else:
+                skip_label = ""
+            plt.scatter(i_kf[n_skip_kf:], x_kf[n_skip_kf:],
+                        label="Kalman" + skip_label, marker="v", s=1.0)
 
         # Best raw measurements
         if (show_best):
@@ -231,13 +237,14 @@ class Analyser():
             plt.show()
 
     def plot_foffset_vs_time(self, show_raw=True, show_ls=False, show_kf=False,
-                             show_true=True, save=False):
+                             show_true=True, n_skip_kf=0, save=False):
         """Plot freq. offset vs time
 
         Args:
             show_raw  : Show raw measurements
             show_ls   : Show least-squares estimations
             show_kf   : Show Kalman filtering results
+            n_skip_kf : Number of initial Kalman filter samples to skip
             show_true : Show true values
             save      : Save the figure
 
@@ -279,8 +286,14 @@ class Analyser():
         if (show_kf):
             i_kf  = [r["idx"] for r in self.data if "y_kf" in r]
             y_kf  = [1e9*r["y_kf"] for r in self.data if "y_kf" in r]
-            plt.scatter(i_kf, y_kf,
-                        label="Kalman", s=1.0)
+
+            if (n_skip_kf > 0):
+                skip_label = " (after first %d)" %(n_skip_kf)
+            else:
+                skip_label = ""
+
+            plt.scatter(i_kf[n_skip_kf:], y_kf[n_skip_kf:],
+                        label="Kalman" + skip_label, s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Frequency Offset (ppb)')

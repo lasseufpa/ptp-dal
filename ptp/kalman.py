@@ -1,5 +1,6 @@
 """Kalman Filter
 """
+import logging
 import numpy as np
 from pykalman import KalmanFilter
 
@@ -85,6 +86,8 @@ class Kalman():
 
         """
 
+        logger = logging.getLogger("KF")
+
         # Vector of noisy time offset observations
         idx_vec    = np.array([r["idx"] for r in self.data if "y_est" in r])
         x_obs_ns   = np.array([r["x_est"] for r in self.data if "y_est" in r])
@@ -106,4 +109,7 @@ class Kalman():
             # put filtered results in the list of runner results
             self.data[idx]["x_kf"] = state_mean[0]
             self.data[idx]["y_kf"] = state_mean[1]*1e-9
+
+            logger.debug("New state\tx_f: %f ns y: %f ppb" %(
+                state_mean[0], state_mean[1]))
 
