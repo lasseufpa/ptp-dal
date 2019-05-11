@@ -72,8 +72,20 @@ class Runner():
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
 
+        # Progress
+        self.last_progress_print = 0
+
         # Simulation data
         self.data = list()
+
+    def check_progress(self, i_iter):
+        """Check/print simulation progress"""
+
+        progress = i_iter / self.n_iter
+
+        if (progress > self.last_progress_print + 0.1):
+            print("Runner progress: %f %%" %(progress * 100))
+            self.last_progress_print = progress
 
     def run(self):
         """Main loop
@@ -189,4 +201,6 @@ class Runner():
             # Stop criterion
             if (i_iter >= self.n_iter):
                 stop = True
+
+            self.check_progress(i_iter)
 
