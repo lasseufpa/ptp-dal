@@ -95,13 +95,13 @@ class Analyser():
 
             if (len(x_ls_t1) > 0):
                 plt.scatter(i_ls_t1, x_ls_t1,
-                            label="LS Estimations - t1", marker="x", s=1.0)
+                            label="LSE (t1)", marker="x", s=1.0)
             if (len(x_ls_t2) > 0):
                 plt.scatter(i_ls_t2, x_ls_t2,
-                            label="LS Estimations - t2", marker="v", s=1.0)
+                            label="LSE (t2)", marker="v", s=1.0)
             if (len(x_ls_eff) > 0):
                 plt.scatter(i_ls_eff, x_ls_eff,
-                            label="LS Estimations - eff", marker="d", s=1.0)
+                            label="LSE (efficient)", marker="d", s=1.0)
 
         # Kalman filtering output
         if (show_kf):
@@ -163,13 +163,13 @@ class Analyser():
 
             if (len(x_ls_err_t1) > 0):
                 plt.scatter(i_ls_t1, x_ls_err_t1,
-                            label="LS Estimations - t1", marker="x", s=1.0)
+                            label="LSE (t1)", marker="x", s=1.0)
             if (len(x_ls_err_t2) > 0):
                 plt.scatter(i_ls_t2, x_ls_err_t2,
-                            label="LS Estimations - t2", marker="v", s=1.0)
+                            label="LSE (t2)", marker="v", s=1.0)
             if (len(x_ls_err_eff) > 0):
                 plt.scatter(i_ls_eff, x_ls_err_eff,
-                            label="LS Estimations - eff", marker="d", s=1.0)
+                            label="LSE (efficient)", marker="d", s=1.0)
 
         # Kalman filtering output
         if (show_kf):
@@ -231,21 +231,24 @@ class Analyser():
             plt.show()
 
     def plot_foffset_vs_time(self, show_raw=True, show_ls=False, show_kf=False,
-                             save=False):
+                             show_true=True, save=False):
         """Plot freq. offset vs time
 
         Args:
             show_raw  : Show raw measurements
             show_ls   : Show least-squares estimations
             show_kf   : Show Kalman filtering results
+            show_true : Show true values
             save      : Save the figure
 
         """
         n_data    = len(self.data)
-        y         = [r["rtc_y"] for r in self.data]
 
         plt.figure()
-        plt.scatter(range(0, n_data), y, label="True Values", s = 1.0)
+
+        if (show_true):
+            y = [r["rtc_y"] for r in self.data]
+            plt.scatter(range(0, n_data), y, label="True Values", s = 1.0)
 
         if (show_raw):
             i_y_tilde = [r["idx"] for r in self.data if "y_est" in r]
@@ -263,13 +266,13 @@ class Analyser():
 
             if (len(y_ls_t2) > 0):
                 plt.scatter(i_ls_t2, y_ls_t2,
-                            label="LS Estimations - t2", marker="x", s=1.0)
+                            label="LSE (t2)", marker="x", s=1.0)
             if (len(y_ls_t1) > 0):
                 plt.scatter(i_ls_t1, y_ls_t1,
-                            label="LS Estimations - t1", marker="v", s=1.0)
+                            label="LSE (t1)", marker="v", s=1.0)
             if (len(y_ls_eff) > 0):
                 plt.scatter(i_ls_eff, y_ls_eff,
-                            label="LS Estimations - t1 nominal", marker="d",
+                            label="LSE (efficient)", marker="d",
                             s=1.0)
 
         # Kalman filtering output
@@ -373,15 +376,15 @@ class Analyser():
             if (len(x_ls_err_t1) > 0):
                 tau_ls_t1, mtie_ls_t1 = self.mtie(x_ls_err_t1)
                 plt.scatter(tau_ls_t1, mtie_ls_t1,
-                            label="LS (t1)", marker="x")
+                            label="LSE (t1)", marker="x")
             if (len(x_ls_err_t2) > 0):
                 tau_ls_t2, mtie_ls_t2 = self.mtie(x_ls_err_t2)
                 plt.scatter(tau_ls_t2, mtie_ls_t2,
-                            label="LS (t2)", marker="x")
+                            label="LSE (t2)", marker="x")
             if (len(x_ls_err_eff) > 0):
                 tau_ls_eff, mtie_ls_eff = self.mtie(x_ls_err_eff)
                 plt.scatter(tau_ls_eff, mtie_ls_eff,
-                            label="LS (Efficient)", marker="x")
+                            label="LSE (efficient)", marker="x")
 
         # Kalman filtering output
         if (show_kf):

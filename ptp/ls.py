@@ -1,19 +1,27 @@
 """Least-squares Estimator
 """
+import logging
 import numpy as np
 
 
 class Ls():
-    def __init__(self, N, data):
+    def __init__(self, N, data, T_ns=float('inf')):
         """Least-squares Time Offset Estimator
 
         Args:
-            N    : observation window length
+            N    : observation window length (number of measurements per window)
             data : Array of objects with simulation data
+            T_ns : nominal time offset measurement period in nanoseconds, used
+                   for **debugging only**. It is used to obtain the fractional
+                   frequency offset y (drift in sec/sec) when using the
+                   efficient LS implementation, since the latter only estimates
+                   y*T_ns (drif in nanoseconds/measurement). In the end, this is
+                   used for plotting the frequency offset.
 
         """
         self.N    = N
         self.data = data
+        self.T_ns = T_ns
 
     def process(self, impl="t2"):
         """Process the observations
@@ -47,6 +55,8 @@ class Ls():
             t_choice : Timestamp choice when assemblign obervation matrix
 
         """
+
+        logger = logging.getLogger("LS")
 
         n_data = len(self.data)
         N      = self.N
@@ -87,16 +97,20 @@ class Ls():
             Q[1,:] = np.dot(np.arange(N), X_obs)
 
             # LS estimations
-            Theta     = np.dot(P,Q)
-            X0        = Theta[0,:]
-            Y_times_T = Theta[1,:]
-            Xf        = X0 + (Y_times_T * N)
+            Theta        = np.dot(P,Q)
+            X0           = Theta[0,:]
+            Y_times_T_ns = Theta[1,:]
+            Xf           = X0 + (Y_times_T_ns * N)
+            Y            = Y_times_T_ns / self.T_ns
 
             # Indices where results will be placed
             idx = np.arange(N, n_data)
 
             for i_x, i_res in enumerate(idx):
                 self.data[i_res]["x_ls_" + impl] = Xf[i_x]
+                self.data[i_res]["y_ls_" + impl] = Y[i_x]
+                logger.debug("LS estimates\tx_f: %f ns y: %f ppb" %(
+                    Xf[i_x], Y[i_x]*1e9))
 
             return
 
@@ -126,10 +140,13 @@ class Ls():
 
                 Q     = np.array([Q_1, Q_2])
                 # LS Estimation
-                Theta     = np.dot(P,Q.T);
-                x0        = Theta[0]
-                y_times_T = Theta[1]
-                x_f       = x0 + (y_times_T * N)
+                Theta        = np.dot(P,Q.T);
+                x0           = Theta[0] # initial time offset within window
+                y_times_T_ns = Theta[1] # drift in nanoseconds/measurement
+                # Fit the final time offset within the current window
+                x_f          = x0 + (y_times_T_ns * N)
+                # Fractional frequency offset
+                y            = y_times_T_ns / self.T_ns
             else:
                 # Timestamps over observation window
                 t_w     = t[i_s:i_e]
@@ -148,6 +165,8 @@ class Ls():
 
             # Include LS estimations within the simulation data
             self.data[i_e - 1]["x_ls_" + impl] = x_f
-            if (impl != "eff"):
-                self.data[i_e - 1]["y_ls_" + impl] = y
+            self.data[i_e - 1]["y_ls_" + impl] = y
+
+            logger.debug("LS estimates\tx_f: %f ns y: %f" %(
+                x_f, y*1e9))
 
