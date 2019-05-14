@@ -94,7 +94,7 @@ class PktSelection():
         i_d_est = d_obs.index(min(d_obs))
         return x_obs[i_d_est]
 
-    def process(self, strategy, ls_impl=None):
+    def process(self, strategy, ls_impl=None, mean_impl="recursive"):
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
@@ -104,7 +104,13 @@ class PktSelection():
         Args:
             strategy  : Select the strategy of interest.
             ls_impl   : Apply packet selection on the time offset values fitted
-            via LS using one of the three distinct implementations: "t2", "t1" and "eff".
+                        via LS using one of the three distinct implementations:
+                        "t2", "t1" and "eff".
+            mean_impl : Sample-mean implementation (recursive, ewma or full).
+                        The recursive implementation theoretically produces the
+                        same result as the full implementation. The EWMA relies
+                        on exponentially decaying weights.
+
         """
 
         # Select vector of noisy time offset observations and delay estimation
@@ -134,13 +140,14 @@ class PktSelection():
 
             # Compute the time offset depending on the selected strategy
             if (strategy == 'mean'):
-                x_est = self._sample_mean(x_obs_w)
-
-            elif (strategy == 'mean-recursive'):
-                x_est = self._sample_mean_recursive(x_obs_w)
-
-            elif (strategy == 'mean-ewma'):
-                x_est = self._sample_mean_ewma(x_obs_w)
+                if (mean_impl == 'normal'):
+                    x_est = self._sample_mean(x_obs_w)
+                elif (mean_impl == 'recursive'):
+                    x_est = self._sample_mean_recursive(x_obs_w)
+                elif (mean_impl == 'ewma'):
+                    x_est = self._sample_mean_ewma(x_obs_w)
+                else:
+                    raise ValueError("Mean implementation unavailable")
 
             elif (strategy == 'median'):
                 x_est = self._sample_median(x_obs_w)
