@@ -13,6 +13,15 @@ class PktSelection():
         self.N    = N
         self.data = data
 
+        # Recursive moving-average
+        self._sm_accum    = 0
+        self._sm_last_obs = 0
+
+        # Exponentially-weight moving average
+        self._ewma_alpha    = 1/N
+        self._ewma_beta     = 1 - (1/N)
+        self._ewma_last_avg = 0
+
     def _sample_mean(self, x_obs):
         """Calculate the mean of a given time offset vector
 
@@ -25,6 +34,40 @@ class PktSelection():
 
         return np.mean(x_obs)
 
+    def _sample_mean_recursive(self, x_obs):
+        """Calculate the mean of a given time offset vector recursively
+
+        Args:
+            x_obs   : Vector time offset
+
+        Returns:
+            The moving average
+        """
+
+        x_new             = x_obs[-1]
+        self._sm_accum   += x_new
+        self._sm_accum   -= self._sm_last_obs
+        self._sm_last_obs = x_obs[0]
+        new_avg           = self._sm_accum / self.N
+
+        return new_avg
+
+    def _sample_mean_ewma(self, x_obs):
+        """Calculate the exponentially weighted moving average (EWMA)
+
+        Args:
+            x_obs   : Vector time offset
+
+        Returns:
+            The mean of the time offset vector
+        """
+
+        x_new               = x_obs[-1]
+        new_avg             = (self._ewma_beta * self._ewma_last_avg) + \
+                              self._ewma_alpha * x_new
+        self._ewma_last_avg = new_avg
+        return new_avg
+
     def _sample_median(self, x_obs):
         """Calculate the median of a given time offset vector
 
@@ -32,7 +75,7 @@ class PktSelection():
             x_obs   : Vector time offset
 
         Returns:
-            The median of the time offset vector
+            The moving average
         """
 
         return np.median(x_obs)
@@ -92,6 +135,12 @@ class PktSelection():
             # Compute the time offset depending on the selected strategy
             if (strategy == 'mean'):
                 x_est = self._sample_mean(x_obs_w)
+
+            elif (strategy == 'mean-recursive'):
+                x_est = self._sample_mean_recursive(x_obs_w)
+
+            elif (strategy == 'mean-ewma'):
+                x_est = self._sample_mean_ewma(x_obs_w)
 
             elif (strategy == 'median'):
                 x_est = self._sample_median(x_obs_w)

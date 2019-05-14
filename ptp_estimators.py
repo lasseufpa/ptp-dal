@@ -19,6 +19,8 @@ ls.process(impl="eff")
 pkts_N = 30 # Approximately best window length for PSA
 pkts = ptp.pktselection.PktSelection(pkts_N, runner.data)
 pkts.process("mean")
+pkts.process("mean-recursive")
+pkts.process("mean-ewma")
 pkts.process("median")
 pkts.process("min")
 
