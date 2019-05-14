@@ -48,10 +48,9 @@ for i,N in enumerate(window_len):
     max_te[i] = np.amax(np.abs(x_err))
 
 plt.figure()
-plt.scatter(window_len, max_te)
+plt.scatter(window_len, max_te, s=1.0)
 plt.xlabel('PSA window length (samples)')
 plt.ylabel("max|TE| (ns)")
-plt.legend()
 plt.savefig("plots/psa_vs_window")
 
 i_best = np.argmin(max_te)
