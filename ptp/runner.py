@@ -84,7 +84,7 @@ class Runner():
         progress = i_iter / self.n_iter
 
         if (progress > self.last_progress_print + 0.1):
-            print("Runner progress: %f %%" %(progress * 100))
+            print("Runner progress: %6.2f %%" %(progress * 100))
             self.last_progress_print = progress
 
     def run(self):
@@ -200,6 +200,7 @@ class Runner():
 
             # Stop criterion
             if (i_iter >= self.n_iter):
+                print("Runner progress: %6.2f %%" %(100))
                 stop = True
 
             self.check_progress(i_iter)
