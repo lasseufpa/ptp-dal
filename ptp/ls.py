@@ -100,11 +100,11 @@ class Ls():
             Theta        = np.dot(P,Q)
             X0           = Theta[0,:]
             Y_times_T_ns = Theta[1,:]
-            Xf           = X0 + (Y_times_T_ns * N)
+            Xf           = X0 + (Y_times_T_ns * (N-1))
             Y            = Y_times_T_ns / self.T_ns
 
             # Indices where results will be placed
-            idx = np.arange(N, n_data)
+            idx = np.arange(N-1, n_data)
 
             for i_x, i_res in enumerate(idx):
                 self.data[i_res]["x_ls_" + impl] = Xf[i_x]
