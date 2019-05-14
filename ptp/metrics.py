@@ -60,14 +60,15 @@ class Analyser():
 
         return tau_array, mtie_array
 
-    def plot_toffset_vs_time(self, show_best=False, show_ls=False,
-                             show_pkts=False, show_kf=False, show_true=True,
-                             n_skip_kf=0, save=False):
+    def plot_toffset_vs_time(self, show_raw=True, show_best=False,
+                             show_ls=False, show_pkts=False, show_kf=False,
+                             show_true=True, n_skip_kf=0, save=False):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
 
         Args:
+            show_raw  : Show raw measurements
             show_best : Enable to highlight the best measurements.
             show_ls   : Show least-squares fit
             show_pkts : Show Packet Selection fit
@@ -81,7 +82,9 @@ class Analyser():
         x_tilde = np.array([r["x_est"] for r in self.data])
 
         plt.figure()
-        plt.scatter(range(0, n_data), x_tilde, label="Raw Measurements", s = 1.0)
+
+        if (show_raw):
+            plt.scatter(range(0, n_data), x_tilde, label="Raw Measurements", s = 1.0)
 
         if (show_true):
             x       = np.array([r["x"] for r in self.data])
@@ -389,7 +392,8 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_mtie(self, show_ls=False, show_pkts=False, show_kf=False, save=False):
+    def plot_mtie(self, show_raw=True, show_ls=False, show_pkts=False,
+                  show_kf=False, save=False):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time interval error (TIE) samples are assumed to be
@@ -404,6 +408,7 @@ class Analyser():
         is computed, but useful for the evaluation and simpler to implement.
 
         Args:
+            show_raw  : Show raw measurements
             show_ls   : Show least-squares fit
             show_pkts : Show Packet Selection fit
             show_kf   : Show Kalman filtering results
@@ -412,12 +417,13 @@ class Analyser():
         """
         plt.figure()
 
-        # MTIE over raw time offset measurements
-        x_err_raw         = np.array([r["x_est_err"] for r in self.data ])
-        i_raw             = [r["idx"] for r in self.data ]
-        tau_raw, mtie_raw = self.mtie(x_err_raw)
+        if (show_raw):
+            # MTIE over raw time offset measurements
+            x_err_raw         = np.array([r["x_est_err"] for r in self.data ])
+            i_raw             = [r["idx"] for r in self.data ]
+            tau_raw, mtie_raw = self.mtie(x_err_raw)
 
-        plt.scatter(tau_raw, mtie_raw, label = "Raw Measurements", marker="x")
+            plt.scatter(tau_raw, mtie_raw, label = "Raw Measurements", marker="x")
 
         # Least-squares estimations
         if (show_ls):
