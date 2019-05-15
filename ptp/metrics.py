@@ -84,7 +84,8 @@ class Analyser():
         plt.figure()
 
         if (show_raw):
-            plt.scatter(range(0, n_data), x_tilde, label="Raw Measurements", s = 1.0)
+            plt.scatter(range(0, n_data), x_tilde,
+                        label="Raw Measurements", s = 1.0)
 
         if (show_true):
             x       = np.array([r["x"] for r in self.data])
@@ -104,10 +105,10 @@ class Analyser():
                             label="LSE (t1)", marker="x", s=1.0)
             if (len(x_ls_t2) > 0):
                 plt.scatter(i_ls_t2, x_ls_t2,
-                            label="LSE (t2)", marker="v", s=1.0)
+                            label="LSE (t2)", marker="x", s=1.0)
             if (len(x_ls_eff) > 0):
                 plt.scatter(i_ls_eff, x_ls_eff,
-                            label="LSE (efficient)", marker="d", s=1.0)
+                            label="LSE", marker="x", s=1.0)
 
         # Kalman filtering output
         if (show_kf):
@@ -118,7 +119,7 @@ class Analyser():
             else:
                 skip_label = ""
             plt.scatter(i_kf[n_skip_kf:], x_kf[n_skip_kf:],
-                        label="Kalman" + skip_label, marker="v", s=1.0)
+                        label="Kalman" + skip_label, marker="d", s=1.0)
 
         # Packet Selection estimation
         if (show_pkts):
@@ -136,19 +137,19 @@ class Analyser():
 
             if (len(x_pkt_avg) > 0):
                 plt.scatter(i_pkt_avg, x_pkt_avg,
-                            label="Sample-average", marker="s", s=1.0)
+                            label="Sample-average", marker="v", s=1.0)
 
             if (len(x_pkt_ewma) > 0):
                 plt.scatter(i_pkt_ewma, x_pkt_ewma,
-                            label="EWMA", marker="s", s=1.0)
+                            label="EWMA", marker="v", s=1.0)
 
             if (len(x_pkt_median) > 0):
                 plt.scatter(i_pkt_median, x_pkt_median,
-                            label="Sample-median", marker="P", s=1.0)
+                            label="Sample-median", marker="v", s=1.0)
 
             if (len(x_pkt_minimum) > 0):
                 plt.scatter(i_pkt_minimum, x_pkt_minimum,
-                            label="Sample-minimum", marker="h", s=1.0)
+                            label="Sample-minimum", marker="v", s=1.0)
 
         # Best raw measurements
         if (show_best):
@@ -188,7 +189,8 @@ class Analyser():
         if (show_raw):
             # Error of raw measurements
             x_tilde_err = [r["x_est"] - r["x"] for r in self.data]
-            plt.scatter(range(0, n_data), x_tilde_err, label="Raw Measurements", s = 1.0)
+            plt.scatter(range(0, n_data), x_tilde_err,
+                        label="Raw Measurements", s = 1.0)
 
         # Least-squares estimations
         if (show_ls):
@@ -207,17 +209,17 @@ class Analyser():
                             label="LSE (t1)", marker="x", s=1.0)
             if (len(x_ls_err_t2) > 0):
                 plt.scatter(i_ls_t2, x_ls_err_t2,
-                            label="LSE (t2)", marker="v", s=1.0)
+                            label="LSE (t2)", marker="x", s=1.0)
             if (len(x_ls_err_eff) > 0):
                 plt.scatter(i_ls_eff, x_ls_err_eff,
-                            label="LSE (efficient)", marker="d", s=1.0)
+                            label="LSE", marker="x", s=1.0)
 
         # Kalman filtering output
         if (show_kf):
             i_kf     = [r["idx"] for r in self.data if "x_kf" in r]
             x_err_kf = [r["x_kf"] - r["x"] for r in self.data if "x_kf" in r]
             plt.scatter(i_kf, x_err_kf,
-                        label="Kalman", marker="v", s=1.0)
+                        label="Kalman", marker="d", s=1.0)
 
         # Packet Selection estimations
         if (show_pkts):
@@ -236,19 +238,19 @@ class Analyser():
 
             if (len(x_pkt_err_avg) > 0):
                 plt.scatter(i_pkt_avg, x_pkt_err_avg,
-                            label="Sample-average", marker="s", s=1.0)
+                            label="Sample-average", marker="v", s=1.0)
 
             if (len(x_pkt_err_ewma) > 0):
                 plt.scatter(i_pkt_ewma, x_pkt_err_ewma,
-                            label="EWMA", marker="s", s=1.0)
+                            label="EWMA", marker="v", s=1.0)
 
             if (len(x_pkt_err_median) > 0):
                 plt.scatter(i_pkt_median, x_pkt_err_median,
-                            label="Sample-median", marker="P", s=1.0)
+                            label="Sample-median", marker="v", s=1.0)
 
             if (len(x_pkt_err_minimum) > 0):
                 plt.scatter(i_pkt_minimum, x_pkt_err_minimum,
-                            label="Sample-minimum", marker="h", s=1.0)
+                            label="Sample-minimum", marker="v", s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Time offset Error (ns)')
@@ -342,11 +344,10 @@ class Analyser():
                             label="LSE (t2)", marker="x", s=1.0)
             if (len(y_ls_t1) > 0):
                 plt.scatter(i_ls_t1, y_ls_t1,
-                            label="LSE (t1)", marker="v", s=1.0)
+                            label="LSE (t1)", marker="x", s=1.0)
             if (len(y_ls_eff) > 0):
                 plt.scatter(i_ls_eff, y_ls_eff,
-                            label="LSE (efficient)", marker="d",
-                            s=1.0)
+                            label="LSE", marker="x", s=1.0)
 
         # Kalman filtering output
         if (show_kf):
@@ -459,15 +460,15 @@ class Analyser():
             if (len(x_ls_err_t1) > 0):
                 tau_ls_t1, mtie_ls_t1 = self.mtie(x_ls_err_t1)
                 plt.scatter(tau_ls_t1, mtie_ls_t1,
-                            label="LSE (t1)", marker="x")
+                            label="LSE (t1)", marker="x", s=80.0, alpha=1)
             if (len(x_ls_err_t2) > 0):
                 tau_ls_t2, mtie_ls_t2 = self.mtie(x_ls_err_t2)
                 plt.scatter(tau_ls_t2, mtie_ls_t2,
-                            label="LSE (t2)", marker="x")
+                            label="LSE (t2)", marker="x", s=80.0, alpha=1)
             if (len(x_ls_err_eff) > 0):
                 tau_ls_eff, mtie_ls_eff = self.mtie(x_ls_err_eff)
                 plt.scatter(tau_ls_eff, mtie_ls_eff,
-                            label="LSE (efficient)", marker="x")
+                            label="LSE", marker="x", s=80.0, alpha=1)
 
         # Packet Selection estimations
         if (show_pkts):
@@ -487,19 +488,19 @@ class Analyser():
             if (len(x_pkts_err_avg) > 0):
                 tau_pkts_avg, mtie_pkts_avg = self.mtie(x_pkts_err_avg)
                 plt.scatter(tau_pkts_avg, mtie_pkts_avg,
-                            label="Sample-average", marker="x")
+                            label="Sample-average", marker="v", s=80.0, alpha=0.7)
             if (len(x_pkts_err_ewma) > 0):
                 tau_pkts_ewma, mtie_pkts_ewma = self.mtie(x_pkts_err_ewma)
                 plt.scatter(tau_pkts_avg, mtie_pkts_avg,
-                            label="EWMA", marker="x")
+                            label="EWMA", marker="v", s=80.0, alpha=0.7)
             if (len(x_pkts_err_median) > 0):
                 tau_pkts_median, mtie_pkts_median = self.mtie(x_pkts_err_median)
                 plt.scatter(tau_pkts_median, mtie_pkts_median,
-                            label="Sample-median", marker="x")
+                            label="Sample-median", marker="v", s=80.0, alpha=0.7)
             if (len(x_pkts_err_min) > 0):
                 tau_pkts_min, mtie_pkts_min = self.mtie(x_pkts_err_min)
                 plt.scatter(tau_ls_eff, mtie_ls_eff,
-                            label="Sample-minimum", marker="x")
+                            label="Sample-minimum", marker="v", s=80.0, alpha=0.7)
 
         # Kalman filtering output
         if (show_kf):
@@ -509,7 +510,8 @@ class Analyser():
             i_kf            = [r["idx"] for r in kf_data if "y_kf" in r]
             x_err_kf        = [r["x_kf"] - r["x"] for r in kf_data if "x_kf" in r]
             tau_kf, mtie_kf = self.mtie(x_err_kf)
-            plt.scatter(tau_kf, mtie_kf, label="Kalman")
+            plt.scatter(tau_kf, mtie_kf,
+                        label="Kalman", marker="d", s=80.0, alpha=0.5)
 
         plt.xlabel ('Observation interval (samples)')
         plt.ylabel("MTIE (ns)")
