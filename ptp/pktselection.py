@@ -22,20 +22,20 @@ class PktSelection():
         self._ewma_beta     = 1 - (1/N)
         self._ewma_last_avg = 0
 
-    def _sample_mean(self, x_obs):
-        """Calculate the mean of a given time offset vector
+    def _sample_avg_normal(self, x_obs):
+        """Calculate the average of a given time offset vector
 
         Args:
             x_obs   : Vector time offset
 
         Returns:
-            The mean of the time offset vector
+            The average of the time offset vector
         """
 
         return np.mean(x_obs)
 
-    def _sample_mean_recursive(self, x_obs):
-        """Calculate the mean of a given time offset vector recursively
+    def _sample_avg_recursive(self, x_obs):
+        """Calculate the average of a given time offset vector recursively
 
         Args:
             x_obs   : Vector time offset
@@ -52,14 +52,14 @@ class PktSelection():
 
         return new_avg
 
-    def _sample_mean_ewma(self, x_obs):
+    def _sample_avg_ewma(self, x_obs):
         """Calculate the exponentially weighted moving average (EWMA)
 
         Args:
             x_obs   : Vector time offset
 
         Returns:
-            The mean of the time offset vector
+            The average of the time offset vector
         """
 
         x_new               = x_obs[-1]
@@ -94,22 +94,21 @@ class PktSelection():
         i_d_est = d_obs.index(min(d_obs))
         return x_obs[i_d_est]
 
-    def process(self, strategy, ls_impl=None, mean_impl="recursive"):
+    def process(self, strategy, ls_impl=None, avg_impl="recursive"):
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
-        sample-mean ("mean"), sample-median ("median") or sample-minimum ("min")
-        over sliding windows of observations.
+        sample-average ("average"), EWMA ("ewma"), sample-median ("median") or
+        sample-minimum ("min") over sliding windows of observations.
 
         Args:
             strategy  : Select the strategy of interest.
             ls_impl   : Apply packet selection on the time offset values fitted
                         via LS using one of the three distinct implementations:
                         "t2", "t1" and "eff".
-            mean_impl : Sample-mean implementation (recursive, ewma or full).
+            avg_impl  : Sample-avg implementation (recursive or full).
                         The recursive implementation theoretically produces the
-                        same result as the full implementation. The EWMA relies
-                        on exponentially decaying weights.
+                        same result as the full implementation.
 
         """
 
@@ -139,15 +138,15 @@ class PktSelection():
             d_obs_w = d_obs[i_s:i_e]
 
             # Compute the time offset depending on the selected strategy
-            if (strategy == 'mean'):
-                if (mean_impl == 'normal'):
-                    x_est = self._sample_mean(x_obs_w)
-                elif (mean_impl == 'recursive'):
-                    x_est = self._sample_mean_recursive(x_obs_w)
-                elif (mean_impl == 'ewma'):
-                    x_est = self._sample_mean_ewma(x_obs_w)
+            if (strategy == 'average'):
+                if (avg_impl == 'normal'):
+                    x_est = self._sample_avg_normal(x_obs_w)
+                elif (avg_impl == 'recursive'):
+                    x_est = self._sample_avg_recursive(x_obs_w)
                 else:
-                    raise ValueError("Mean implementation unavailable")
+                    raise ValueError("Average implementation unavailable")
+            elif (strategy == 'ewma'):
+                x_est = self._sample_avg_ewma(x_obs_w)
 
             elif (strategy == 'median'):
                 x_est = self._sample_median(x_obs_w)

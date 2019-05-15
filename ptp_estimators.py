@@ -18,8 +18,8 @@ ls.process(impl="eff")
 # Packet Selection estimator
 pkts_N = 30 # Approximately best window length for PSA
 pkts = ptp.pktselection.PktSelection(pkts_N, runner.data)
-pkts.process("mean", mean_impl="recursive")
-pkts.process("mean", mean_impl="ewma")
+pkts.process("average", avg_impl="recursive")
+pkts.process("ewma")
 pkts.process("median")
 pkts.process("min")
 

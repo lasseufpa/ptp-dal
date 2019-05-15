@@ -122,16 +122,25 @@ class Analyser():
 
         # Packet Selection estimation
         if (show_pkts):
-            i_pkt_mean    = [r["idx"] for r in self.data if "x_pkts_mean" in r]
+            i_pkt_avg     = [r["idx"] for r in self.data if "x_pkts_average" in r]
+            i_pkt_ewma    = [r["idx"] for r in self.data if "x_pkts_ewma" in r]
             i_pkt_median  = [r["idx"] for r in self.data if "x_pkts_median" in r]
             i_pkt_minimum = [r["idx"] for r in self.data if "x_pkts_min" in r]
-            x_pkt_mean    = [r["x_pkts_mean"] for r in self.data if "x_pkts_mean" in r]
-            x_pkt_median  = [r["x_pkts_median"] for r in self.data if "x_pkts_median" in r]
+            x_pkt_avg     = [r["x_pkts_average"] for r in self.data if
+                             "x_pkts_average" in r]
+            x_pkt_ewma    = [r["x_pkts_ewma"] for r in self.data if
+                             "x_pkts_ewma" in r]
+            x_pkt_median  = [r["x_pkts_median"] for r in self.data if
+                             "x_pkts_median" in r]
             x_pkt_minimum = [r["x_pkts_min"] for r in self.data if "x_pkts_min" in r]
 
-            if (len(x_pkt_mean) > 0):
-                plt.scatter(i_pkt_mean, x_pkt_mean,
-                            label="Sample-mean", marker="s", s=1.0)
+            if (len(x_pkt_avg) > 0):
+                plt.scatter(i_pkt_avg, x_pkt_avg,
+                            label="Sample-average", marker="s", s=1.0)
+
+            if (len(x_pkt_ewma) > 0):
+                plt.scatter(i_pkt_ewma, x_pkt_ewma,
+                            label="EWMA", marker="s", s=1.0)
 
             if (len(x_pkt_median) > 0):
                 plt.scatter(i_pkt_median, x_pkt_median,
@@ -212,16 +221,26 @@ class Analyser():
 
         # Packet Selection estimations
         if (show_pkts):
-            i_pkt_mean    = [r["idx"] for r in self.data if "x_pkts_mean" in r]
-            i_pkt_median  = [r["idx"] for r in self.data if "x_pkts_median" in r]
-            i_pkt_minimum = [r["idx"] for r in self.data if "x_pkts_min" in r]
-            x_pkt_err_mean    = [r["x_pkts_mean"] - r["x"] for r in self.data if "x_pkts_mean" in r]
-            x_pkt_err_median  = [r["x_pkts_median"] - r["x"] for r in self.data if "x_pkts_median" in r]
-            x_pkt_err_minimum = [r["x_pkts_min"] - r["x"] for r in self.data if "x_pkts_min" in r]
+            i_pkt_avg         = [r["idx"] for r in self.data if "x_pkts_average" in r]
+            i_pkt_ewma        = [r["idx"] for r in self.data if "x_pkts_ewma" in r]
+            i_pkt_median      = [r["idx"] for r in self.data if "x_pkts_median" in r]
+            i_pkt_minimum     = [r["idx"] for r in self.data if "x_pkts_min" in r]
+            x_pkt_err_avg     = [r["x_pkts_average"] - r["x"] for r in
+                                 self.data if "x_pkts_average" in r]
+            x_pkt_err_ewma    = [r["x_pkts_ewma"] - r["x"] for r in self.data
+                                 if "x_pkts_ewma" in r]
+            x_pkt_err_median  = [r["x_pkts_median"] - r["x"] for r in self.data
+                                 if "x_pkts_median" in r]
+            x_pkt_err_minimum = [r["x_pkts_min"] - r["x"] for r in self.data if
+                                 "x_pkts_min" in r]
 
-            if (len(x_pkt_err_mean) > 0):
-                plt.scatter(i_pkt_mean, x_pkt_err_mean,
-                            label="Sample-mean", marker="s", s=1.0)
+            if (len(x_pkt_err_avg) > 0):
+                plt.scatter(i_pkt_avg, x_pkt_err_avg,
+                            label="Sample-average", marker="s", s=1.0)
+
+            if (len(x_pkt_err_ewma) > 0):
+                plt.scatter(i_pkt_ewma, x_pkt_err_ewma,
+                            label="EWMA", marker="s", s=1.0)
 
             if (len(x_pkt_err_median) > 0):
                 plt.scatter(i_pkt_median, x_pkt_err_median,
@@ -452,28 +471,35 @@ class Analyser():
 
         # Packet Selection estimations
         if (show_pkts):
-            i_pkts_mean       = [r["idx"] for r in self.data if "x_pkts_mean" in r]
+            i_pkts_avg        = [r["idx"] for r in self.data if "x_pkts_average" in r]
+            i_pkts_ewma       = [r["idx"] for r in self.data if "x_pkts_ewma" in r]
             i_pkts_median     = [r["idx"] for r in self.data if "x_pkts_median" in r]
             i_pkts_minimum    = [r["idx"] for r in self.data if "x_pkts_min" in r]
-            x_pkts_err_mean   = [r["x_pkts_mean"] - r["x"] for r in self.data
-                            if"x_pkts_mean" in r]
+            x_pkts_err_avg    = [r["x_pkts_average"] - r["x"] for r in self.data
+                            if"x_pkts_average" in r]
+            x_pkts_err_ewma   = [r["x_pkts_ewma"] - r["x"] for r in self.data
+                            if"x_pkts_ewma" in r]
             x_pkts_err_median = [r["x_pkts_median"] - r["x"] for r in self.data
                             if"x_pkts_median" in r]
             x_pkts_err_min    = [r["x_pkts_min"] - r["x"] for r in self.data
                             if "x_pkts_min" in r]
 
-            if (len(x_pkts_err_mean) > 0):
-                tau_pkts_mean, mtie_pkts_mean = self.mtie(x_pkts_err_mean)
-                plt.scatter(tau_pkts_mean, mtie_pkts_mean,
-                            label="PSA (mean)", marker="x")
+            if (len(x_pkts_err_avg) > 0):
+                tau_pkts_avg, mtie_pkts_avg = self.mtie(x_pkts_err_avg)
+                plt.scatter(tau_pkts_avg, mtie_pkts_avg,
+                            label="Sample-average", marker="x")
+            if (len(x_pkts_err_ewma) > 0):
+                tau_pkts_ewma, mtie_pkts_ewma = self.mtie(x_pkts_err_ewma)
+                plt.scatter(tau_pkts_avg, mtie_pkts_avg,
+                            label="EWMA", marker="x")
             if (len(x_pkts_err_median) > 0):
                 tau_pkts_median, mtie_pkts_median = self.mtie(x_pkts_err_median)
                 plt.scatter(tau_pkts_median, mtie_pkts_median,
-                            label="PSA (median)", marker="x")
+                            label="Sample-median", marker="x")
             if (len(x_pkts_err_min) > 0):
                 tau_pkts_min, mtie_pkts_min = self.mtie(x_pkts_err_min)
                 plt.scatter(tau_ls_eff, mtie_ls_eff,
-                            label="PSA (minimum)", marker="x")
+                            label="Sample-minimum", marker="x")
 
         # Kalman filtering output
         if (show_kf):
