@@ -472,18 +472,25 @@ class Analyser():
 
         # Packet Selection estimations
         if (show_pkts):
-            i_pkts_avg        = [r["idx"] for r in self.data if "x_pkts_average" in r]
-            i_pkts_ewma       = [r["idx"] for r in self.data if "x_pkts_ewma" in r]
-            i_pkts_median     = [r["idx"] for r in self.data if "x_pkts_median" in r]
-            i_pkts_minimum    = [r["idx"] for r in self.data if "x_pkts_min" in r]
-            x_pkts_err_avg    = [r["x_pkts_average"] - r["x"] for r in self.data
-                            if"x_pkts_average" in r]
-            x_pkts_err_ewma   = [r["x_pkts_ewma"] - r["x"] for r in self.data
-                            if"x_pkts_ewma" in r]
+            # EWMA and the recursive moving average have transitories. Try to
+            # skip it by throwing away an arbitrary number of initial values.
+            post_tran_data    = self.data[200:]
+            i_pkts_avg        = [r["idx"] for r in post_tran_data
+                                 if "x_pkts_average" in r]
+            i_pkts_ewma       = [r["idx"] for r in post_tran_data
+                                 if "x_pkts_ewma" in r]
+            i_pkts_median     = [r["idx"] for r in self.data
+                                 if "x_pkts_median" in r]
+            i_pkts_minimum    = [r["idx"] for r in self.data
+                                 if "x_pkts_min" in r]
+            x_pkts_err_avg    = [r["x_pkts_average"] - r["x"] for r
+                                 in post_tran_data if "x_pkts_average" in r]
+            x_pkts_err_ewma   = [r["x_pkts_ewma"] - r["x"] for r
+                                 in post_tran_data if"x_pkts_ewma" in r]
             x_pkts_err_median = [r["x_pkts_median"] - r["x"] for r in self.data
-                            if"x_pkts_median" in r]
+                                 if "x_pkts_median" in r]
             x_pkts_err_min    = [r["x_pkts_min"] - r["x"] for r in self.data
-                            if "x_pkts_min" in r]
+                                 if "x_pkts_min" in r]
 
             if (len(x_pkts_err_avg) > 0):
                 tau_pkts_avg, mtie_pkts_avg = self.mtie(x_pkts_err_avg)
