@@ -3,6 +3,8 @@ import ptp.reader
 import ptp.ls
 import ptp.metrics
 import ptp.kalman
+import ptp.frequency
+
 
 def main():
     parser = argparse.ArgumentParser(description="PTP log reader test")
@@ -25,7 +27,7 @@ def main():
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     # Run PTP simulation
-    reader = ptp.reader.Reader(args.file, freq_est_per = 0)
+    reader = ptp.reader.Reader(args.file)
     reader.process(args.num_iter, args.infer_secs)
 
     # Least-squares estimator
@@ -33,6 +35,10 @@ def main():
     T_ns = 1e9/4                # Nominal message period in nanoseconds
     ls = ptp.ls.Ls(N, reader.data, T_ns)
     ls.process("eff")
+
+    # Raw frequency estimations (differentiation of raw time offset measurements)
+    freq_estimator = ptp.frequency.Estimator(reader.data, period_ns=0)
+    freq_estimator.process()
 
     # Kalman
     kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)

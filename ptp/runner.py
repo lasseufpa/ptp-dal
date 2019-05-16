@@ -11,7 +11,6 @@ import logging, heapq, random
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
-from ptp.estimators import *
 
 
 class SimTime():
@@ -44,7 +43,7 @@ class SimTime():
 class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
                  rtc_clk_freq = 125e6, rtc_resolution = 0, rtc_tolerance = 60,
-                 rtc_stability = 1.0, pdv_distr="Gamma", freq_est_per = 1e9):
+                 rtc_stability = 1.0, pdv_distr="Gamma"):
         """PTP Runner class
 
         Args:
@@ -56,7 +55,6 @@ class Runner():
             rtc_tolerance  : Slave RTC frequency tolerance in ppb
             rtc_stability  : Slave RTC freq. stability (0 for constant freq.)
             pdv_distr      : PTP message PDV distribution (Gamma or Gaussian)
-            freq_est_per   : Raw freq. estimation period in ns
 
         """
 
@@ -67,7 +65,6 @@ class Runner():
         self.pdv_distr           = pdv_distr
         self.slave_rtc_tolerance = rtc_tolerance
         self.slave_rtc_stability = rtc_stability
-        self.freq_est_per_ns     = freq_est_per
 
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
@@ -116,9 +113,6 @@ class Runner():
         stop       = False
         i_iter     = 0
         dreqresps  = list()
-
-        # Estimators
-        freq_estimator = FreqEstimator(self.freq_est_per_ns)
 
         # Start with a sync transmission
         sync.next_tx = 0
@@ -176,11 +170,6 @@ class Runner():
 
                 # Process all four timestamps
                 results = dreqresp.process()
-
-                # Estimate frequency offset
-                y_est = freq_estimator.process(dreqresp.t1, dreqresp.t2)
-                if (y_est is not None):
-                    results["y_est"] = y_est
 
                 # Include RTC state
                 results["rtc_y"] = slave_rtc.get_freq_offset()

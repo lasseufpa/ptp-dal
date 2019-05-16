@@ -20,17 +20,23 @@ import ptp.runner
 import ptp.ls
 import ptp.kalman
 import ptp.metrics
+import ptp.frequency
+
 
 # Run PTP simulation
 n_iter = 1e3
 runner = ptp.runner.Runner(n_iter = n_iter, pdv_distr="Gamma",
-                           rtc_stability = 0.1, freq_est_per = 0)
+                           rtc_stability = 0.1)
 runner.run()
 
 # Least-squares estimator
 N  = 128
 ls = ptp.ls.Ls(N, runner.data)
 ls.process()
+
+# Raw frequency estimations (differentiation of raw time offset measurements)
+freq_estimator = ptp.frequency.Estimator(runner.data, period_ns=0)
+freq_estimator.process()
 
 # Kalman
 kalman = ptp.kalman.Kalman(runner.data, runner.sync_period)

@@ -2,7 +2,6 @@ import logging, json
 import numpy as np
 from ptp.timestamping import Timestamp
 from ptp.mechanisms import *
-from ptp.estimators import *
 
 
 class Reader():
@@ -15,18 +14,16 @@ class Reader():
     produced by the runner.
 
     """
-    def __init__(self, log_file=None, freq_est_per = 1e9):
+    def __init__(self, log_file=None):
         """Constructor
 
         Args:
             log_file     : JSON log file to read from
-            freq_est_per : Raw freq. estimation period in ns
 
         """
         self.running         = True
         self.data            = list()
         self.log_file        = log_file
-        self.freq_est_per_ns = freq_est_per
 
     def process(self, max_len, infer_secs):
         """Loads timestamps and post-processes to generate PTP data
@@ -45,9 +42,6 @@ class Reader():
 
         with open(self.log_file) as fin:
             data = json.load(fin)
-
-        # Raw frequency offset estimator
-        freq_estimator = FreqEstimator(self.freq_est_per_ns)
 
         # Debug print header
         DelayReqResp(0,0).log_header()
@@ -117,11 +111,6 @@ class Reader():
 
             # Process and put results within self.data
             results = dreqresp.process()
-
-            # Estimate frequency offset
-            y_est = freq_estimator.process(dreqresp.t1, dreqresp.t2)
-            if (y_est is not None):
-                results["y_est"] = y_est
 
             self.data.append(results)
 
