@@ -32,18 +32,18 @@ python -m unittest discover
   window length.
 * `psa_vs_window.py` : Evaluates PSA performance with respect to the observation
   window length.
-* `test_kalman.py`: Demonstrates how to evaluate Kalman filtering.
-* `test_reader.py`: Demonstrates how pre-acquired data can be loaded into the
+* `kalman_demo.py`: Demonstrates how to evaluate Kalman filtering.
+* `reader_demo.py`: Demonstrates how pre-acquired data can be loaded into the
   simulator.
 
 ### Running with acquired data
 
-The script named `test_reader.py` can load data acquired with real hardware and
+The script named `reader_demo.py` can load data acquired with real hardware and
 post-process it using the simulator's algorithms. An example log file is
 available at `data/example_log.json`. To process it, run:
 
 ```
-python test_reader.py -vvvvvv -f data/example_log.json -N 10
+python reader_demo.py -vvvvvv -f data/example_log.json -N 10
 ```
 
 This will run 10 iterations only, and with debugging prints enabled.
@@ -51,5 +51,5 @@ This will run 10 iterations only, and with debugging prints enabled.
 To process it fully without log, run:
 
 ```
-python test_reader.py -f data/example_log.json
+python reader_demo.py -f data/example_log.json
 ```
