@@ -37,7 +37,7 @@ def main():
     ls.process("eff")
 
     # Raw frequency estimations (differentiation of raw time offset measurements)
-    freq_estimator = ptp.frequency.Estimator(reader.data, period_ns=0)
+    freq_estimator = ptp.frequency.Estimator(reader.data)
     freq_estimator.process()
 
     # Kalman

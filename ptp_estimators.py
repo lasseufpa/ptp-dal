@@ -6,12 +6,13 @@ import ptp.kalman
 import ptp.frequency
 
 # Parameters
-n_iter   = 2000
-N_ls     = 200 # Approximately best window length for LS
-N_movavg = 30
-N_median = 30
-N_min    = 20
-N_ewma   = 30
+n_iter     = 2000               # Number of runner iterations
+N_ls       = 200                # LS window
+N_movavg   = 30                 # Moving average window
+N_median   = 30                 # Sample-median window
+N_min      = 20                 # Sample-minimum window
+N_ewma     = 30                 # EWMA window
+freq_delta = 16                 # Freq. offset estimation delta
 
 # Run PTP simulation
 runner = ptp.runner.Runner(n_iter = n_iter)
@@ -38,7 +39,7 @@ pkts.set_window_len(N_ewma)
 pkts.process("ewma")
 
 # Kalman (add frequency offset estimations to feed the Kalman filter)
-freq_estimator = ptp.frequency.Estimator(runner.data, period_ns=0)
+freq_estimator = ptp.frequency.Estimator(runner.data, delta=freq_delta)
 kalman         = ptp.kalman.Kalman(runner.data, runner.sync_period)
 freq_estimator.process()
 kalman.process()

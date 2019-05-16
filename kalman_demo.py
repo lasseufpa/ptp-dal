@@ -15,6 +15,9 @@ Suggested experiments:
 - Change the transition and observation covariance matrices within the Kalman
   implementation.
 
+- Change the delta of the frequency estimator to see how it affects Kalman
+  performance.
+
 """
 import ptp.runner
 import ptp.ls
@@ -35,7 +38,7 @@ ls = ptp.ls.Ls(N, runner.data)
 ls.process()
 
 # Raw frequency estimations (differentiation of raw time offset measurements)
-freq_estimator = ptp.frequency.Estimator(runner.data, period_ns=0)
+freq_estimator = ptp.frequency.Estimator(runner.data, delta=1)
 freq_estimator.process()
 
 # Kalman
