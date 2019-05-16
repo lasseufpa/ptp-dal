@@ -8,19 +8,21 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+# Parameters
+n_iter   = 10000
+strategy = "average"          # "average", "ewma", "median" or "min".
+ls_impl  = None               # LS implementation to use on PSA
+n_skip   = 200                # samples to skip due to transitory
+min_len  = 5                  # Minimum window length to test
+max_len  = 150                # Maximum window length to test
+
 # Run PTP simulation
-n_iter = 10000
 runner = ptp.runner.Runner(n_iter = n_iter)
 runner.run()
 
 # PSA window lengths to evaluate:
-window_len = np.arange(5, 150)
-
-# Select PSA strategy: "average", "ewma", "median" or "min".
-strategy   = "average"
-
-# Select LS implementation to use PSA on the time offset values fitted via LS.
-ls_impl    = None
+window_len = np.arange(min_len, max_len)
 
 # Compute max|TE| for each window length
 max_te     = np.zeros(window_len.shape)
@@ -33,8 +35,13 @@ for i,N in enumerate(window_len):
     pkts = ptp.pktselection.PktSelection(N, runner.data)
     pkts.process(strategy, ls_impl=ls_impl)
 
+    # EWMA and the recursive moving average have transitories. Try to
+    # skip it by throwing away an arbitrary number of initial values.
+    post_tran_data = runner.data[n_skip:]
+
     # Get PSA time offset estimation errors
-    x_err = np.array([r["x_pkts_{}".format(strategy)] - r["x"] for r in runner.data
+    x_err = np.array([r["x_pkts_{}".format(strategy)] - r["x"] for r
+                      in post_tran_data
                       if "x_pkts_{}".format(strategy) in r])
 
     # Erase PSA results from runner data
