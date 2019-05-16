@@ -491,7 +491,7 @@ class Analyser():
                             label="Sample-average", marker="v", s=80.0, alpha=0.7)
             if (len(x_pkts_err_ewma) > 0):
                 tau_pkts_ewma, mtie_pkts_ewma = self.mtie(x_pkts_err_ewma)
-                plt.scatter(tau_pkts_avg, mtie_pkts_avg,
+                plt.scatter(tau_pkts_ewma, mtie_pkts_ewma,
                             label="EWMA", marker="v", s=80.0, alpha=0.7)
             if (len(x_pkts_err_median) > 0):
                 tau_pkts_median, mtie_pkts_median = self.mtie(x_pkts_err_median)
@@ -499,7 +499,7 @@ class Analyser():
                             label="Sample-median", marker="v", s=80.0, alpha=0.7)
             if (len(x_pkts_err_min) > 0):
                 tau_pkts_min, mtie_pkts_min = self.mtie(x_pkts_err_min)
-                plt.scatter(tau_ls_eff, mtie_ls_eff,
+                plt.scatter(tau_pkts_min, mtie_pkts_min,
                             label="Sample-minimum", marker="v", s=80.0, alpha=0.7)
 
         # Kalman filtering output
