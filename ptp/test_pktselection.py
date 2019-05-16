@@ -10,7 +10,8 @@ data = [{"x_est": 6 , "d_est": 2},
 class TestPktSelection(unittest.TestCase):
 
     def test_sample_mean(self):
-        pkts = PktSelection(2, data)
+        N    = 2
+        pkts = PktSelection(N, data)
         pkts.process('average', avg_impl="normal")
         x_est_avg = [r["x_pkts_average"] for r in data if "x_pkts_average" in r]
 
@@ -20,8 +21,24 @@ class TestPktSelection(unittest.TestCase):
         self.assertEqual(x_est_avg[2], 16)
         self.assertEqual(x_est_avg[3], 36.5)
 
+    def test_sample_recursive(self):
+        for r in data:
+            r.pop("x_pkts_average", None)
+        N    = 3
+        pkts = PktSelection(N, data)
+        pkts.process('average', avg_impl="recursive")
+        x_est_avg = [r["x_pkts_average"] for r in data if "x_pkts_average" in r]
+
+        # Check values
+        self.assertEqual(x_est_avg[0], 6/3)
+        self.assertEqual(x_est_avg[1], 12/3)
+        self.assertEqual(x_est_avg[2], 27/3)
+        self.assertEqual(x_est_avg[3], 38/3)
+        self.assertEqual(x_est_avg[4], 88/3)
+
     def test_sample_median(self):
-        pkts = PktSelection(3, data)
+        N    = 3
+        pkts = PktSelection(N, data)
         pkts.process('median')
         x_est_median = [r["x_pkts_median"] for r in data if "x_pkts_median" in r]
 
@@ -31,7 +48,8 @@ class TestPktSelection(unittest.TestCase):
         self.assertEqual(x_est_median[2], 17)
 
     def test_sample_min(self):
-        pkts= PktSelection(3, data)
+        N    = 3
+        pkts = PktSelection(N, data)
         pkts.process('min')
         x_est_min = [r["x_pkts_min"] for r in data if "x_pkts_min" in r]
 

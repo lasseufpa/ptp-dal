@@ -14,8 +14,9 @@ class PktSelection():
         self.data = data
 
         # Recursive moving-average
-        self._movavg_accum    = 0
-        self._movavg_last_obs = 0
+        self._movavg_accum    = 0              # recursive accumulator
+        self._movavg_buffer   = np.zeros(2*N)  # circular buffer
+        self._movavg_i        = N              # head index of the buffer
 
         # Exponentially-weight moving average
         self._ewma_alpha    = 1/N
@@ -38,19 +39,28 @@ class PktSelection():
     def _sample_avg_recursive(self, x_obs):
         """Calculate the average of a given time offset vector recursively
 
+        Uses a ciruclar (ring) buffer with size 2*N, where the tail pointer is
+        always lagging the head pointer by N. The head pointer is used to save
+        new values and the tail pointer is used to throw away the oldest value.
+
         Args:
-            x_obs   : Vector time offset
+            x_obs   : Scalar time offset observation
 
         Returns:
             The moving average
+
         """
 
-        x_new                 = x_obs[-1]
-        self._movavg_accum   += x_new
-        self._movavg_accum   -= self._movavg_last_obs
-        self._movavg_last_obs = x_obs[0]
-        new_avg               = self._movavg_accum / self.N
-
+        i_head                      = self._movavg_i
+        i_tail                      = (i_head - self.N) % (2*self.N)
+        # Put new observation on the head of the buffer
+        self._movavg_buffer[i_head] = x_obs
+        self._movavg_accum         += x_obs
+        # Remove the oldest value on the tail of the buffer
+        self._movavg_accum         -= self._movavg_buffer[i_tail]
+        # Compute new average and advance head pointer
+        new_avg                     = self._movavg_accum / self.N
+        self._movavg_i              = (self._movavg_i + 1) % (2*self.N)
         return new_avg
 
     def _sample_avg_ewma(self, x_obs):
@@ -135,35 +145,37 @@ class PktSelection():
 
         n_data = len(x_obs)
 
-        for i in range(0, (n_data - self.N) + 1):
-            # Window start and end indexes
-            i_s = i
-            i_e = i + self.N
+        if (strategy == 'average' and avg_impl == 'recursive'):
+            # Sample-by-sample processing
+            for i in range(0, n_data):
+                x_est = self._sample_avg_recursive(x_obs[i])
+                self.data[i]["x_pkts_average"] = x_est
+        elif (strategy == 'ewma'):
+            # Sample-by-sample processing
+            for i in range(0, n_data):
+                x_est = self._sample_avg_ewma(x_obs[i])
+                self.data[i]["x_pkts_ewma"] = x_est
+        else:
+            # Window-based processing
+            for i in range(0, (n_data - self.N) + 1):
+                # Window start and end indexes
+                i_s = i
+                i_e = i + self.N
 
-            # Observation window
-            x_obs_w = x_obs[i_s:i_e]
-            d_obs_w = d_obs[i_s:i_e]
+                # Observation window
+                x_obs_w = x_obs[i_s:i_e]
+                d_obs_w = d_obs[i_s:i_e]
 
-            # Compute the time offset depending on the selected strategy
-            if (strategy == 'average'):
-                if (avg_impl == 'normal'):
+                # Compute the time offset depending on the selected strategy
+                if (strategy == 'average' and avg_impl == 'normal'):
                     x_est = self._sample_avg_normal(x_obs_w)
-                elif (avg_impl == 'recursive'):
-                    x_est = self._sample_avg_recursive(x_obs_w)
+                elif (strategy == 'median'):
+                    x_est = self._sample_median(x_obs_w)
+                elif (strategy == 'min'):
+                    x_est = self._sample_minimum(x_obs_w, d_obs_w)
                 else:
-                    raise ValueError("Average implementation unavailable")
-            elif (strategy == 'ewma'):
-                x_est = self._sample_avg_ewma(x_obs_w[-1])
+                    raise ValueError("Strategy choice %s unknown" %(strategy))
 
-            elif (strategy == 'median'):
-                x_est = self._sample_median(x_obs_w)
-
-            elif (strategy == 'min'):
-                x_est = self._sample_minimum(x_obs_w, d_obs_w)
-
-            else:
-                raise ValueError("Strategy choice %s unknown" %(strategy))
-
-            # Include Packet Selection estimations within the simulation data
-            self.data[i_e - 1]["x_pkts_{}".format(strategy)] = x_est
+                # Include Packet Selection estimations within the simulation data
+                self.data[i_e - 1]["x_pkts_{}".format(strategy)] = x_est
 
