@@ -108,6 +108,22 @@ class PktSelection():
         i_d_est = d_obs.index(min(d_obs))
         return x_obs[i_d_est]
 
+    def set_window_len(self, N):
+        """Change the window length
+
+        Args:
+            N : new window length N
+        """
+        self.N              = N
+        # Reset internal variables (some depend on N)
+        self._movavg_accum  = 0
+        self._movavg_buffer = np.zeros(2*N)
+        self._movavg_i      = N
+        self._ewma_alpha    = 1/N
+        self._ewma_beta     = 1 - (1/N)
+        self._ewma_last_avg = 0
+        self._ewma_n        = 0
+
     def process(self, strategy, ls_impl=None, avg_impl="recursive"):
         """Process the observations
 
