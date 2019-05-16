@@ -106,9 +106,12 @@ class PktSelection():
             ls_impl   : Apply packet selection on the time offset values fitted
                         via LS using one of the three distinct implementations:
                         "t2", "t1" and "eff".
-            avg_impl  : Sample-avg implementation (recursive or full).
+            avg_impl  : Sample-avg implementation ("recursive" or "normal").
                         The recursive implementation theoretically produces the
-                        same result as the full implementation.
+                        same result as the "normal" implementation, except
+                        during initialization, due to the transitory of the
+                        recursive implementation. However, the recursive one
+                        is significantly more CPU efficient.
 
         """
 

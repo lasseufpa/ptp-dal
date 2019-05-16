@@ -11,14 +11,14 @@ class TestPktSelection(unittest.TestCase):
 
     def test_sample_mean(self):
         pkts = PktSelection(2, data)
-        pkts.process('mean')
-        x_est_mean = [r["x_pkts_mean"] for r in data if "x_pkts_mean" in r]
+        pkts.process('average', avg_impl="normal")
+        x_est_avg = [r["x_pkts_average"] for r in data if "x_pkts_average" in r]
 
         # Check values
-        self.assertEqual(x_est_mean[0], 6)
-        self.assertEqual(x_est_mean[1], 10.5)
-        self.assertEqual(x_est_mean[2], 16)
-        self.assertEqual(x_est_mean[3], 36.5)
+        self.assertEqual(x_est_avg[0], 6)
+        self.assertEqual(x_est_avg[1], 10.5)
+        self.assertEqual(x_est_avg[2], 16)
+        self.assertEqual(x_est_avg[3], 36.5)
 
     def test_sample_median(self):
         pkts = PktSelection(3, data)
