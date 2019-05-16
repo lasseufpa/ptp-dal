@@ -21,6 +21,7 @@ class PktSelection():
         self._ewma_alpha    = 1/N
         self._ewma_beta     = 1 - (1/N)
         self._ewma_last_avg = 0
+        self._ewma_n        = 0 # sample index for bias correction
 
     def _sample_avg_normal(self, x_obs):
         """Calculate the average of a given time offset vector
@@ -56,17 +57,20 @@ class PktSelection():
         """Calculate the exponentially weighted moving average (EWMA)
 
         Args:
-            x_obs   : Vector time offset
+            x_obs   : Scalar time offset observation
 
         Returns:
-            The average of the time offset vector
+            The bias-corrected exponentially weighted moving average
         """
-
-        x_new               = x_obs[-1]
         new_avg             = (self._ewma_beta * self._ewma_last_avg) + \
-                              self._ewma_alpha * x_new
+                              self._ewma_alpha * x_obs
+        # Save for the next iteration
         self._ewma_last_avg = new_avg
-        return new_avg
+        # Apply bias correction (but don't save the bias-corrected average)
+        self._ewma_n       += 1
+        bias_corr           = 1 / (1 - (self._ewma_beta ** self._ewma_n))
+        corr_avg            = new_avg * bias_corr
+        return corr_avg
 
     def _sample_median(self, x_obs):
         """Calculate the median of a given time offset vector
@@ -149,7 +153,7 @@ class PktSelection():
                 else:
                     raise ValueError("Average implementation unavailable")
             elif (strategy == 'ewma'):
-                x_est = self._sample_avg_ewma(x_obs_w)
+                x_est = self._sample_avg_ewma(x_obs_w[-1])
 
             elif (strategy == 'median'):
                 x_est = self._sample_median(x_obs_w)
