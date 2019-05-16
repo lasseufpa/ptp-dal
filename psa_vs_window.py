@@ -14,10 +14,10 @@ runner = ptp.runner.Runner(n_iter = n_iter)
 runner.run()
 
 # PSA window lengths to evaluate:
-window_len = np.arange(10, 150)
+window_len = np.arange(5, 150)
 
-# Select PSA strategy: "mean", "median" or "min".
-strategy   = "mean"
+# Select PSA strategy: "average", "ewma", "median" or "min".
+strategy   = "average"
 
 # Select LS implementation to use PSA on the time offset values fitted via LS.
 ls_impl    = None
