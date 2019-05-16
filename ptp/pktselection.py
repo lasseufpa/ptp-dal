@@ -14,8 +14,8 @@ class PktSelection():
         self.data = data
 
         # Recursive moving-average
-        self._sm_accum    = 0
-        self._sm_last_obs = 0
+        self._movavg_accum    = 0
+        self._movavg_last_obs = 0
 
         # Exponentially-weight moving average
         self._ewma_alpha    = 1/N
@@ -26,7 +26,7 @@ class PktSelection():
         """Calculate the average of a given time offset vector
 
         Args:
-            x_obs   : Vector time offset
+            x_obs   : Vector of time offset observations
 
         Returns:
             The average of the time offset vector
@@ -44,11 +44,11 @@ class PktSelection():
             The moving average
         """
 
-        x_new             = x_obs[-1]
-        self._sm_accum   += x_new
-        self._sm_accum   -= self._sm_last_obs
-        self._sm_last_obs = x_obs[0]
-        new_avg           = self._sm_accum / self.N
+        x_new                 = x_obs[-1]
+        self._movavg_accum   += x_new
+        self._movavg_accum   -= self._movavg_last_obs
+        self._movavg_last_obs = x_obs[0]
+        new_avg               = self._movavg_accum / self.N
 
         return new_avg
 
