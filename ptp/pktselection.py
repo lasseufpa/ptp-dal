@@ -94,19 +94,36 @@ class PktSelection():
 
         return np.median(x_obs)
 
-    def _sample_minimum(self, x_obs, d_obs):
-        """Select the time offset corresponding to the minimum delay estimation
+    def _eapf(self, t2_minus_t1_w, t4_minus_t3_w):
+        """Compute the time offset based on earliest arrivals
+
+        Apply an earliest arrival packet filter (EAPF) on both master-to-slave
+        Sync messages and slave-to-master Delay_Req messages to compute time
+        offset.
+
+        Within a window of N message exchanges, find the earliest-arriving Sync
+        and the earliest-arriving Delay_Req, that is, the ones that were subject
+        to minimum delay. To find the Sync, observe the index where the
+        difference (t2 - t1) was the minimum. To find the Delay_Req, look for
+        the minimum of the difference (t4 - t3). In the end, use these minimum
+        differences to compute the time offset estimate.
+
+        Note that not necessarily the index of minimum (t2 - t1) must be the
+        same as the index of minimum (t4 - t3), as long as the time offset
+        remains sufficiently constant within the window.
 
         Args:
-            x_obs   : Vector time offset
-            d_obs   : Vector delay estimation
+            t2_minus_t1_w : Vector of (t2 - t1) differences
+            t4_minus_t3_w : Vector of (t4 - t3) differences
 
         Returns:
-           The time offset corresponding to the packet that has the smallest
-           delay estimation.
+           The time offset estimate
+
         """
-        i_d_est = d_obs.index(min(d_obs))
-        return x_obs[i_d_est]
+        t2_minus_t1 = np.amin(t2_minus_t1_w)
+        t4_minus_t3 = np.amin(t4_minus_t3_w)
+        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        return x_est
 
     def set_window_len(self, N):
         """Change the window length
@@ -188,7 +205,11 @@ class PktSelection():
                 elif (strategy == 'median'):
                     x_est = self._sample_median(x_obs_w)
                 elif (strategy == 'min'):
-                    x_est = self._sample_minimum(x_obs_w, d_obs_w)
+                    t2_minus_t1_w = [float(r["t2"] - r["t1"]) for r
+                                     in self.data[i_s:i_e]]
+                    t4_minus_t3_w = [float(r["t4"] - r["t3"]) for r
+                                     in self.data[i_s:i_e]]
+                    x_est = self._eapf(t2_minus_t1_w, t4_minus_t3_w)
                 else:
                     raise ValueError("Strategy choice %s unknown" %(strategy))
 

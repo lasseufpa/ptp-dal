@@ -149,7 +149,7 @@ class Analyser():
 
             if (len(x_pkt_minimum) > 0):
                 plt.scatter(i_pkt_minimum, x_pkt_minimum,
-                            label="Sample-minimum", marker="v", s=1.0)
+                            label="EAPF", marker="v", s=1.0)
 
         # Best raw measurements
         if (show_best):
@@ -250,7 +250,7 @@ class Analyser():
 
             if (len(x_pkt_err_minimum) > 0):
                 plt.scatter(i_pkt_minimum, x_pkt_err_minimum,
-                            label="Sample-minimum", marker="v", s=1.0)
+                            label="EAPF", marker="v", s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Time offset Error (ns)')
@@ -507,7 +507,7 @@ class Analyser():
             if (len(x_pkts_err_min) > 0):
                 tau_pkts_min, mtie_pkts_min = self.mtie(x_pkts_err_min)
                 plt.scatter(tau_pkts_min, mtie_pkts_min,
-                            label="Sample-minimum", marker="v", s=80.0, alpha=0.7)
+                            label="EAPF", marker="v", s=80.0, alpha=0.7)
 
         # Kalman filtering output
         if (show_kf):
