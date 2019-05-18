@@ -9,11 +9,13 @@ import numpy as np
 pkts_keys   = ["pkts_average",
                "pkts_ewma",
                "pkts_median",
-               "pkts_min"]
+               "pkts_min",
+               "pkts_max"]
 pkts_labels = ["Sample-average",
                "EWMA",
                "Sample-median",
-               "EAPF"]
+               "EAPF",
+               "Sample-max"]
 ls_keys     = ["ls_t2",
                "ls_t1",
                "ls_eff"]
