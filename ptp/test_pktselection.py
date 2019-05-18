@@ -1,11 +1,11 @@
 import unittest
 from ptp.pktselection import *
 
-data = [{"x_est": 6 , "d_est": 2},
-        {"x_est": 6, "d_est": 1},
-        {"x_est": 15,"d_est": 3},
-        {"x_est": 17, "d_est": 2},
-        {"x_est": 56, "d_est": 3}]
+data = [{"x_est": 6 , "d_est": 2, "t1": 0, "t2": 18, "t3": 30, "t4": 38},
+        {"x_est": 6,  "d_est": 1, "t1": 0, "t2": 12, "t3": 30, "t4": 42},
+        {"x_est": 15, "d_est": 3, "t1": 0, "t2": 16, "t3": 30, "t4": 45},
+        {"x_est": 17, "d_est": 2, "t1": 0, "t2": 19, "t3": 30, "t4": 55},
+        {"x_est": 56, "d_est": 3, "t1": 0, "t2": 12, "t3": 30, "t4": 41}]
 
 class TestPktSelection(unittest.TestCase):
 
@@ -54,7 +54,7 @@ class TestPktSelection(unittest.TestCase):
         x_est_min = [r["x_pkts_min"] for r in data if "x_pkts_min" in r]
 
         # Check values
-        self.assertEqual(x_est_min[0], 6)
-        self.assertEqual(x_est_min[1], 6)
-        self.assertEqual(x_est_min[2], 17)
+        self.assertEqual(x_est_min[0], 2)
+        self.assertEqual(x_est_min[1], 0)
+        self.assertEqual(x_est_min[2], 0.5)
 
