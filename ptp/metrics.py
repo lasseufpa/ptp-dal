@@ -87,6 +87,35 @@ class Analyser():
 
         return tau_array, mtie_array
 
+    def max_te(self, te, window_len):
+        """Maximum absolute time error (max|TE|)
+
+        Computes the max|TE| based on time error (TE) samples. The max|TE|
+        metric compute the maximum among the absolute time error sample over
+        a sliding window.
+
+        Args:
+            window_len = Window length
+            te         = Vector of time error (TE) values
+
+        Returns:
+            max_te     = The calculated Max|TE| over a sliding window
+
+        """
+        n_data = len(te)
+        max_te = np.zeros(n_data)
+
+        for i in range(0, (n_data - window_len)):
+            # Window start and end indexes
+            i_s = i
+            i_e = i + window_len
+
+            # Max|TE| within the observation window
+            max_te_w = np.amax(np.abs(te[i_s:i_e]))
+            max_te[i_e - 1] = max_te_w
+
+        return max_te
+
     def plot_toffset_vs_time(self, show_raw=True, show_best=True,
                              show_ls=True, show_pkts=True, show_kf=True,
                              show_true=True, n_skip_kf=0, save=True):
@@ -496,4 +525,79 @@ class Analyser():
             plt.savefig("plots/mtie_vs_tau", dpi=300)
         else:
             plt.show()
+
+    def plot_max_te(self, window_len, show_raw=True, show_ls=True,
+                    show_pkts=True, show_kf=True, save=True):
+        """Plot Max|TE| vs time.
+
+        Args:
+            window_len : Window lengths
+            show_raw   : Show raw measurements
+            show_ls    : Show least-squares fit
+            show_pkts  : Show Packet Selection fit
+            show_kf    : Show Kalman filtering results
+            save       : Save the figure
+
+        """
+        n_data  = len(self.data)
+
+        plt.figure()
+
+        if (show_raw):
+            # Max|TE| over raw time offset measurements
+            x_err_raw  = np.array([r["x_est_err"] for r in self.data ])
+            i_raw      = [r["idx"] for r in self.data ]
+            max_te_raw = self.max_te(x_err_raw, window_len)
+
+            plt.plot(i_raw, max_te_raw, label = "Raw Measurements",
+                     marker="x", markersize=2)
+
+        # Least-squares estimations
+        if (show_ls):
+            for i, suffix in enumerate(ls_keys):
+                key  = "x_" + suffix
+                i_ls = [r["idx"] for r in self.data if key in r]
+                x_ls = [r[key] - r["x"] for r in self.data if key in r]
+
+                if (len(x_ls) > 0):
+                    max_te_ls = self.max_te(x_ls, window_len)
+                    plt.plot(i_ls, max_te_ls,
+                             label=ls_labels[i], marker="x", markersize=1)
+
+        # Packet Selection estimations
+        if (show_pkts):
+            # EWMA and the recursive moving average have transitories. Try to
+            # skip it by throwing away an arbitrary number of initial values.
+            post_tran_data    = self.data[200:]
+            for i, suffix in enumerate(pkts_keys):
+                key    = "x_" + suffix
+                i_pkts = [r["idx"] for r in post_tran_data if key in r]
+                x_pkts = [r[key] - r["x"] for r in post_tran_data if key in r]
+
+                if (len(x_pkts) > 0):
+                    max_te_pkts = self.max_te(x_pkts, window_len)
+                    plt.plot(i_pkts, max_te_pkts,
+                             label=pkts_labels[i], marker="v", markersize=1)
+
+        # Kalman filtering output
+        if (show_kf):
+            # Kalman has a transitory. Try to skip it by throwing away an
+            # arbitrary number of initial values.
+            kf_data         = self.data[200:]
+            i_kf            = [r["idx"] for r in kf_data if "y_kf" in r]
+            x_err_kf        = [r["x_kf"] - r["x"] for r in kf_data if "x_kf" in r]
+            max_te_kf       = self.max_te(x_err_kf, window_len)
+            plt.plot(i_kf, max_te_kf,
+                        label="Kalman", marker="d", markersize=1)
+
+        plt.xlabel ('Realization')
+        plt.ylabel('Max|TE| (ns)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.legend(loc=0)
+
+        if (save):
+            plt.savefig("plots/max_te_vs_time")
+        else:
+            plt.show()
+
 
