@@ -13,11 +13,6 @@ N_median   = 128                # Sample-median window
 N_min      = 128                # Sample-minimum window
 N_ewma     = 64                 # EWMA window
 freq_delta = 16                 # Freq. offset estimation delta
-show_pkts  = True
-show_ls    = True
-show_kf    = True
-show_raw   = False
-show_best  = True
 
 # Run PTP simulation
 runner = ptp.runner.Runner(n_iter = n_iter, gamma_scale=1000)
@@ -55,22 +50,7 @@ kalman.process()
 
 # PTP analyser
 analyser = ptp.metrics.Analyser(runner.data)
-analyser.plot_toffset_vs_time(show_ls = show_ls,
-                              show_pkts = show_pkts,
-                              show_best = show_best,
-                              show_kf = show_kf,
-                              save = True)
-analyser.plot_toffset_err_vs_time(show_raw = show_raw,
-                                  show_ls = show_ls,
-                                  show_pkts = show_pkts,
-                                  show_kf = show_kf,
-                                  save = True)
-analyser.plot_foffset_vs_time(show_ls = show_ls,
-                              show_kf = show_kf,
-                              show_raw = show_raw,
-                              save = True)
-analyser.plot_mtie(show_raw = show_raw,
-                   show_ls = show_ls,
-                   show_pkts = show_pkts,
-                   show_kf = show_kf,
-                   save = True)
+analyser.plot_toffset_vs_time()
+analyser.plot_toffset_err_vs_time(show_raw = False)
+analyser.plot_foffset_vs_time()
+analyser.plot_mtie(show_raw = False)

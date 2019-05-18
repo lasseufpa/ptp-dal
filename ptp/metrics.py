@@ -87,9 +87,9 @@ class Analyser():
 
         return tau_array, mtie_array
 
-    def plot_toffset_vs_time(self, show_raw=True, show_best=False,
-                             show_ls=False, show_pkts=False, show_kf=False,
-                             show_true=True, n_skip_kf=0, save=False):
+    def plot_toffset_vs_time(self, show_raw=True, show_best=True,
+                             show_ls=True, show_pkts=True, show_kf=True,
+                             show_true=True, n_skip_kf=0, save=True):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -170,8 +170,8 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_toffset_err_vs_time(self, show_raw=True, show_ls=False,
-                                 show_pkts=False, show_kf=False, save=False):
+    def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
+                                 show_pkts=True, show_kf=True, save=True):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -263,7 +263,7 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_delay_vs_time(self, save=False):
+    def plot_delay_vs_time(self, save=True):
         """Plot delay estimations vs time
 
         Args:
@@ -286,7 +286,7 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_delay_est_err_vs_time(self, save=False):
+    def plot_delay_est_err_vs_time(self, save=True):
         """Plot delay estimations error vs time
 
         Args:
@@ -306,8 +306,8 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_foffset_vs_time(self, show_raw=True, show_ls=False, show_kf=False,
-                             show_true=True, n_skip_kf=0, save=False):
+    def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
+                             show_true=True, n_skip_kf=0, save=True):
         """Plot freq. offset vs time
 
         Args:
@@ -371,7 +371,7 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_pdv_vs_time(self, save=False):
+    def plot_pdv_vs_time(self, save=True):
         """Plot PDV over time
 
         Each value represents the measured difference of the current Sync delay
@@ -412,8 +412,8 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_mtie(self, show_raw=True, show_ls=False, show_pkts=False,
-                  show_kf=False, save=False):
+    def plot_mtie(self, show_raw=True, show_ls=True, show_pkts=True,
+                  show_kf=True, save=True):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time interval error (TIE) samples are assumed to be
