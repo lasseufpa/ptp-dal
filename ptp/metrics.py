@@ -173,13 +173,17 @@ class Analyser():
             save      : Save the figure
 
         """
-        n_data      = len(self.data)
+        # To facilitate inspection, it is better to skip the transitory
+        # (e.g. due to Kalman)
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+        n_data         = len(post_tran_data)
 
         plt.figure()
 
         if (show_raw):
             # Error of raw measurements
-            x_tilde_err = [r["x_est"] - r["x"] for r in self.data]
+            x_tilde_err = [r["x_est"] - r["x"] for r in post_tran_data]
             plt.scatter(range(0, n_data), x_tilde_err,
                         label="Raw Measurements", s = 1.0)
 
@@ -187,8 +191,8 @@ class Analyser():
         if (show_ls):
             for i, suffix in enumerate(ls_keys):
                 key  = "x_" + suffix
-                i_ls = [r["idx"] for r in self.data if key in r]
-                x_ls = [r[key] - r["x"] for r in self.data if key in r]
+                i_ls = [r["idx"] for r in post_tran_data if key in r]
+                x_ls = [r[key] - r["x"] for r in post_tran_data if key in r]
 
                 if (len(x_ls) > 0):
                     plt.scatter(i_ls, x_ls,
@@ -196,8 +200,8 @@ class Analyser():
 
         # Kalman filtering output
         if (show_kf):
-            i_kf     = [r["idx"] for r in self.data if "x_kf" in r]
-            x_err_kf = [r["x_kf"] - r["x"] for r in self.data if "x_kf" in r]
+            i_kf     = [r["idx"] for r in post_tran_data if "x_kf" in r]
+            x_err_kf = [r["x_kf"] - r["x"] for r in post_tran_data if "x_kf" in r]
             plt.scatter(i_kf, x_err_kf,
                         label="Kalman", marker="d", s=1.0)
 
@@ -205,8 +209,8 @@ class Analyser():
         if (show_pkts):
             for i, suffix in enumerate(pkts_keys):
                 key    = "x_" + suffix
-                i_pkts = [r["idx"] for r in self.data if key in r]
-                x_pkts = [r[key] - r["x"] for r in self.data if key in r]
+                i_pkts = [r["idx"] for r in post_tran_data if key in r]
+                x_pkts = [r[key] - r["x"] for r in post_tran_data if key in r]
 
                 if (len(x_pkts) > 0):
                     plt.scatter(i_pkts, x_pkts,
@@ -277,25 +281,30 @@ class Analyser():
             save      : Save the figure
 
         """
-        n_data    = len(self.data)
+
+        # To facilitate inspection, it is better to skip the transitory
+        # (e.g. due to Kalman)
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+        n_data         = len(post_tran_data)
 
         plt.figure()
 
         if (show_true):
-            y = [r["rtc_y"] for r in self.data]
+            y = [r["rtc_y"] for r in post_tran_data]
             plt.scatter(range(0, n_data), y, label="True Values", s = 1.0)
 
         if (show_raw):
-            i_y_tilde = [r["idx"] for r in self.data if "y_est" in r]
-            y_tilde   = [1e9*r["y_est"] for r in self.data if "y_est" in r]
+            i_y_tilde = [r["idx"] for r in post_tran_data if "y_est" in r]
+            y_tilde   = [1e9*r["y_est"] for r in post_tran_data if "y_est" in r]
             plt.scatter(i_y_tilde, y_tilde, label="Raw Measurements", s = 2.0)
 
         # Show least-squares estimations
         if (show_ls):
             for i, suffix in enumerate(ls_keys):
                 key  = "y_" + suffix
-                i_ls = [r["idx"] for r in self.data if key in r]
-                y_ls = [1e9*r[key] for r in self.data if key in r]
+                i_ls = [r["idx"] for r in post_tran_data if key in r]
+                y_ls = [1e9*r[key] for r in post_tran_data if key in r]
 
                 if (len(y_ls) > 0):
                     plt.scatter(i_ls, y_ls,
@@ -303,8 +312,8 @@ class Analyser():
 
         # Kalman filtering output
         if (show_kf):
-            i_kf  = [r["idx"] for r in self.data if "y_kf" in r]
-            y_kf  = [1e9*r["y_kf"] for r in self.data if "y_kf" in r]
+            i_kf  = [r["idx"] for r in post_tran_data if "y_kf" in r]
+            y_kf  = [1e9*r["y_kf"] for r in post_tran_data if "y_kf" in r]
 
             if (n_skip_kf > 0):
                 skip_label = " (after first %d)" %(n_skip_kf)
@@ -389,10 +398,18 @@ class Analyser():
         """
         plt.figure()
 
+        # Some methods such as Kalman, EWMA and the recursive moving average
+        # have transitories. To analyse them, it is better to skip the
+        # transitory by throwing away an arbitrary number of initial values. For
+        # the sake of fairness, analyse all other methods also from this
+        # transitory-removed dataset.
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+
         if (show_raw):
             # MTIE over raw time offset measurements
-            x_err_raw         = np.array([r["x_est_err"] for r in self.data ])
-            i_raw             = [r["idx"] for r in self.data ]
+            x_err_raw         = [r["x_est_err"] for r in post_tran_data]
+            i_raw             = [r["idx"] for r in post_tran_data ]
             tau_raw, mtie_raw = self.mtie(x_err_raw)
 
             plt.scatter(tau_raw, mtie_raw, label = "Raw Measurements", marker="x")
@@ -401,8 +418,8 @@ class Analyser():
         if (show_ls):
             for i, suffix in enumerate(ls_keys):
                 key  = "x_" + suffix
-                i_ls = [r["idx"] for r in self.data if key in r]
-                x_ls = [r[key] - r["x"] for r in self.data if key in r]
+                i_ls = [r["idx"] for r in post_tran_data if key in r]
+                x_ls = [r[key] - r["x"] for r in post_tran_data if key in r]
 
                 if (len(x_ls) > 0):
                     tau_ls, mtie_ls = self.mtie(x_ls)
@@ -411,9 +428,6 @@ class Analyser():
 
         # Packet Selection estimations
         if (show_pkts):
-            # EWMA and the recursive moving average have transitories. Try to
-            # skip it by throwing away an arbitrary number of initial values.
-            post_tran_data    = self.data[200:]
             for i, suffix in enumerate(pkts_keys):
                 key    = "x_" + suffix
                 i_pkts = [r["idx"] for r in post_tran_data if key in r]
@@ -427,11 +441,9 @@ class Analyser():
 
         # Kalman filtering output
         if (show_kf):
-            # Kalman has a transitory. Try to skip it by throwing away an
-            # arbitrary number of initial values.
-            kf_data         = self.data[200:]
-            i_kf            = [r["idx"] for r in kf_data if "y_kf" in r]
-            x_err_kf        = [r["x_kf"] - r["x"] for r in kf_data if "x_kf" in r]
+            i_kf            = [r["idx"] for r in post_tran_data if "y_kf" in r]
+            x_err_kf        = [r["x_kf"] - r["x"] for r in post_tran_data
+                               if "x_kf" in r]
             tau_kf, mtie_kf = self.mtie(x_err_kf)
             plt.scatter(tau_kf, mtie_kf,
                         label="Kalman", marker="d", s=80.0, alpha=0.5)
