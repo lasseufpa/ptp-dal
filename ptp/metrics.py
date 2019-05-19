@@ -162,7 +162,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/toffset_vs_time")
+            plt.savefig("plots/toffset_vs_time", dpi=300)
         else:
             plt.show()
 
@@ -192,7 +192,7 @@ class Analyser():
             # Error of raw measurements
             x_tilde_err = [r["x_est"] - r["x"] for r in post_tran_data]
             plt.scatter(range(0, n_data), x_tilde_err,
-                        label="Raw Measurements", s = 1.0)
+                        label="Raw Measurements", s = 20.0, alpha=0.7)
 
         # Least-squares estimations
         if (show_ls):
@@ -203,14 +203,14 @@ class Analyser():
 
                 if (len(x_ls) > 0):
                     plt.scatter(i_ls, x_ls,
-                                label=ls_labels[i], marker="x", s=1.0)
+                                label=ls_labels[i], marker="x", s=20.0, alpha=0.7)
 
         # Kalman filtering output
         if (show_kf):
             i_kf     = [r["idx"] for r in post_tran_data if "x_kf" in r]
             x_err_kf = [r["x_kf"] - r["x"] for r in post_tran_data if "x_kf" in r]
             plt.scatter(i_kf, x_err_kf,
-                        label="Kalman", marker="d", s=1.0)
+                        label="Kalman", marker="d", s=20.0, alpha=0.7)
 
         # Packet Selection estimations
         if (show_pkts):
@@ -221,14 +221,14 @@ class Analyser():
 
                 if (len(x_pkts) > 0):
                     plt.scatter(i_pkts, x_pkts,
-                                label=pkts_labels[i], marker="v", s=1.0)
+                                label=pkts_labels[i], marker="v", s=20.0, alpha=0.7)
 
         plt.xlabel('Realization')
         plt.ylabel('Time offset Error (ns)')
         plt.legend()
 
         if (save):
-            plt.savefig("plots/toffset_err_vs_time")
+            plt.savefig("plots/toffset_err_vs_time", dpi=300)
         else:
             plt.show()
 
@@ -255,7 +255,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/delay_hist")
+            plt.savefig("plots/delay_hist", dpi=300)
         else:
             plt.show()
 
@@ -278,7 +278,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/delay_vs_time")
+            plt.savefig("plots/delay_vs_time", dpi=300)
         else:
             plt.show()
 
@@ -298,7 +298,7 @@ class Analyser():
         plt.ylabel('Delay Estimation Error (ns)')
 
         if (save):
-            plt.savefig("plots/delay_est_err_vs_time")
+            plt.savefig("plots/delay_est_err_vs_time", dpi=300)
         else:
             plt.show()
 
@@ -362,7 +362,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/foffset_vs_time")
+            plt.savefig("plots/foffset_vs_time", dpi=300)
         else:
             plt.show()
 
@@ -403,7 +403,7 @@ class Analyser():
         plt.ylabel('Delay Variation (ns)')
 
         if (save):
-            plt.savefig("plots/pdv_vs_time")
+            plt.savefig("plots/pdv_vs_time", dpi=300)
         else:
             plt.show()
 
@@ -488,7 +488,7 @@ class Analyser():
         plt.legend(loc=0)
 
         if (save):
-            plt.savefig("plots/mtie_vs_tau")
+            plt.savefig("plots/mtie_vs_tau", dpi=300)
         else:
             plt.show()
 
