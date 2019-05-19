@@ -43,7 +43,7 @@ class SimTime():
 class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
                  rtc_clk_freq = 125e6, rtc_resolution = 0, rtc_tolerance = 60,
-                 rtc_stability = 0.01, pdv_distr="Gamma"):
+                 rtc_stability = 0.01, pdv_distr="Gamma", gamma_scale=None):
         """PTP Runner class
 
         Args:
@@ -55,6 +55,7 @@ class Runner():
             rtc_tolerance  : Slave RTC frequency tolerance in ppb
             rtc_stability  : Slave RTC freq. stability (0 for constant freq.)
             pdv_distr      : PTP message PDV distribution (Gamma or Gaussian)
+            gamma_scale    : Scale parameter of the Gamma distribution
 
         """
 
@@ -65,6 +66,7 @@ class Runner():
         self.pdv_distr           = pdv_distr
         self.slave_rtc_tolerance = rtc_tolerance
         self.slave_rtc_stability = rtc_stability
+        self.gamma_scale         = gamma_scale
 
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
@@ -93,8 +95,10 @@ class Runner():
         """
 
         # Register the PTP message objects
-        sync = PtpEvt("Sync", self.sync_period, pdv_distr=self.pdv_distr)
-        dreq = PtpEvt("Delay_Req", pdv_distr=self.pdv_distr)
+        sync = PtpEvt("Sync", self.sync_period, pdv_distr=self.pdv_distr,
+                      gamma_scale=self.gamma_scale)
+        dreq = PtpEvt("Delay_Req", pdv_distr=self.pdv_distr,
+                      gamma_scale=self.gamma_scale)
 
         # RTC parameters
         master_ppb_tol       = 0 # master RTC is assumed perfect

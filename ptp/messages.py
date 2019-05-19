@@ -5,7 +5,8 @@ import numpy as np
 
 
 class PtpEvt():
-    def __init__(self, name, period_sec=None, pdv_distr="Gamma"):
+    def __init__(self, name, period_sec=None, pdv_distr="Gamma",
+                 gamma_scale=None):
         """PTP Event Message
 
         Controls transmission and reception of a PTP event message. When the
@@ -13,9 +14,10 @@ class PtpEvt():
         argument. Otherwise, transmission must be scheduled manually.
 
         Args:
-            name       : Message name
-            period_sec : Transmission period in seconds
-            pdv_distr  : PDV distribution
+            name        : Message name
+            period_sec  : Transmission period in seconds
+            pdv_distr   : PDV distribution
+            gamma_scale : Scale parameter of the Gamma distribution
 
         """
 
@@ -29,6 +31,18 @@ class PtpEvt():
         self.rx_tstamp     = None
         self.one_way_delay = None
         self.pdv_distr     = pdv_distr
+
+        # Apply default gamma scale if not defined. The default value comes from
+        # the fit for 60% load, 5-hop cross-traffic scenario in the following
+        # reference:
+        #
+        # [1] M. Anyaegbu, C. Wang and W. Berrie, "A sample-mode packet delay
+        # variation filter for IEEE 1588 synchronization," 2012 12th International
+        # Conference on ITS Telecommunications, Taipei, 2012, pp. 1-6.
+        if (gamma_scale is None):
+            self.gamma_scale = 21400
+        else:
+            self.gamma_scale = gamma_scale
 
         assert(pdv_distr == "Gamma" or pdv_distr == "Gaussian")
 
@@ -55,8 +69,7 @@ class PtpEvt():
         """
 
         if (self.pdv_distr == "Gamma"):
-            delay_ns = np.random.gamma(shape=2, scale=1000)
-            # FIXME set Gamma params
+            delay_ns = np.random.gamma(shape=5, scale=self.gamma_scale)
         elif (self.pdv_distr == "Gaussian"):
             delay_ns = np.random.normal(loc=2000, scale=200)
             # FIXME set Gaussian params

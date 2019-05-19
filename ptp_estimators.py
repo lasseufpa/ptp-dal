@@ -20,7 +20,7 @@ show_raw   = False
 show_best  = True
 
 # Run PTP simulation
-runner = ptp.runner.Runner(n_iter = n_iter)
+runner = ptp.runner.Runner(n_iter = n_iter, gamma_scale=1000)
 runner.run()
 
 # Least-squares estimator
