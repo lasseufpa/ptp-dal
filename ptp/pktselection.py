@@ -24,6 +24,9 @@ class PktSelection():
         self._ewma_last_avg = 0
         self._ewma_n        = 0 # sample index for bias correction
 
+        # Sample-mode params
+        self._sample_mode_bin = 10
+
     def _sample_avg_normal(self, x_obs):
         """Calculate the average of a given time offset vector
 
@@ -185,6 +188,54 @@ class PktSelection():
         x_est       = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
+    def _sample_mode(self, t2_minus_t1_w, t4_minus_t3_w, drift=None):
+        """Compute the time offset based on sample-mode
+
+        For the drift compensation, c.f. the explanation of EAPF.
+
+        Args:
+            t2_minus_t1_w : Vector of (t2 - t1) differences
+            t4_minus_t3_w : Vector of (t4 - t3) differences
+
+        Returns:
+           The time offset estimate
+
+        """
+        bin_width = self._sample_mode_bin
+
+        # Subtract the drift from slave timestamps
+        if (drift is not None):
+            t2_minus_t1_w = t2_minus_t1_w - drift
+            t4_minus_t3_w = t4_minus_t3_w + drift
+            offset        = drift[-1]
+        else:
+            offset = 0
+
+        # Quantize timestamp difference vectors
+        t2_minus_t1_q = np.round(t2_minus_t1_w / bin_width)
+        t4_minus_t3_q = np.round(t4_minus_t3_w / bin_width)
+
+        # Find the mode for (t2 - t1)
+        (_, idx, counts) = np.unique(t2_minus_t1_q, return_index=True,
+                                     return_counts=True)
+        mode_idx_fw      = idx[np.argmax(counts)]
+        t2_minus_t1      = t2_minus_t1_q[mode_idx_fw] * bin_width
+
+        # Automatically tune the bin as long as drift compensation is used
+        if (np.amax(counts) < 10 and drift is not None):
+            self._sample_mode_bin += 10
+            print("Increase sample-mode bin to %d" %(self._sample_mode_bin))
+
+        # Find the mode for (t4 - t3)
+        (_, idx, counts) = np.unique(t4_minus_t3_q,
+                                     return_index=True, return_counts=True)
+        mode_idx_bw      = idx[np.argmax(counts)]
+        t4_minus_t3      = t4_minus_t3_q[mode_idx_bw] * bin_width
+
+        # Final estimate (with drift compensation offset)
+        x_est            = offset + (t2_minus_t1 - t4_minus_t3)/2
+        return x_est
+
     def set_window_len(self, N):
         """Change the window length
 
@@ -283,6 +334,14 @@ class PktSelection():
                     t4_minus_t3_w = [float(r["t4"] - r["t3"]) for r
                                      in self.data[i_s:i_e]]
                     x_est = self._sample_maximum(t2_minus_t1_w, t4_minus_t3_w)
+                elif (strategy == 'mode'):
+                    t2_minus_t1_w = np.array([float(r["t2"] - r["t1"]) for r
+                                     in self.data[i_s:i_e]])
+                    t4_minus_t3_w = np.array([float(r["t4"] - r["t3"]) for r
+                                     in self.data[i_s:i_e]])
+                    x_est = self._sample_mode(t2_minus_t1_w, t4_minus_t3_w,
+                                              drift)
+
                 else:
                     raise ValueError("Strategy choice %s unknown" %(strategy))
 

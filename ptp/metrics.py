@@ -10,12 +10,14 @@ pkts_keys   = ["pkts_average",
                "pkts_ewma",
                "pkts_median",
                "pkts_min",
-               "pkts_max"]
+               "pkts_max",
+               "pkts_mode"]
 pkts_labels = ["Sample-average",
                "EWMA",
                "Sample-median",
                "EAPF",
-               "Sample-max"]
+               "Sample-max",
+               "Sample-mode"]
 ls_keys     = ["ls_t2",
                "ls_t1",
                "ls_eff"]

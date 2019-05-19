@@ -43,6 +43,10 @@ pkts.process("min", ls_impl="eff")
 pkts.set_window_len(N_ewma)
 pkts.process("ewma")
 
+# Sample-mode
+pkts.set_window_len(N_min)
+pkts.process("mode", ls_impl="eff")
+
 # Kalman (add frequency offset estimations to feed the Kalman filter)
 freq_estimator = ptp.frequency.Estimator(runner.data, delta=freq_delta)
 kalman         = ptp.kalman.Kalman(runner.data, runner.sync_period)
