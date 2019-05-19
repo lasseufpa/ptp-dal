@@ -232,6 +232,33 @@ class Analyser():
         else:
             plt.show()
 
+    def plot_delay_hist(self, save=False):
+        """Plot delay histogram
+
+        Args:
+            save      : Save the figure
+
+        """
+
+        n_data = len(self.data)
+        # Compute delays in microseconds
+        d      = np.array([r["d"] for r in self.data]) / 1e3
+        d_est  = np.array([r['d_est'] for r in self.data]) / 1e3
+
+        plt.figure()
+        plt.hist(d_est, bins=50, density=True, alpha=0.5,
+                 label="Two-way Measurements")
+        plt.hist(d, bins=50, density=True, alpha=0.5,
+                 label="True Values")
+        plt.xlabel('Delay (us)')
+        plt.ylabel('Probability')
+        plt.legend()
+
+        if (save):
+            plt.savefig("plots/delay_hist")
+        else:
+            plt.show()
+
     def plot_delay_vs_time(self, save=False):
         """Plot delay estimations vs time
 

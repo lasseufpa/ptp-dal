@@ -12,6 +12,7 @@ analyser = ptp.metrics.Analyser(runner.data)
 # Demonstrate plots
 analyser.plot_toffset_vs_time(show_best=True, save=True)
 analyser.plot_foffset_vs_time(save=True)
+analyser.plot_delay_hist(save=True)
 analyser.plot_delay_vs_time(save=True)
 analyser.plot_delay_est_err_vs_time(save=True)
 analyser.plot_pdv_vs_time(save=True)
