@@ -94,7 +94,7 @@ class PktSelection():
 
         return np.median(x_obs)
 
-    def _eapf(self, t2_minus_t1_w, t4_minus_t3_w):
+    def _eapf(self, t2_minus_t1_w, t4_minus_t3_w, drift=None):
         """Compute the time offset based on earliest arrivals
 
         Apply an earliest arrival packet filter (EAPF) on both master-to-slave
@@ -112,17 +112,58 @@ class PktSelection():
         same as the index of minimum (t4 - t3), as long as the time offset
         remains sufficiently constant within the window.
 
+        If vector of drifts is defined, use it to compensate the differences of
+        timestamps along the observation window. Note that:
+
+            x[n] = t2[n] - (t1[n] + dms[n])
+        or
+            x[n] = (t3[n] + dsm[n]) - t4[n]
+
+        so that
+
+            t2[n] - t1[n] = +x[n] + dms[n],
+            t4[n] - t3[n] = -x[n] + dsm[n]
+
+        However, x[n] can be modeled as:
+
+            x[n] = x_0 + drift[n]
+
+        If the drift is compensated, we have:
+
+            t2[n] - t1[n] - drift[n] = +x_0 + dms[n],
+            t4[n] - t3[n] + drift[n] = -x_0 + dsm[n]
+
+        In the end, the conventional sample-minumum results in:
+
+            x_est -> x_0
+
+        Thus, a final dirft compensation must be applied:
+
+            x_est += drift[N-1]
+
         Args:
             t2_minus_t1_w : Vector of (t2 - t1) differences
             t4_minus_t3_w : Vector of (t4 - t3) differences
+            drift         : Vector of time drifts accumulated along the window
 
         Returns:
            The time offset estimate
 
         """
+        # Subtract the drift from slave timestamps
+        if (drift is not None):
+            t2_minus_t1_w = t2_minus_t1_w - drift
+            t4_minus_t3_w = t4_minus_t3_w + drift
+            offset        = drift[-1]
+        else:
+            offset = 0
+
         t2_minus_t1 = np.amin(t2_minus_t1_w)
         t4_minus_t3 = np.amin(t4_minus_t3_w)
-        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+
+        # Final estimate (with drift compensation offset)
+        x_est       = offset + (t2_minus_t1 - t4_minus_t3)/2
+
         return x_est
 
     def _sample_maximum(self, t2_minus_t1_w, t4_minus_t3_w):
@@ -169,9 +210,10 @@ class PktSelection():
 
         Args:
             strategy  : Select the strategy of interest.
-            ls_impl   : Apply packet selection on the time offset values fitted
-                        via LS using one of the three distinct implementations:
-                        "t2", "t1" and "eff".
+            ls_impl   : Combine packet selection to information/estimations
+                        obtained via LS using one of the three distinct
+                        implementations: "t2", "t1" and "eff". The specific
+                        combination is defined per selection method.
             avg_impl  : Sample-avg implementation ("recursive" or "normal").
                         The recursive implementation theoretically produces the
                         same result as the "normal" implementation, except
@@ -182,18 +224,8 @@ class PktSelection():
         """
 
         # Select vector of noisy time offset observations and delay estimation
-        if (ls_impl):
-            x_obs = [res["x_ls_{}".format(ls_impl)] for res in self.data if
-                     "x_ls_{}".format(ls_impl) in res]
-            d_obs = [res["d_est"] for res in self.data if
-                     "x_ls_{}".format(ls_impl) in res]
-
-            if (len(x_obs) <= 0 or len(d_obs) <= 0):
-                raise ValueError("LS data not found")
-
-        else:
-            x_obs = [res["x_est"] for res in self.data]
-            d_obs = [res["d_est"] for res in self.data]
+        x_obs = [res["x_est"] for res in self.data]
+        d_obs = [res["d_est"] for res in self.data]
 
         n_data = len(x_obs)
 
@@ -218,17 +250,33 @@ class PktSelection():
                 x_obs_w = x_obs[i_s:i_e]
                 d_obs_w = d_obs[i_s:i_e]
 
+                # Apply frequency compensation using the frequency offset
+                # estimation obtained via LS
+                if (ls_impl is not None and
+                    "y_ls_{}".format(ls_impl) in self.data[i_e - 1]):
+
+                    # Compute the drift within the observation window
+                    t_w   = np.array([float(r["t1"] - self.data[i_s]["t1"]) for r
+                                      in self.data[i_s:i_e]])
+                    y     = self.data[i_e - 1]["y_ls_{}".format(ls_impl)]
+                    drift = y * t_w
+                else:
+                    drift = None
+
                 # Compute the time offset depending on the selected strategy
                 if (strategy == 'average' and avg_impl == 'normal'):
                     x_est = self._sample_avg_normal(x_obs_w)
+
                 elif (strategy == 'median'):
                     x_est = self._sample_median(x_obs_w)
+
                 elif (strategy == 'min'):
-                    t2_minus_t1_w = [float(r["t2"] - r["t1"]) for r
-                                     in self.data[i_s:i_e]]
-                    t4_minus_t3_w = [float(r["t4"] - r["t3"]) for r
-                                     in self.data[i_s:i_e]]
-                    x_est = self._eapf(t2_minus_t1_w, t4_minus_t3_w)
+                    t2_minus_t1_w = np.array([float(r["t2"] - r["t1"]) for r
+                                              in self.data[i_s:i_e]])
+                    t4_minus_t3_w = np.array([float(r["t4"] - r["t3"]) for r
+                                              in self.data[i_s:i_e]])
+                    x_est = self._eapf(t2_minus_t1_w, t4_minus_t3_w, drift)
+
                 elif (strategy == 'max'):
                     t2_minus_t1_w = [float(r["t2"] - r["t1"]) for r
                                      in self.data[i_s:i_e]]

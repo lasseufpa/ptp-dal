@@ -37,7 +37,7 @@ pkts.process("median")
 
 # Sample-minimum
 pkts.set_window_len(N_min)
-pkts.process("min")
+pkts.process("min", ls_impl="eff")
 
 # Exponentially weighted moving average
 pkts.set_window_len(N_ewma)
