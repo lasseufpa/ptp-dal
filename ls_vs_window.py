@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Run PTP simulation
-n_iter = 10000
+n_iter = 20000
 runner = ptp.runner.Runner(n_iter = n_iter)
 runner.run()
 
 # LS window lengths to evaluate:
-window_len = np.arange(10, int(n_iter/10), 10)
+window_len = np.arange(64, 4096, 64)
 
 # Compute max|TE| for each window length
 max_te     = np.zeros(window_len.shape)

@@ -6,12 +6,12 @@ import ptp.kalman
 import ptp.frequency
 
 # Parameters
-n_iter     = 2000               # Number of runner iterations
-N_ls       = 200                # LS window
-N_movavg   = 30                 # Moving average window
-N_median   = 30                 # Sample-median window
-N_min      = 20                 # Sample-minimum window
-N_ewma     = 30                 # EWMA window
+n_iter     = 4096               # Number of runner iterations
+N_ls       = 2048               # LS window
+N_movavg   = 128                # Moving average window
+N_median   = 128                # Sample-median window
+N_min      = 128                # Sample-minimum window
+N_ewma     = 64                 # EWMA window
 freq_delta = 16                 # Freq. offset estimation delta
 show_pkts  = True
 show_ls    = True
@@ -63,6 +63,7 @@ analyser.plot_toffset_err_vs_time(show_raw = show_raw,
                                   save = True)
 analyser.plot_foffset_vs_time(show_ls = show_ls,
                               show_kf = show_kf,
+                              show_raw = show_raw,
                               save = True)
 analyser.plot_mtie(show_raw = show_raw,
                    show_ls = show_ls,

@@ -43,7 +43,7 @@ class SimTime():
 class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
                  rtc_clk_freq = 125e6, rtc_resolution = 0, rtc_tolerance = 60,
-                 rtc_stability = 1.0, pdv_distr="Gamma"):
+                 rtc_stability = 0.01, pdv_distr="Gamma"):
         """PTP Runner class
 
         Args:

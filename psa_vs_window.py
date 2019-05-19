@@ -10,12 +10,14 @@ import numpy as np
 
 
 # Parameters
-n_iter   = 10000
+n_iter   = 5000
 strategy = "average"          # "average", "ewma", "median" or "min".
 ls_impl  = None               # LS implementation to use on PSA
-n_skip   = 200                # samples to skip due to transitory
-min_len  = 5                  # Minimum window length to test
-max_len  = 150                # Maximum window length to test
+n_skip   = 300                # samples to skip due to transitory
+min_len  = 16                 # Minimum window length to test
+max_len  = 512                # Maximum window length to test
+
+print("Strategy: %s" %(strategy))
 
 # Run PTP simulation
 runner = ptp.runner.Runner(n_iter = n_iter)

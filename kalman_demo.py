@@ -29,7 +29,7 @@ import ptp.frequency
 # Run PTP simulation
 n_iter = 1e3
 runner = ptp.runner.Runner(n_iter = n_iter, pdv_distr="Gamma",
-                           rtc_stability = 0.1)
+                           rtc_stability = 0.01)
 runner.run()
 
 # Least-squares estimator
@@ -60,4 +60,5 @@ analyser.plot_foffset_vs_time(show_ls=True,
                               save=True)
 analyser.plot_mtie(show_ls=True,
                    show_kf=True,
+                   show_raw=False,
                    save=True)

@@ -6,8 +6,8 @@ from pykalman import KalmanFilter
 
 class Kalman():
     def __init__(self, data, T,
-                 trans_cov = [[10, 0], [0, 1e-1]],
-                 obs_cov = [[1e5, 0], [0, 1e6]]):
+                 trans_cov = [[1, 0], [0, 1e-2]],
+                 obs_cov = [[1e6, 0], [0, 1e6]]):
         """Kalman Filter for Time/Frequency Offset
 
         The Kalman state vector is:
