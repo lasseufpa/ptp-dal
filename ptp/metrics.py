@@ -58,13 +58,20 @@ class Analyser():
             n_windows       = n_samples - window_size + 1
             mtie_candidates = np.zeros(n_windows)
             i_window        = 0
-            # Sweep all possible windows with the current size:
-            while ((window_size + i_window) <= n_samples):
-                i_end = window_size + i_window
-                tie_w = tie[i_window:i_end]     # current TE window
+            i_start         = 0
+            i_end           = window_size
+            # Sweep overlapping windows with the current size:
+            # NOTE: to speed up, not all possible overlapping windows are
+            # evaluated. This is controlled by how much "i_start" increments
+            # every time below.
+            while (i_start < n_samples):
+                tie_w = tie[i_start:i_end]     # current TE window
                 # Get the MTIE candidate
                 mtie_candidates[i_window] = np.amax(tie_w) - np.amin(tie_w)
-                i_window  += 1
+                # Update indexes
+                i_window += 1
+                i_start  += 20
+                i_end     = i_start + window_size
 
             # Final MTIE is the maximum among all candidates
             mtie = np.amax(mtie_candidates)
