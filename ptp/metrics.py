@@ -1,5 +1,6 @@
 """PTP metrics
 """
+import math
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -60,55 +61,90 @@ class Analyser():
         """
         self.data = data
 
-    def mtie(self, tie):
+    def rolling_window_mtx(self, x, window_size):
+        """Compute all overlapping (rolling) observation windows in a matrix
+
+        Args:
+            x           : observation vector that is supposed to be split into
+                          overlapping windows
+            window_size : the target window size
+
+        Returns:
+
+            Window matrix with all windows as rows. That is, if n_windows is the
+            number of windows, the result has dimensions:
+
+            (n_windows, window_size)
+
+        """
+        if window_size < 1:
+            raise ValueError("`window_size` must be at least 1.")
+        if window_size > x.shape[-1]:
+            raise ValueError("`window_size` is too long.")
+
+        shape   = x.shape[:-1] + (x.shape[-1] - window_size + 1, window_size)
+        strides = x.strides + (x.strides[-1],)
+
+        return np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides)
+
+    def mtie(self, tie, window_step = 20, starting_window = 10):
         """Maximum time interval error (MTIE)
 
         Computes the MTIE based on time interval error (TIE) samples. The MTIE
         computes the peak-to-peak TIE over windows of increasing duration.
 
         Args:
-            tie : Vector of TE values
+            tie             : Vector of TIE values
+            window_step     : Enlarge window by this step on every iteration
+            starting_window : Starting window size
 
         Returns:
-            tau_array  : Observation intervals
+            tau_array  : MTIE observation intervals
             mtie_array : The calculated MTIE for each observation interval
 
         """
-        window_inc    = 20 # Enlarge window by this amount on every interation
-        n_samples     = len(tie) # total number of samples
-        window_size   = 10
-        mtie_array    = [0]
-        tau_array     = [0]
+        n_samples   = len(tie) # total number of samples
+        tie         = np.array(tie)
 
-        # Try until the window occupies half of the data length
-        while (window_size <= n_samples/2):
-            n_windows       = n_samples - window_size + 1
-            mtie_candidates = np.zeros(n_windows)
-            i_window        = 0
-            i_start         = 0
-            i_end           = window_size
-            # Sweep overlapping windows with the current size:
-            # NOTE: to speed up, not all possible overlapping windows are
-            # evaluated. This is controlled by how much "i_start" increments
-            # every time below.
-            while (i_start < n_samples):
-                tie_w = tie[i_start:i_end]     # current TE window
-                # Get the MTIE candidate
-                mtie_candidates[i_window] = np.amax(tie_w) - np.amin(tie_w)
-                # Update indexes
-                i_window += 1
-                i_start  += 20
-                i_end     = i_start + window_size
+        # Number of different intervals to be evaluated
+        max_win_size = n_samples/2
+        n_tau        = math.floor((max_win_size - starting_window)/window_step)\
+                       + 1
+
+        # Preallocate results
+        mtie_array    = np.zeros(n_tau)
+        tau_array     = np.zeros(n_tau)
+
+        # Try until the window occupies half of the data length, so that the
+        # maximum window size still fits twice on the data
+        i_tau       = 0
+        window_size = starting_window
+        while (window_size <= max_win_size):
+            # Get all possible windows with the current window size:
+            parted_array = self.rolling_window_mtx(tie, window_size)
+
+            # Get maximum and minimum of each window
+            window_max = np.max(parted_array, axis = 1)
+            window_min = np.min(parted_array, axis = 1)
+
+            # MTIE candidates (for each window):
+            mtie_candidates = window_max - window_min
 
             # Final MTIE is the maximum among all candidates
             mtie = np.amax(mtie_candidates)
 
-            # Save MTIE and its corresponding window duration
-            mtie_array.append(mtie)
-            tau_array.append(window_size)
+            # Save MTIE and current window duration within outputs
+            mtie_array[i_tau] = mtie
+            tau_array[i_tau]  = window_size
 
-            # Increase window size
-            window_size += window_inc
+            # Update window size
+            window_size = window_size + window_step
+
+            i_tau += 1
+
+        # Have all expected tau values been evaluated?
+        assert(n_tau == i_tau), \
+            "n_tau = %d, i_tau = %d" %(n_tau, i_tau)
 
         return tau_array, mtie_array
 
