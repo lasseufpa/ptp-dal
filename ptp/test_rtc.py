@@ -50,7 +50,7 @@ class TestRtc(unittest.TestCase):
         resolution = 0
         period_ns  = (1.0/freq) * 1e9
         tol_ppb    = 100
-        rtc        = Rtc(freq, resolution, tol_ppb)
+        rtc        = Rtc(freq, resolution, tol_ppb = tol_ppb)
         t_start    = rtc.get_time()
         t_sim      = 0
 
@@ -83,14 +83,15 @@ class TestRtc(unittest.TestCase):
 
     def test_random_freq_offset(self):
         """Test time-keeping with randomly time-varying frequency offset"""
-        freq          = 125e6
-        resolution    = 0
-        period_ns     = (1.0/freq) * 1e9
-        tol_ppb       = 100
-        stability_ppb = 100
-        rtc           = Rtc(freq, resolution, tol_ppb, stability_ppb)
-        t_start       = rtc.get_time()
-        t_sim         = 0
+        freq             = 125e6
+        resolution       = 0
+        period_ns        = (1.0/freq) * 1e9
+        tol_ppb          = 100
+        norm_var_freq_rw = 1e-16 # random-walk
+        rtc              = Rtc(freq, resolution, tol_ppb = tol_ppb,
+                               norm_var_freq_rw = norm_var_freq_rw)
+        t_start          = rtc.get_time()
+        t_sim            = 0
 
         # Advance time in steps of 1 second
         delta_ns = 1e9
@@ -101,7 +102,7 @@ class TestRtc(unittest.TestCase):
         rtc.update(t_sim)
 
         # Frequency offset during this interval:
-        actual_ppb_0   = rtc.get_freq_offset()
+        actual_ppb_0 = rtc.get_freq_offset()
 
         # Change freq. offset internally
         rtc._randomize_driving_clk(t_sim * 1e9)

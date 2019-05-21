@@ -42,31 +42,38 @@ class SimTime():
 
 class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
-                 rtc_clk_freq = 125e6, rtc_resolution = 0, rtc_tolerance = 60,
-                 rtc_stability = 0.01, pdv_distr="Gamma", gamma_scale=None):
+                 rtc_clk_freq = 125e6, rtc_resolution = 0, freq_tolerance = 60,
+                 freq_stability = 1e-18, phase_stability = 1e-12,
+                 pdv_distr="Gamma", gamma_scale=None):
         """PTP Runner class
 
         Args:
-            n_iter         : Number of iterations
-            sim_t_step     : Simulation time step in seconds
-            sync_period    : Sync transmission period in seconds
-            rtc_clk_freq   : RTC clock frequency in Hz
-            rtc_resolution : RTC representation resolution in ns
-            rtc_tolerance  : Slave RTC frequency tolerance in ppb
-            rtc_stability  : Slave RTC freq. stability (0 for constant freq.)
-            pdv_distr      : PTP message PDV distribution (Gamma or Gaussian)
-            gamma_scale    : Scale parameter of the Gamma distribution
+            n_iter          : Number of iterations
+            sim_t_step      : Simulation time step in seconds
+            sync_period     : Sync transmission period in seconds
+            rtc_clk_freq    : RTC clock frequency in Hz
+            rtc_resolution  : RTC representation resolution in ns
+            freq_tolerance  : Slave RTC frequency tolerance in ppb
+            freq_stability  : Slave RTC freq. stability - given as the
+                              normalized variance of the frequency offset
+                              random-walk (set 0 for constant frequency).
+            phase_stability : Slave RTC phase stability - given as the
+                              normalized variance of the phase offset
+                              random-walk (set 0 to disable this noise).
+            pdv_distr       : PTP message PDV distribution (Gamma or Gaussian)
+            gamma_scale     : Scale parameter of the Gamma distribution
 
         """
 
-        self.n_iter              = n_iter
-        self.sync_period         = sync_period
-        self.rtc_clk_freq        = rtc_clk_freq
-        self.rtc_resolution      = rtc_resolution
-        self.pdv_distr           = pdv_distr
-        self.slave_rtc_tolerance = rtc_tolerance
-        self.slave_rtc_stability = rtc_stability
-        self.gamma_scale         = gamma_scale
+        self.n_iter                = n_iter
+        self.sync_period           = sync_period
+        self.rtc_clk_freq          = rtc_clk_freq
+        self.rtc_resolution        = rtc_resolution
+        self.pdv_distr             = pdv_distr
+        self.slave_freq_tolerance  = freq_tolerance
+        self.slave_freq_stability  = freq_stability
+        self.slave_phase_stability = phase_stability
+        self.gamma_scale           = gamma_scale
 
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
@@ -100,17 +107,18 @@ class Runner():
         dreq = PtpEvt("Delay_Req", pdv_distr=self.pdv_distr,
                       gamma_scale=self.gamma_scale)
 
-        # RTC parameters
-        master_ppb_tol       = 0 # master RTC is assumed perfect
-        master_ppb_stability = 0 # master RTC is assumed perfect
-        slave_ppb_tol        = self.slave_rtc_tolerance
-        slave_ppb_stability  = self.slave_rtc_stability
-
         # RTCs
-        master_rtc = Rtc(self.rtc_clk_freq, self.rtc_resolution, master_ppb_tol,
-                         master_ppb_stability, "Master")
-        slave_rtc  = Rtc(self.rtc_clk_freq, self.rtc_resolution, slave_ppb_tol,
-                         slave_ppb_stability, "Slave")
+        #
+        # NOTE: impairment parameters for the Master are omitted because the
+        # default is to assume perfect conditions (no phase/freq. noise and no
+        # freq. error).
+        master_rtc = Rtc(self.rtc_clk_freq, self.rtc_resolution,
+                         label = "Master")
+        slave_rtc  = Rtc(self.rtc_clk_freq, self.rtc_resolution,
+                         tol_ppb = self.slave_freq_tolerance,
+                         norm_var_freq_rw = self.slave_freq_stability,
+                         norm_var_time_rw = self.slave_phase_stability,
+                         label = "Slave")
 
         # Main loop
         evts       = list()

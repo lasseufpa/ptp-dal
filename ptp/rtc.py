@@ -7,15 +7,34 @@ from ptp.timestamping import Timestamp
 
 class Rtc():
     def __init__(self, nom_freq_hz, resolution_ns, tol_ppb = 0.0,
-                 stability_ppb = 0.0, label="RTC"):
+                 norm_var_freq_rw = 0.0, norm_var_time_rw = 0.0, label="RTC"):
         """Real-time Clock (RTC)
 
+        Model:
+
+        The model incorporates random-walk frequency noise and random-walk time
+        noise. These are controlled by the normalized variance of the frequency
+        offset random-walk iid step (norm_var_freq_rw) and the normalized
+        variance of the time offset random-walk (norm_var_time_rw). Importantly,
+        these normalized variances are ultimately multiplied by the update
+        period of the model as suggested in [1].
+
+        References:
+
+        [1] G. Giorgi and C. Narduzzi, "Performance Analysis of
+        Kalman-Filter-Based Clock Synchronization in IEEE 1588 Networks," in
+        IEEE Transactions on Instrumentation and Measurement, vol. 60, no. 8,
+        pp. 2902-2909, Aug. 2011.
+
+
         Args:
-        nom_freq_hz   : Nominal frequency (in Hz) of the driving clock signal
-        resolution_ns : Timestamp resolution in nanoseconds
-        tol_ppb       : Frequency tolerance in ppb
-        stability_ppb : Frequency stability in ppb
-        label         : RTC label
+            nom_freq_hz      : Nominal frequency (Hz) of the driving clock
+            resolution_ns    : Timestamp resolution in nanoseconds
+            tol_ppb          : Frequency tolerance in ppb
+            norm_var_freq_rw : Freq. offset random-walk's normalized variance
+            norm_var_time_rw : Time offset random-walk's normalized variance
+            label            : RTC label
+
         """
 
         # Start the rtc with a random time and phase
@@ -48,11 +67,13 @@ class Rtc():
         self.toffset    = Timestamp()
         self.t_last_inc = 0
 
-        # Simulation of driving clock frequency
-        freq_stability             = stability_ppb * 1e-9
-        self.freq_update_period_ns = 1e6
-        self.freq_noise_sdev_hz    = freq_stability * freq_hz
-        self.t_last_freq_update    = 0
+        # Clock modeling
+        self._model_update_period_ns = 1e7
+        self._model_sdev_freq_rw     = math.sqrt(1e-9 * norm_var_freq_rw * \
+                                                 self._model_update_period_ns)
+        self._model_sdev_time_rw     = math.sqrt(1e-9 * norm_var_time_rw * \
+                                                 self._model_update_period_ns)
+        self._model_t_last_update    = 0
 
         logger = logging.getLogger('Rtc')
         logger.debug("Initialized the %s RTC" %(self.label))
@@ -65,6 +86,8 @@ class Rtc():
     def _randomize_driving_clk(self, t_sim_ns):
         """Update the properties of the driving clock
 
+        C.f. model description in the constructor method.
+
         Args:
             t_sim_ns : Simulation time in ns
 
@@ -72,10 +95,22 @@ class Rtc():
             True when udpated
         """
 
-        if (t_sim_ns >= (self.t_last_freq_update + self.freq_update_period_ns)):
-            # Add zero-mean white frequency noise
-            self.freq_hz += random.gauss(0, self.freq_noise_sdev_hz)
-            self.t_last_freq_update = t_sim_ns
+        t_next_update = self._model_t_last_update + \
+                        self._model_update_period_ns
+
+        # Is it time to update the frequency/phase?
+        if (t_sim_ns >= t_next_update):
+            # Random-walk frequency noise
+            noise_y = random.gauss(0, self._model_sdev_freq_rw)
+            # The above is normalized - scale back to Hz
+            self.freq_hz += (self._nom_freq_hz * noise_y)
+
+            # Random-walk time offset noise due to phase noise
+            noise_x    = random.gauss(0, self._model_sdev_time_rw)
+            self.time += noise_x
+
+            # Save the update time
+            self._model_t_last_update = t_sim_ns
 
             logger = logging.getLogger('Rtc')
             logger.debug("[%-6s] New driving freq: %f MHz" %(self.label,
@@ -102,11 +137,11 @@ class Rtc():
         #
         # Schedule periodic wake-ups for the RTC in order to simulate its
         # driving frequency randomly changing over time
-        if (evts is not None and self.freq_noise_sdev_hz != 0):
+        if (evts is not None and self._model_sdev_freq_rw != 0):
             if (self._randomize_driving_clk(t_sim_ns)):
                 # Schedule next update
                 heapq.heappush(evts,
-                               (t_sim + (self.freq_update_period_ns * 1e-9)))
+                               (t_sim + (self._model_update_period_ns * 1e-9)))
 
         # Based on the current RTC driving clock period (which changes over
         # time), check how many times the RTC has incremented since last time
