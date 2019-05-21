@@ -6,7 +6,7 @@ import numpy as np
 
 class PtpEvt():
     def __init__(self, name, period_sec=None, pdv_distr="Gamma",
-                 gamma_scale=None):
+                 gamma_shape=None, gamma_scale=None):
         """PTP Event Message
 
         Controls transmission and reception of a PTP event message. When the
@@ -17,6 +17,7 @@ class PtpEvt():
             name        : Message name
             period_sec  : Transmission period in seconds
             pdv_distr   : PDV distribution
+            gamma_shape : Shape parameter of the Gamma distribution
             gamma_scale : Scale parameter of the Gamma distribution
 
         """
@@ -32,9 +33,9 @@ class PtpEvt():
         self.one_way_delay = None
         self.pdv_distr     = pdv_distr
 
-        # Apply default gamma scale if not defined. The default value comes from
-        # the fit for 60% load, 5-hop cross-traffic scenario in the following
-        # reference:
+        # Apply default gamma shape and scale if not defined. The default values
+        # come from the fit for 60% load, 5-hop cross-traffic scenario in the
+        # following reference:
         #
         # [1] M. Anyaegbu, C. Wang and W. Berrie, "A sample-mode packet delay
         # variation filter for IEEE 1588 synchronization," 2012 12th International
@@ -43,6 +44,11 @@ class PtpEvt():
             self.gamma_scale = 21400
         else:
             self.gamma_scale = gamma_scale
+
+        if (gamma_shape is None):
+            self.gamma_shape = 5
+        else:
+            self.gamma_shape = gamma_shape
 
         assert(pdv_distr == "Gamma" or pdv_distr == "Gaussian")
 
@@ -69,7 +75,8 @@ class PtpEvt():
         """
 
         if (self.pdv_distr == "Gamma"):
-            delay_ns = np.random.gamma(shape=5, scale=self.gamma_scale)
+            delay_ns = np.random.gamma(shape=self.gamma_shape,
+                                       scale=self.gamma_scale)
         elif (self.pdv_distr == "Gaussian"):
             delay_ns = np.random.normal(loc=2000, scale=200)
             # FIXME set Gaussian params

@@ -44,7 +44,7 @@ class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
                  rtc_clk_freq = 125e6, rtc_resolution = 0, freq_tolerance = 60,
                  freq_stability = 1e-18, phase_stability = 1e-12,
-                 pdv_distr="Gamma", gamma_scale=None):
+                 pdv_distr="Gamma", gamma_shape=None, gamma_scale=None):
         """PTP Runner class
 
         Args:
@@ -61,6 +61,7 @@ class Runner():
                               normalized variance of the phase offset
                               random-walk (set 0 to disable this noise).
             pdv_distr       : PTP message PDV distribution (Gamma or Gaussian)
+            gamma_shape     : Shape parameter of the Gamma distribution
             gamma_scale     : Scale parameter of the Gamma distribution
 
         """
@@ -73,6 +74,7 @@ class Runner():
         self.slave_freq_tolerance  = freq_tolerance
         self.slave_freq_stability  = freq_stability
         self.slave_phase_stability = phase_stability
+        self.gamma_shape           = gamma_shape
         self.gamma_scale           = gamma_scale
 
         # Simulation time
@@ -103,8 +105,10 @@ class Runner():
 
         # Register the PTP message objects
         sync = PtpEvt("Sync", self.sync_period, pdv_distr=self.pdv_distr,
+                      gamma_shape=self.gamma_shape,
                       gamma_scale=self.gamma_scale)
         dreq = PtpEvt("Delay_Req", pdv_distr=self.pdv_distr,
+                      gamma_shape=self.gamma_shape,
                       gamma_scale=self.gamma_scale)
 
         # RTCs
