@@ -23,7 +23,7 @@ class Ls():
         self.data = data
         self.T_ns = T_ns
 
-    def process(self, impl="t2"):
+    def process(self, impl="eff"):
         """Process the observations
 
         Using the raw time offset offset measurements and the Sync arrival
