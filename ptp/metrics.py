@@ -106,17 +106,19 @@ class Analyser():
 
         """
         n_data  = len(self.data)
-        x_tilde = np.array([r["x_est"] for r in self.data])
 
         plt.figure()
 
         if (show_raw):
-            plt.scatter(range(0, n_data), x_tilde,
+            idx     = [r["idx"] for r in self.data]
+            x_tilde = np.array([r["x_est"] for r in self.data])
+            plt.scatter(idx, x_tilde,
                         label="Raw Measurements", s = 1.0)
 
         if (show_true):
-            x       = np.array([r["x"] for r in self.data])
-            plt.scatter(range(0, n_data), x, label="True Values", s = 1.0)
+            idx = [r["idx"] for r in self.data]
+            x   = np.array([r["x"] for r in self.data])
+            plt.scatter(idx, x, label="True Values", s = 1.0)
 
         # Least-squares estimations
         if (show_ls):
@@ -327,8 +329,9 @@ class Analyser():
         plt.figure()
 
         if (show_true):
-            y = [r["rtc_y"] for r in post_tran_data]
-            plt.scatter(range(0, n_data), y, label="True Values", s = 1.0)
+            idx = [r["idx"] for r in post_tran_data]
+            y   = [r["rtc_y"] for r in post_tran_data]
+            plt.scatter(idx, y, label="True Values", s = 1.0)
 
         if (show_raw):
             i_y_tilde = [r["idx"] for r in post_tran_data if "y_est" in r]
