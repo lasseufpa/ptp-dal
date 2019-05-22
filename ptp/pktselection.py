@@ -42,7 +42,7 @@ class PktSelection():
     def _sample_avg_recursive(self, x_obs):
         """Calculate the average of a given time offset vector recursively
 
-        Uses a ciruclar (ring) buffer with size 2*N, where the tail pointer is
+        Uses a circular (ring) buffer with size 2*N, where the tail pointer is
         always lagging the head pointer by N. The head pointer is used to save
         new values and the tail pointer is used to throw away the oldest value.
 
