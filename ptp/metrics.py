@@ -4,27 +4,50 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import re
 
-
-pkts_keys   = ["pkts_average",
-               "pkts_ewma",
-               "pkts_median",
-               "pkts_min",
-               "pkts_max",
-               "pkts_mode"]
-pkts_labels = ["Sample-average",
-               "EWMA",
-               "Sample-median",
-               "EAPF",
-               "Sample-max",
-               "Sample-mode"]
-ls_keys     = ["ls_t2",
-               "ls_t1",
-               "ls_eff"]
-ls_labels   = ["LSE (t2)",
-               "LSE (t1)",
-               "LSE"]
-
+est_keys = {"raw"         : {"label": "Raw Measurements",
+                             "marker": None,
+                             "show": True},
+            "true"        : {"label": "True Values",
+                             "marker": None,
+                             "show": True},
+            "pkts_average": {"label": "Sample-average",
+                             "marker": "v",
+                             "show": True},
+            "pkts_ewma"   : {"label": "EWMA",
+                             "marker": "v",
+                             "show": True},
+            "pkts_median" : {"label": "Sample-median",
+                             "marker": "v",
+                             "show": True},
+            "pkts_min"    : {"label": "EAPF",
+                             "marker": "v",
+                             "show": True},
+            "pkts_min_ls" : {"label": "EAPF with LS",
+                             "marker": "v",
+                             "show": True},
+            "pkts_max"    : {"label": "Sample-max",
+                             "marker": "v",
+                             "show": True},
+            "pkts_mode"   : {"label": "Sample-mode",
+                             "marker": "v",
+                             "show": True},
+            "pkts_mode_ls": {"label": "Sample-mode with LS",
+                             "marker": "v",
+                             "show": True},
+            "ls_t2"       : {"label": "LSE (t2)",
+                             "marker": "x",
+                             "show": True},
+            "ls_t1"       : {"label": "LSE (t1)",
+                             "marker": "x",
+                             "show": True},
+            "ls_eff"      : {"label": "LSE",
+                             "marker": "x",
+                             "show": True},
+            "kf"          : {"label": "Kalman",
+                             "marker": "d",
+                             "show": True}}
 
 class Analyser():
     def __init__(self, data):
@@ -116,75 +139,86 @@ class Analyser():
 
         return max_te
 
+    def dec_plot_filter(func):
+        """Plot filter decorator
+
+        Filter the global 'est_keys' dict based on 'show_' args from
+        'plot_' functions.
+
+        Args:
+            func = Plot functions
+
+        """
+        def wrapper(*args, **kwargs):
+            for k, v in kwargs.items():
+                if (not v):
+                    # Extract the preffix_keys from 'show_' variables
+                    preffix_key = (re.search(r'(?<=show_).*', k)).group(0)
+                    # Find the dict keys that match with the preffix_keys
+                    key_values  = [key for key in est_keys if
+                                   re.match(r'^{}_*'.format(preffix_key), key)]
+                    # Set show key to 'False' on global 'est_keys' dict
+                    for suffix, v in est_keys.items():
+                        if (suffix in key_values):
+                            v["show"] = False
+
+            # Run plot function
+            plot_function = func(*args, **kwargs)
+
+            # Clean-up global 'est_keys' dict after running the plot function
+            for k, v in est_keys.items():
+                v["show"] = True
+
+            return plot_function
+        return wrapper
+
+    @dec_plot_filter
     def plot_toffset_vs_time(self, show_raw=True, show_best=True,
                              show_ls=True, show_pkts=True, show_kf=True,
-                             show_true=True, n_skip_kf=0, save=True):
+                             show_true=True, n_skip_kf=0, save=True,
+                             save_format='png'):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
 
         Args:
-            show_raw  : Show raw measurements
-            show_best : Enable to highlight the best measurements.
-            show_ls   : Show least-squares fit
-            show_pkts : Show Packet Selection fit
-            show_kf   : Show Kalman filtering results
-            n_skip_kf : Number of initial Kalman filter samples to skip
-            show_true : Show true values
-            save      : Save the figure
+            show_raw    : Show raw measurements
+            show_best   : Enable to highlight the best measurements.
+            show_ls     : Show least-squares fit
+            show_pkts   : Show Packet Selection fit
+            show_kf     : Show Kalman filtering results
+            n_skip_kf   : Number of initial Kalman filter samples to skip
+            show_true   : Show true values
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
         n_data  = len(self.data)
 
         plt.figure()
 
-        if (show_raw):
-            idx     = [r["idx"] for r in self.data]
-            x_tilde = np.array([r["x_est"] for r in self.data])
-            plt.scatter(idx, x_tilde,
-                        label="Raw Measurements", s = 1.0)
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                if (suffix == "raw"):
+                    key = "x_est"
+                elif (suffix == "true"):
+                    key = "x"
+                else:
+                    key = "x_" + suffix
 
-        if (show_true):
-            idx = [r["idx"] for r in self.data]
-            x   = np.array([r["x"] for r in self.data])
-            plt.scatter(idx, x, label="True Values", s = 1.0)
+                i_est = [r["idx"] for r in self.data if key in r]
+                x_est = [r[key] for r in self.data if key in r]
 
-        # Least-squares estimations
-        if (show_ls):
-            for i, suffix in enumerate(ls_keys):
-                key  = "x_" + suffix
-                i_ls = [r["idx"] for r in self.data if key in r]
-                x_ls = [r[key] for r in self.data if key in r]
-
-                if (len(x_ls) > 0):
-                    plt.scatter(i_ls, x_ls,
-                                label=ls_labels[i], marker="x", s=1.0)
-
-        # Kalman filtering output
-        if (show_kf):
-            i_kf  = [r["idx"] for r in self.data if "x_kf" in r]
-            x_kf  = [r["x_kf"] for r in self.data if "x_kf" in r]
-            if (n_skip_kf > 0):
-                skip_label = " (after first %d)" %(n_skip_kf)
-            else:
-                skip_label = ""
-            plt.scatter(i_kf[n_skip_kf:], x_kf[n_skip_kf:],
-                        label="Kalman" + skip_label, marker="d", s=1.0)
-
-        # Packet Selection estimation
-        if (show_pkts):
-            for i, suffix in enumerate(pkts_keys):
-                key    = "x_" + suffix
-                i_pkts = [r["idx"] for r in self.data if key in r]
-                x_pkts = [r[key] for r in self.data if key in r]
-
-                if (len(x_pkts) > 0):
-                    plt.scatter(i_pkts, x_pkts,
-                                label=pkts_labels[i], marker="v", s=1.0)
+                if (len(x_est) > 0):
+                    plt.scatter(i_est, x_est,
+                                label=value["label"], marker=value["marker"],
+                                s=1.0)
 
         # Best raw measurements
         if (show_best):
-            assert(show_true), "show_best requires show_true"
+            x_tilde  = np.array([r["x_est"] for r in self.data])
+            x        = np.array([r["x"] for r in self.data])
+
             err      = x_tilde - x
             best_idx = np.squeeze(np.where(abs(err) < 10))
             plt.scatter(best_idx, x_tilde[best_idx],
@@ -195,22 +229,25 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/toffset_vs_time", dpi=300)
+            plt.savefig("plots/toffset_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
 
+    @dec_plot_filter
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
-                                 show_pkts=True, show_kf=True, save=True):
+                                 show_pkts=True, show_kf=True, save=True,
+                                 save_format='png'):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
 
         Args:
-            show_raw  : Show raw measurements
-            show_ls   : Show least-squares fit
-            show_pkts : Show packet selection fit
-            show_kf   : Show Kalman filtering results
-            save      : Save the figure
+            show_raw    : Show raw measurements
+            show_ls     : Show least-squares fit
+            show_pkts   : Show packet selection fit
+            show_kf     : Show Kalman filtering results
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
         # To facilitate inspection, it is better to skip the transitory
@@ -221,58 +258,36 @@ class Analyser():
 
         plt.figure()
 
-        if (show_raw):
-            # Error of raw measurements
-            x_tilde_err = [r["x_est"] - r["x"] for r in post_tran_data]
-            plt.scatter(range(0, n_data), x_tilde_err,
-                        label="Raw Measurements", s = 20.0, alpha=0.7)
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                key   = "x_est" if (suffix == "raw") else "x_" + suffix
 
-        # Least-squares estimations
-        if (show_ls):
-            for i, suffix in enumerate(ls_keys):
-                key  = "x_" + suffix
-                i_ls = [r["idx"] for r in post_tran_data if key in r]
-                x_ls = [r[key] - r["x"] for r in post_tran_data if key in r]
+                i_est = [r["idx"] for r in post_tran_data if key in r]
+                x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
 
-                if (len(x_ls) > 0):
-                    plt.scatter(i_ls, x_ls,
-                                label=ls_labels[i], marker="x", s=20.0, alpha=0.7)
-
-        # Kalman filtering output
-        if (show_kf):
-            i_kf     = [r["idx"] for r in post_tran_data if "x_kf" in r]
-            x_err_kf = [r["x_kf"] - r["x"] for r in post_tran_data if "x_kf" in r]
-            plt.scatter(i_kf, x_err_kf,
-                        label="Kalman", marker="d", s=20.0, alpha=0.7)
-
-        # Packet Selection estimations
-        if (show_pkts):
-            for i, suffix in enumerate(pkts_keys):
-                key    = "x_" + suffix
-                i_pkts = [r["idx"] for r in post_tran_data if key in r]
-                x_pkts = [r[key] - r["x"] for r in post_tran_data if key in r]
-
-                if (len(x_pkts) > 0):
-                    plt.scatter(i_pkts, x_pkts,
-                                label=pkts_labels[i], marker="v", s=20.0, alpha=0.7)
+                if (len(x_est) > 0):
+                    plt.scatter(i_est, x_est,
+                                label=value["label"], marker=value["marker"],
+                                s=20.0, alpha=0.7)
 
         plt.xlabel('Realization')
         plt.ylabel('Time offset Error (ns)')
         plt.legend()
 
         if (save):
-            plt.savefig("plots/toffset_err_vs_time", dpi=300)
+            plt.savefig("plots/toffset_err_vs_time", format=save_format,
+                        dpi=300)
         else:
             plt.show()
 
-    def plot_delay_hist(self, save=False):
+    def plot_delay_hist(self, save=False, save_format='png'):
         """Plot delay histogram
 
         Args:
-            save      : Save the figure
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
-
         n_data = len(self.data)
         # Compute delays in microseconds
         d      = np.array([r["d"] for r in self.data]) / 1e3
@@ -288,20 +303,21 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/delay_hist", dpi=300)
+            plt.savefig("plots/delay_hist", format=save_format, dpi=300)
         else:
             plt.show()
 
-    def plot_delay_vs_time(self, save=True):
+    def plot_delay_vs_time(self, save=True, save_format='png'):
         """Plot delay estimations vs time
 
         Args:
-            save      : Save the figure
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
         n_data = len(self.data)
         d      = [r["d"] for r in self.data]
-        d_est  = [r['d_est'] for r in self.data]
+        d_est  = [r["d_est"] for r in self.data]
 
         plt.figure()
         plt.scatter(range(0, n_data), d_est, label="Raw Measurements", s = 1.0)
@@ -311,15 +327,16 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/delay_vs_time", dpi=300)
+            plt.savefig("plots/delay_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
 
-    def plot_delay_est_err_vs_time(self, save=True):
+    def plot_delay_est_err_vs_time(self, save=True, save_format='png'):
         """Plot delay estimations error vs time
 
         Args:
-            save      : Save the figure
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
         n_data    = len(self.data)
@@ -331,12 +348,15 @@ class Analyser():
         plt.ylabel('Delay Estimation Error (ns)')
 
         if (save):
-            plt.savefig("plots/delay_est_err_vs_time", dpi=300)
+            plt.savefig("plots/delay_est_err_vs_time", format=save_format,
+                        dpi=300)
         else:
             plt.show()
 
+    @dec_plot_filter
     def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
-                             show_true=True, n_skip_kf=0, save=True):
+                             show_true=True, n_skip_kf=0, save=True,
+                             save_format='png'):
         """Plot freq. offset vs time
 
         Args:
@@ -346,6 +366,7 @@ class Analyser():
             n_skip_kf : Number of initial Kalman filter samples to skip
             show_true : Show true values
             save      : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
 
@@ -357,50 +378,37 @@ class Analyser():
 
         plt.figure()
 
-        if (show_true):
-            idx = [r["idx"] for r in post_tran_data]
-            y   = [r["rtc_y"] for r in post_tran_data]
-            plt.scatter(idx, y, label="True Values", s = 1.0)
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                if (suffix == "raw"):
+                    key   = "y_est"
+                elif (suffix == "true"):
+                    key   = "rtc_y"
+                else:
+                    key   = "y_" + suffix
 
-        if (show_raw):
-            i_y_tilde = [r["idx"] for r in post_tran_data if "y_est" in r]
-            y_tilde   = [1e9*r["y_est"] for r in post_tran_data if "y_est" in r]
-            plt.scatter(i_y_tilde, y_tilde, label="Raw Measurements", s = 2.0)
+                # The frequency offset to the 'true' values are already in ppb.
+                unit  = 1 if (suffix == "true") else 1e9
 
-        # Show least-squares estimations
-        if (show_ls):
-            for i, suffix in enumerate(ls_keys):
-                key  = "y_" + suffix
-                i_ls = [r["idx"] for r in post_tran_data if key in r]
-                y_ls = [1e9*r[key] for r in post_tran_data if key in r]
+                i_est = [r["idx"] for r in post_tran_data if key in r]
+                y_est = [unit*r[key] for r in post_tran_data if key in r]
 
-                if (len(y_ls) > 0):
-                    plt.scatter(i_ls, y_ls,
-                                label=ls_labels[i], marker="x", s=1.0)
-
-        # Kalman filtering output
-        if (show_kf):
-            i_kf  = [r["idx"] for r in post_tran_data if "y_kf" in r]
-            y_kf  = [1e9*r["y_kf"] for r in post_tran_data if "y_kf" in r]
-
-            if (n_skip_kf > 0):
-                skip_label = " (after first %d)" %(n_skip_kf)
-            else:
-                skip_label = ""
-
-            plt.scatter(i_kf[n_skip_kf:], y_kf[n_skip_kf:],
-                        label="Kalman" + skip_label, s=1.0)
+                if (len(y_est) > 0):
+                    plt.scatter(i_est, y_est,
+                                label=value["label"], marker=value["marker"],
+                                s=1.0)
 
         plt.xlabel('Realization')
         plt.ylabel('Frequency Offset (ppb)')
         plt.legend()
 
         if (save):
-            plt.savefig("plots/foffset_vs_time", dpi=300)
+            plt.savefig("plots/foffset_vs_time", format=save_format,
+                        dpi=300)
         else:
             plt.show()
 
-    def plot_pdv_vs_time(self, save=True):
+    def plot_pdv_vs_time(self, save=True, save_format='png'):
         """Plot PDV over time
 
         Each value represents the measured difference of the current Sync delay
@@ -416,6 +424,7 @@ class Analyser():
 
         Args:
             save      : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
         n_data  = len(self.data)
@@ -437,12 +446,13 @@ class Analyser():
         plt.ylabel('Delay Variation (ns)')
 
         if (save):
-            plt.savefig("plots/pdv_vs_time", dpi=300)
+            plt.savefig("plots/pdv_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
 
+    @dec_plot_filter
     def plot_mtie(self, show_raw=True, show_ls=True, show_pkts=True,
-                  show_kf=True, save=True):
+                  show_kf=True, save=True, save_format='png'):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time interval error (TIE) samples are assumed to be
@@ -457,147 +467,82 @@ class Analyser():
         is computed, but useful for the evaluation and simpler to implement.
 
         Args:
-            show_raw  : Show raw measurements
-            show_ls   : Show least-squares fit
-            show_pkts : Show Packet Selection fit
-            show_kf   : Show Kalman filtering results
-            save      : Save the figure
+            show_raw    : Show raw measurements
+            show_ls     : Show least-squares fit
+            show_pkts   : Show Packet Selection fit
+            show_kf     : Show Kalman filtering results
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
         plt.figure()
 
-        # Some methods such as Kalman, EWMA and the recursive moving average
-        # have transitories. To analyse them, it is better to skip the
-        # transitory by throwing away an arbitrary number of initial values. For
-        # the sake of fairness, analyse all other methods also from this
-        # transitory-removed dataset.
+        # To facilitate inspection, it is better to skip the transitory
+        # (e.g. due to Kalman)
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
 
-        if (show_raw):
-            # MTIE over raw time offset measurements
-            x_err_raw         = [r["x_est_err"] for r in post_tran_data]
-            i_raw             = [r["idx"] for r in post_tran_data ]
-            tau_raw, mtie_raw = self.mtie(x_err_raw)
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                key   = "x_est" if (suffix == "raw") else "x_" + suffix
 
-            plt.scatter(tau_raw, mtie_raw, label = "Raw Measurements", marker="x")
+                i_est = [r["idx"] for r in post_tran_data if key in r]
+                x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
 
-        # Least-squares estimations
-        if (show_ls):
-            for i, suffix in enumerate(ls_keys):
-                key  = "x_" + suffix
-                i_ls = [r["idx"] for r in post_tran_data if key in r]
-                x_ls = [r[key] - r["x"] for r in post_tran_data if key in r]
+                if (len(x_est) > 0):
+                    tau_est, mtie_est = self.mtie(x_est)
+                    plt.scatter(tau_est, mtie_est,
+                                label=value["label"], marker=value["marker"],
+                                s=80.0, alpha=0.7)
 
-                if (len(x_ls) > 0):
-                    tau_ls, mtie_ls = self.mtie(x_ls)
-                    plt.scatter(tau_ls, mtie_ls,
-                            label=ls_labels[i], marker="x", s=80.0, alpha=1)
-
-        # Packet Selection estimations
-        if (show_pkts):
-            for i, suffix in enumerate(pkts_keys):
-                key    = "x_" + suffix
-                i_pkts = [r["idx"] for r in post_tran_data if key in r]
-                x_pkts = [r[key] - r["x"] for r in post_tran_data if key in r]
-
-                if (len(x_pkts) > 0):
-                    tau_pkts, mtie_pkts = self.mtie(x_pkts)
-                    plt.scatter(tau_pkts, mtie_pkts,
-                                label=pkts_labels[i], marker="v", s=80.0,
-                                alpha=0.7)
-
-        # Kalman filtering output
-        if (show_kf):
-            i_kf            = [r["idx"] for r in post_tran_data if "y_kf" in r]
-            x_err_kf        = [r["x_kf"] - r["x"] for r in post_tran_data
-                               if "x_kf" in r]
-            tau_kf, mtie_kf = self.mtie(x_err_kf)
-            plt.scatter(tau_kf, mtie_kf,
-                        label="Kalman", marker="d", s=80.0, alpha=0.5)
-
-        plt.xlabel ('Observation interval (samples)')
-        plt.ylabel("MTIE (ns)")
+        plt.xlabel('Observation interval (samples)')
+        plt.ylabel('MTIE (ns)')
         plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend(loc=0)
 
         if (save):
-            plt.savefig("plots/mtie_vs_tau", dpi=300)
+            plt.savefig("plots/mtie_vs_tau", format=save_format, dpi=300)
         else:
             plt.show()
 
+    @dec_plot_filter
     def plot_max_te(self, window_len, show_raw=True, show_ls=True,
-                    show_pkts=True, show_kf=True, save=True):
+                    show_pkts=True, show_kf=True, save=True, save_format='png'):
         """Plot Max|TE| vs time.
 
         Args:
-            window_len : Window lengths
-            show_raw   : Show raw measurements
-            show_ls    : Show least-squares fit
-            show_pkts  : Show Packet Selection fit
-            show_kf    : Show Kalman filtering results
-            save       : Save the figure
+            window_len  : Window lengths
+            show_raw    : Show raw measurements
+            show_ls     : Show least-squares fit
+            show_pkts   : Show Packet Selection fit
+            show_kf     : Show Kalman filtering results
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
 
         """
-        n_data  = len(self.data)
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
 
         plt.figure()
 
-        if (show_raw):
-            # Max|TE| over raw time offset measurements
-            x_err_raw  = np.array([r["x_est_err"] for r in self.data ])
-            i_raw      = [r["idx"] for r in self.data ]
-            max_te_raw = self.max_te(x_err_raw, window_len)
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                key   = "x_est" if (suffix == "raw") else "x_" + suffix
 
-            plt.plot(i_raw, max_te_raw, label = "Raw Measurements",
-                     marker="x", markersize=2)
+                i_est = [r["idx"] for r in post_tran_data if key in r]
+                x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
 
-        # Least-squares estimations
-        if (show_ls):
-            for i, suffix in enumerate(ls_keys):
-                key  = "x_" + suffix
-                i_ls = [r["idx"] for r in self.data if key in r]
-                x_ls = [r[key] - r["x"] for r in self.data if key in r]
+                if (len(x_est) > 0):
+                    max_te_est = self.max_te(x_est, window_len)
+                    plt.plot(i_est, max_te_est,
+                             label=value["label"], markersize=1)
 
-                if (len(x_ls) > 0):
-                    max_te_ls = self.max_te(x_ls, window_len)
-                    plt.plot(i_ls, max_te_ls,
-                             label=ls_labels[i], marker="x", markersize=1)
-
-        # Packet Selection estimations
-        if (show_pkts):
-            # EWMA and the recursive moving average have transitories. Try to
-            # skip it by throwing away an arbitrary number of initial values.
-            post_tran_data    = self.data[200:]
-            for i, suffix in enumerate(pkts_keys):
-                key    = "x_" + suffix
-                i_pkts = [r["idx"] for r in post_tran_data if key in r]
-                x_pkts = [r[key] - r["x"] for r in post_tran_data if key in r]
-
-                if (len(x_pkts) > 0):
-                    max_te_pkts = self.max_te(x_pkts, window_len)
-                    plt.plot(i_pkts, max_te_pkts,
-                             label=pkts_labels[i], marker="v", markersize=1)
-
-        # Kalman filtering output
-        if (show_kf):
-            # Kalman has a transitory. Try to skip it by throwing away an
-            # arbitrary number of initial values.
-            kf_data         = self.data[200:]
-            i_kf            = [r["idx"] for r in kf_data if "y_kf" in r]
-            x_err_kf        = [r["x_kf"] - r["x"] for r in kf_data if "x_kf" in r]
-            max_te_kf       = self.max_te(x_err_kf, window_len)
-            plt.plot(i_kf, max_te_kf,
-                        label="Kalman", marker="d", markersize=1)
-
-        plt.xlabel ('Realization')
+        plt.xlabel('Realization')
         plt.ylabel('Max|TE| (ns)')
         plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend(loc=0)
 
         if (save):
-            plt.savefig("plots/max_te_vs_time")
+            plt.savefig("plots/max_te_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
-
-

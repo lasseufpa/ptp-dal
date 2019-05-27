@@ -307,8 +307,8 @@ class PktSelection():
                     "y_ls_{}".format(ls_impl) in self.data[i_e - 1]):
 
                     # Compute the drift within the observation window
-                    t_w   = np.array([float(r["t1"] - self.data[i_s]["t1"]) for r
-                                      in self.data[i_s:i_e]])
+                    t_w   = np.array([float(r["t1"] - self.data[i_s]["t1"]) for
+                                      r in self.data[i_s:i_e]])
                     y     = self.data[i_e - 1]["y_ls_{}".format(ls_impl)]
                     drift = y * t_w
                 else:
@@ -346,5 +346,8 @@ class PktSelection():
                     raise ValueError("Strategy choice %s unknown" %(strategy))
 
                 # Include Packet Selection estimations within the simulation data
-                self.data[i_e - 1]["x_pkts_{}".format(strategy)] = x_est
+                if (drift is not None):
+                    self.data[i_e - 1]["x_pkts_{}_ls".format(strategy)] = x_est
+                else:
+                    self.data[i_e - 1]["x_pkts_{}".format(strategy)] = x_est
 
