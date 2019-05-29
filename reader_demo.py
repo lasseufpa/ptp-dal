@@ -15,6 +15,10 @@ def main():
                         default=False,
                         action='store_true',
                         help="Infer timestamp secs from captured ns values")
+    parser.add_argument('--no-pps',
+                        default=False,
+                        action='store_true',
+                        help="Do not look for reference timestamps from PPS RTC")
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
@@ -28,7 +32,8 @@ def main():
 
     # Run PTP simulation
     reader = ptp.reader.Reader(args.file)
-    reader.process(args.num_iter, args.infer_secs)
+    reader.process(args.num_iter, infer_secs=args.infer_secs,
+                   no_pps=args.no_pps)
 
     # Least-squares estimator
     N    = 64                   # LS observation window length
@@ -50,6 +55,16 @@ def main():
                                   n_skip_kf=1000, save=True)
     analyser.plot_foffset_vs_time(show_ls=True, show_raw=False, show_kf=True,
                                   n_skip_kf=1000, show_true=False, save=True)
+
+    # When the reference timestamps are available
+    if (not args.no_pps):
+        analyser.plot_toffset_err_vs_time(show_raw = True,
+                                          show_ls = True,
+                                          show_pkts = False,
+                                          show_kf = True,
+                                          save = True)
+        analyser.plot_delay_vs_time(save=True)
+        analyser.plot_delay_hist(save=True, n_bins=20)
 
 
 if __name__ == "__main__":

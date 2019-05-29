@@ -25,7 +25,7 @@ class Reader():
         self.data            = list()
         self.log_file        = log_file
 
-    def process(self, max_len, infer_secs):
+    def process(self, max_len, infer_secs=False, no_pps=False):
         """Loads timestamps and post-processes to generate PTP data
 
         First loads a list containing sets of timestamps (t1, t2, t3 and t4)
@@ -37,6 +37,8 @@ class Reader():
         Args:
             max_len    : Maximum number of entries to process
             infer_secs : Ignore acquired seconds and infer their values instead
+            no_pps     : Logs to be processed do not contain the reference
+                         timestamps acquired from the PPS RTC.
 
         """
 
@@ -62,6 +64,10 @@ class Reader():
             t2_sec     = 0
             t3_sec     = 0
             t4_sec     = 0
+            last_t1_pps_ns = 0
+            last_t4_pps_ns = 0
+            t1_pps_sec     = 0
+            t4_pps_sec     = 0
 
         # Put info in dictionary and append to self.data
         for i in range (0, n_data):
@@ -95,11 +101,33 @@ class Reader():
                 last_t2_ns = t2_ns
                 last_t3_ns = t3_ns
                 last_t4_ns = t4_ns
+
+                # PPS timestamps
+                if (not no_pps):
+                    t1_pps_ns = data[i]["t1_pps"]
+                    t4_pps_ns = data[i]["t4_pps"]
+
+                    if (t1_pps_ns < last_t1_pps_ns):
+                        t1_pps_sec += 1
+                    if (t4_pps_ns < last_t4_pps_ns):
+                        t4_pps_sec += 1
+
+                    t1_pps = Timestamp(t1_pps_sec, t1_pps_ns)
+                    t4_pps = Timestamp(t4_pps_sec, t4_pps_ns)
+
+                    last_t1_pps_ns = t1_pps_ns
+                    last_t4_pps_ns = t4_pps_ns
             else:
                 t1  = Timestamp(data[i]["t1_sec"], data[i]["t1"])
                 t2  = Timestamp(data[i]["t2_sec"], data[i]["t2"])
                 t3  = Timestamp(data[i]["t3_sec"], data[i]["t3"])
                 t4  = Timestamp(data[i]["t4_sec"], data[i]["t4"])
+
+                if (not no_pps):
+                    t1_pps  = Timestamp(data[i]["t1_pps_sec"],
+                                        data[i]["t1_pps"])
+                    t4_pps  = Timestamp(data[i]["t4_pps_sec"],
+                                        data[i]["t4_pps"])
 
             # Create a delay request-response instance
             dreqresp = DelayReqResp(idx, t1)
@@ -109,9 +137,19 @@ class Reader():
             dreqresp.set_t3(idx, t3)
             dreqresp.set_t4(idx, t4)
 
+            # Set ground truth based on PPS timestamps
+            if (not no_pps):
+                forward_delay  = float(t2 - t1_pps)
+                backward_delay = float(t4_pps - t3)
+                dreqresp.set_forward_delay(idx, forward_delay)
+                dreqresp.set_backward_delay(idx, backward_delay)
+                dreqresp.set_true_toffset(t4_pps, t4)
+
+                if (abs(forward_delay) > 50000 or abs(backward_delay) > 50000):
+                    print("Outlier")
+                    continue
+
             # Process and put results within self.data
             results = dreqresp.process()
-
             self.data.append(results)
 
-        return data
