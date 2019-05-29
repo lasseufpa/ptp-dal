@@ -361,10 +361,15 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_delay_hist(self, n_bins=50, save=False, save_format='png'):
+    def plot_delay_hist(self, show_raw=True, show_true=True, n_bins=50,
+                        save=False, save_format='png'):
         """Plot delay histogram
 
+        Plot histogram of delays in microseconds.
+
         Args:
+            show_raw    : Show histogram of raw delay measurements
+            show_true   : Show histogram true delay values
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -372,15 +377,16 @@ class Analyser():
         """
         n_data = len(self.data)
 
-        # Compute delays in microseconds
-        d      = np.array([r["d"] for r in self.data]) / 1e3
-        d_est  = np.array([r['d_est'] for r in self.data]) / 1e3
-
         plt.figure()
-        plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
-                 label="Two-way Measurements")
-        plt.hist(d, bins=n_bins, density=True, alpha=0.5,
-                 label="True Values")
+        if (show_raw):
+            d_est = np.array([r['d_est'] for r in self.data]) / 1e3
+            plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
+                     label="Two-way Measurements")
+        if (show_true):
+            d = np.array([r["d"] for r in self.data]) / 1e3
+            plt.hist(d, bins=n_bins, density=True, alpha=0.5,
+                     label="True Values")
+
         plt.xlabel('Delay (us)')
         plt.ylabel('Probability Density')
         plt.legend()
