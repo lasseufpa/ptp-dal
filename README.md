@@ -36,7 +36,16 @@ python -m unittest discover
 * `reader_demo.py`: Demonstrates how pre-acquired data can be loaded into the
   simulator.
 
-### Running with acquired data
+## Acquire Data from the Testbed
+
+Run:
+```
+./capture.py -vvvvv
+```
+
+where `-vvvvv` controls the verbosity level.
+
+## Running with acquired data
 
 The script named `reader_demo.py` can load data acquired with real hardware and
 post-process it using the simulator's algorithms. An example log file is
