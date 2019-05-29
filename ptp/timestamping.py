@@ -94,6 +94,10 @@ class Timestamp():
         """Cast timestamp to float"""
         return (float(self.sec) * 1e9) + self.ns
 
+    def __abs__(self):
+        """Abs of timestamp"""
+        return abs((float(self.sec) * 1e9) + self.ns)
+
     def __int__(self):
         """Cast timestamp to int"""
         return int((self.sec * 1e9) + self.ns)
