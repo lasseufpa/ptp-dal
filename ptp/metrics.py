@@ -361,26 +361,28 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_delay_hist(self, save=False, save_format='png'):
+    def plot_delay_hist(self, n_bins=50, save=False, save_format='png'):
         """Plot delay histogram
 
         Args:
+            n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
         n_data = len(self.data)
+
         # Compute delays in microseconds
         d      = np.array([r["d"] for r in self.data]) / 1e3
         d_est  = np.array([r['d_est'] for r in self.data]) / 1e3
 
         plt.figure()
-        plt.hist(d_est, bins=50, density=True, alpha=0.5,
+        plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
                  label="Two-way Measurements")
-        plt.hist(d, bins=50, density=True, alpha=0.5,
+        plt.hist(d, bins=n_bins, density=True, alpha=0.5,
                  label="True Values")
         plt.xlabel('Delay (us)')
-        plt.ylabel('Probability')
+        plt.ylabel('Probability Density')
         plt.legend()
 
         if (save):
