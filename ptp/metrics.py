@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import re
 
+NS_PER_MIN = (60 * 1e9)
+
 est_keys = {"raw"         : {"label": "Raw Measurements",
                              "marker": None,
                              "show": True},
@@ -173,9 +175,9 @@ class Analyser():
         return wrapper
 
     @dec_plot_filter
-    def plot_toffset_vs_time(self, show_raw=True, show_best=True,
-                             show_ls=True, show_pkts=True, show_kf=True,
-                             show_true=True, n_skip_kf=0, save=True,
+    def plot_toffset_vs_time(self, show_raw=True, show_best=True, show_ls=True,
+                             show_pkts=True, show_kf=True, show_true=True,
+                             n_skip_kf=0, x_unit='time', save=True,
                              save_format='png'):
         """Plot time offset vs Time
 
@@ -189,11 +191,23 @@ class Analyser():
             show_kf     : Show Kalman filtering results
             n_skip_kf   : Number of initial Kalman filter samples to skip
             show_true   : Show true values
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
         n_data  = len(self.data)
+
+        # Time axis
+        t_start  = self.data[0]["t1"]
+        time_vec = np.array([float(r["t1"] - t_start) for r in self.data])\
+                   / NS_PER_MIN
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            x_axis_label = 'Time (min)'
+        elif (x_unit == "samples"):
+            x_axis_label = 'Realization'
 
         plt.figure()
 
@@ -206,11 +220,17 @@ class Analyser():
                 else:
                     key = "x_" + suffix
 
-                i_est = [r["idx"] for r in self.data if key in r]
                 x_est = [r[key] for r in self.data if key in r]
 
+                # Define the x axis - either in time or in samples
+                if (x_unit == "time"):
+                    x_axis_vec   = [time_vec[i] for i, r in
+                                    enumerate(self.data) if key in r]
+                elif (x_unit == "samples"):
+                    x_axis_vec   = [r["idx"] for r in self.data if key in r]
+
                 if (len(x_est) > 0):
-                    plt.scatter(i_est, x_est,
+                    plt.scatter(x_axis_vec, x_est,
                                 label=value["label"], marker=value["marker"],
                                 s=1.0)
 
@@ -219,12 +239,20 @@ class Analyser():
             x_tilde  = np.array([r["x_est"] for r in self.data])
             x        = np.array([r["x"] for r in self.data])
 
+            # Find best raw measurements (with error under 10 ns)
             err      = x_tilde - x
             best_idx = np.squeeze(np.where(abs(err) < 10))
-            plt.scatter(best_idx, x_tilde[best_idx],
+
+            # Define the x axis - either in time or in samples
+            if (x_unit == "time"):
+                x_axis_vec   = time_vec[best_idx]
+            elif (x_unit == "samples"):
+                x_axis_vec   = best_idx
+
+            plt.scatter(x_axis_vec, x_tilde[best_idx],
                         label="Accurate Measurements", s=50)
 
-        plt.xlabel('Realization')
+        plt.xlabel(x_axis_label)
         plt.ylabel('Time offset (ns)')
         plt.legend()
 
@@ -235,8 +263,8 @@ class Analyser():
 
     @dec_plot_filter
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
-                                 show_pkts=True, show_kf=True, save=True,
-                                 save_format='png'):
+                                 show_pkts=True, show_kf=True, x_unit='time',
+                                 save=True, save_format='png'):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -246,6 +274,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show packet selection fit
             show_kf     : Show Kalman filtering results
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
@@ -256,21 +285,37 @@ class Analyser():
         post_tran_data = self.data[n_skip:]
         n_data         = len(post_tran_data)
 
+        # Time axis
+        t_start  = post_tran_data[0]["t1"]
+        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
+                   / NS_PER_MIN
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            x_axis_label = 'Time (min)'
+        elif (x_unit == "samples"):
+            x_axis_label = 'Realization'
+
         plt.figure()
 
         for suffix, value in est_keys.items():
             if (value["show"]):
                 key   = "x_est" if (suffix == "raw") else "x_" + suffix
-
-                i_est = [r["idx"] for r in post_tran_data if key in r]
                 x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
 
+                # Define the x axis - either in time or in samples
+                if (x_unit == "time"):
+                    x_axis_vec = [time_vec[i] for i, r in
+                                  enumerate(post_tran_data) if key in r]
+                elif (x_unit == "samples"):
+                    x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
+
                 if (len(x_est) > 0):
-                    plt.scatter(i_est, x_est,
+                    plt.scatter(x_axis_vec, x_est,
                                 label=value["label"], marker=value["marker"],
                                 s=20.0, alpha=0.7)
 
-        plt.xlabel('Realization')
+        plt.xlabel(x_axis_label)
         plt.ylabel('Time offset Error (ns)')
         plt.legend()
 
@@ -355,17 +400,18 @@ class Analyser():
 
     @dec_plot_filter
     def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
-                             show_true=True, n_skip_kf=0, save=True,
-                             save_format='png'):
+                             show_true=True, n_skip_kf=0, x_unit='time',
+                             save=True, save_format='png'):
         """Plot freq. offset vs time
 
         Args:
-            show_raw  : Show raw measurements
-            show_ls   : Show least-squares estimations
-            show_kf   : Show Kalman filtering results
-            n_skip_kf : Number of initial Kalman filter samples to skip
-            show_true : Show true values
-            save      : Save the figure
+            show_raw    : Show raw measurements
+            show_ls     : Show least-squares estimations
+            show_kf     : Show Kalman filtering results
+            n_skip_kf   : Number of initial Kalman filter samples to skip
+            show_true   : Show true values
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
@@ -375,6 +421,17 @@ class Analyser():
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
         n_data         = len(post_tran_data)
+
+        # Time axis
+        t_start  = post_tran_data[0]["t1"]
+        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
+                   / NS_PER_MIN
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            x_axis_label = 'Time (min)'
+        elif (x_unit == "samples"):
+            x_axis_label = 'Realization'
 
         plt.figure()
 
@@ -387,18 +444,22 @@ class Analyser():
                 else:
                     key   = "y_" + suffix
 
-                # The frequency offset to the 'true' values are already in ppb.
-                unit  = 1 if (suffix == "true") else 1e9
+                # Get the normalized frequency offset values and convert to ppb
+                y_est_ppb = [1e9*r[key] for r in post_tran_data if key in r]
 
-                i_est = [r["idx"] for r in post_tran_data if key in r]
-                y_est = [unit*r[key] for r in post_tran_data if key in r]
+                # Define the x axis - either in time or in samples
+                if (x_unit == "time"):
+                    x_axis_vec   = [time_vec[i] for i, r in
+                                    enumerate(post_tran_data) if key in r]
+                elif (x_unit == "samples"):
+                    x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
 
-                if (len(y_est) > 0):
-                    plt.scatter(i_est, y_est,
+                if (len(y_est_ppb) > 0):
+                    plt.scatter(x_axis_vec, y_est_ppb,
                                 label=value["label"], marker=value["marker"],
                                 s=1.0)
 
-        plt.xlabel('Realization')
+        plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset (ppb)')
         plt.legend()
 
@@ -485,8 +546,6 @@ class Analyser():
         for suffix, value in est_keys.items():
             if (value["show"]):
                 key   = "x_est" if (suffix == "raw") else "x_" + suffix
-
-                i_est = [r["idx"] for r in post_tran_data if key in r]
                 x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
 
                 if (len(x_est) > 0):
@@ -507,7 +566,8 @@ class Analyser():
 
     @dec_plot_filter
     def plot_max_te(self, window_len, show_raw=True, show_ls=True,
-                    show_pkts=True, show_kf=True, save=True, save_format='png'):
+                    show_pkts=True, show_kf=True, x_unit='time', save=True,
+                    save_format='png'):
         """Plot Max|TE| vs time.
 
         Args:
@@ -516,6 +576,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show Packet Selection fit
             show_kf     : Show Kalman filtering results
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
@@ -523,21 +584,37 @@ class Analyser():
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
 
+        # Time axis
+        t_start  = post_tran_data[0]["t1"]
+        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
+                   / NS_PER_MIN
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            x_axis_label = 'Time (min)'
+        elif (x_unit == "samples"):
+            x_axis_label = 'Realization'
+
         plt.figure()
 
         for suffix, value in est_keys.items():
             if (value["show"]):
                 key   = "x_est" if (suffix == "raw") else "x_" + suffix
-
-                i_est = [r["idx"] for r in post_tran_data if key in r]
                 x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
+
+                # Define the x axis - either in time or in samples
+                if (x_unit == "time"):
+                    x_axis_vec   = [time_vec[i] for i, r in
+                                    enumerate(post_tran_data) if key in r]
+                elif (x_unit == "samples"):
+                    x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(x_est) > 0):
                     max_te_est = self.max_te(x_est, window_len)
-                    plt.plot(i_est, max_te_est,
+                    plt.plot(x_axis_vec, max_te_est,
                              label=value["label"], markersize=1)
 
-        plt.xlabel('Realization')
+        plt.xlabel(x_axis_label)
         plt.ylabel('Max|TE| (ns)')
         plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend(loc=0)
