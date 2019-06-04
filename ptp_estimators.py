@@ -32,6 +32,7 @@ pkts.process("median")
 
 # Sample-minimum
 pkts.set_window_len(N_min)
+pkts.process("min")
 pkts.process("min", ls_impl="eff")
 
 # Exponentially weighted moving average
@@ -40,6 +41,7 @@ pkts.process("ewma")
 
 # Sample-mode
 pkts.set_window_len(N_min)
+pkts.process("mode")
 pkts.process("mode", ls_impl="eff")
 
 # Kalman (add frequency offset estimations to feed the Kalman filter)
