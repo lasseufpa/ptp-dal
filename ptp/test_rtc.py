@@ -102,7 +102,7 @@ class TestRtc(unittest.TestCase):
         rtc.update(t_sim)
 
         # Frequency offset during this interval:
-        actual_ppb_0 = rtc.get_freq_offset()
+        actual_ppb_0 = rtc.get_freq_offset() * 1e9
 
         # Change freq. offset internally
         rtc._randomize_driving_clk(t_sim * 1e9)
@@ -112,7 +112,7 @@ class TestRtc(unittest.TestCase):
         rtc.update(t_sim)
 
         # Frequency offset during this interval:
-        actual_ppb_1   = rtc.get_freq_offset()
+        actual_ppb_1   = rtc.get_freq_offset() * 1e9
 
         # Results
         t_end          = rtc.get_time()

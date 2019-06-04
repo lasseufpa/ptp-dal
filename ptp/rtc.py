@@ -174,7 +174,7 @@ class Rtc():
         return self.time
 
     def get_freq_offset(self):
-        """Get the current fractional frequency offset in ppb"""
-        return ((self.freq_hz - self._nom_freq_hz)/self._nom_freq_hz)*1e9
+        """Get the current fractional (normalized) frequency offset"""
+        return ((self.freq_hz - self._nom_freq_hz)/self._nom_freq_hz)
 
 
