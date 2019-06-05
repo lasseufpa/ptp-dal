@@ -76,6 +76,10 @@ class DelayReqResp():
         assert(self.seq_num == seq_num)
         self.d_fw = delay
 
+        # Update the true delay asymmetry:
+        if (self.d_bw is not None):
+            self.asymmetry = (self.d_fw - self.d_bw) / 2
+
     def set_backward_delay(self, seq_num, delay):
         """Save the "true" slave-to-master one-way delay
 
@@ -88,6 +92,10 @@ class DelayReqResp():
         """
         assert(self.seq_num == seq_num)
         self.d_bw = delay
+
+        # Update the true delay asymmetry:
+        if (self.d_fw is not None):
+            self.asymmetry = (self.d_fw - self.d_bw) / 2
 
     def _estimate_delay(self):
         """Estimate the one-way delay
@@ -107,11 +115,12 @@ class DelayReqResp():
         offset_from_master = ((self.t2 - self.t1) - (self.t4 - self.t3)) / 2
         return offset_from_master
 
-    def set_truth(self, master_tstamp, slave_tstamp):
-        """Save the true time offset and asymmetry within the dataset
+    def set_true_toffset(self, master_tstamp, slave_tstamp):
+        """Save the true time offset
 
-        Use also the supplied RTC timestamps to assess the true time offset at
-        this point and evaluate the estimation.
+        Given two simultaneously-taken timestamps from master and slave clocks,
+        compute the true time offset at the instant corresponding to the given
+        timestamps.
 
         Args:
             master_tstamp : Timestamp from the master RTC
@@ -120,11 +129,6 @@ class DelayReqResp():
         """
 
         self.toffset   = slave_tstamp - master_tstamp
-        self.asymmetry = (self.d_fw - self.d_bw) / 2
-
-        logger = logging.getLogger("DelayReqResp")
-        logger.debug("m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
-            self.d_fw, self.d_bw, self.asymmetry))
 
     def process(self):
         """Process all four timestamps
@@ -175,5 +179,10 @@ class DelayReqResp():
             str(self.t4), delay_est, float(toffset_est)
         )
         logger.info(line)
+
+        if (self.d_fw is not None and self.d_bw is not None):
+            logger = logging.getLogger("DelayReqResp")
+            logger.debug("m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
+                self.d_fw, self.d_bw, self.asymmetry))
 
         return results
