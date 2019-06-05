@@ -52,7 +52,7 @@ def main():
     # PTP analyser
     analyser = ptp.metrics.Analyser(reader.data)
     analyser.plot_toffset_vs_time(show_ls=True, show_true=False, show_kf=True,
-                                  n_skip_kf=1000, save=True)
+                                  show_best=False, n_skip_kf=1000, save=True)
     analyser.plot_foffset_vs_time(show_ls=True, show_raw=False, show_kf=True,
                                   n_skip_kf=1000, show_true=False, save=True)
 
