@@ -2,6 +2,7 @@ import argparse, logging, sys
 import ptp.reader
 import ptp.ls
 import ptp.metrics
+import ptp.pktselection
 import ptp.kalman
 import ptp.frequency
 
@@ -42,29 +43,57 @@ def main():
     ls.process("eff")
 
     # Raw frequency estimations (differentiation of raw time offset measurements)
-    freq_estimator = ptp.frequency.Estimator(reader.data)
+    freq_delta = 64
+    freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
     freq_estimator.process()
 
     # Kalman
-    kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)
+    # kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)
+    kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9,
+                               trans_cov = [[1, 0], [0, 1e-2]],
+                               obs_cov = [[1e4, 0], [0, 1e2]])
     kalman.process()
+
+    # Moving average
+    N_movavg = 16                # Moving average window
+    N_median = 16                # Sample-median window
+    N_min    = 16                # Sample-minimum window
+    N_ewma   = 16                # EWMA window
+
+    # Moving average
+    pkts = ptp.pktselection.PktSelection(N_movavg, reader.data)
+    pkts.process("average", avg_impl="recursive")
+
+    # Sample-median
+    pkts.set_window_len(N_median)
+    pkts.process("median")
+
+    # Sample-minimum
+    pkts.set_window_len(N_min)
+    pkts.process("min")
+    pkts.process("min", ls_impl="eff")
+
+    # Exponentially weighted moving average
+    pkts.set_window_len(N_ewma)
+    pkts.process("ewma")
+
+    # Sample-mode
+    pkts.set_window_len(N_min)
+    pkts.process("mode")
+    pkts.process("mode", ls_impl="eff")
 
     # PTP analyser
     analyser = ptp.metrics.Analyser(reader.data)
-    analyser.plot_toffset_vs_time(show_ls=True, show_true=False, show_kf=True,
-                                  show_best=False, n_skip_kf=1000, save=True)
-    analyser.plot_foffset_vs_time(show_ls=True, show_raw=False, show_kf=True,
-                                  n_skip_kf=1000, show_true=False, save=True)
+    analyser.plot_toffset_vs_time()
+    analyser.plot_foffset_vs_time()
 
     # When the reference timestamps are available
     if (not args.no_pps):
-        analyser.plot_toffset_err_vs_time(show_raw = True,
-                                          show_ls = True,
-                                          show_pkts = False,
-                                          show_kf = True,
-                                          save = True)
+        analyser.plot_toffset_err_vs_time(show_raw = False)
         analyser.plot_delay_vs_time(save=True)
         analyser.plot_delay_hist(save=True, n_bins=20)
+        analyser.plot_mtie(show_raw = False)
+        analyser.plot_max_te(show_raw=False, window_len = 200)
 
 
 if __name__ == "__main__":
