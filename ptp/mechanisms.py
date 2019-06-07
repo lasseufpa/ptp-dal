@@ -130,11 +130,15 @@ class DelayReqResp():
 
         self.toffset   = slave_tstamp - master_tstamp
 
-    def process(self):
+    def process(self, reverse_ms=False):
         """Process all four timestamps
 
         Wrap-up the delay request-response exchange by computing the associated
         metrics with the four collected timestamps.
+
+        ArgsL
+            reverse_ms : Reverse the master-to-slave direction for the two-way
+                         delay measurements.
 
         Returns:
             Dictionary with resulting metrics
@@ -143,7 +147,16 @@ class DelayReqResp():
 
         # Estimations
         delay_est     = self._estimate_delay()
-        toffset_est   = self._estimate_time_offset()
+        toffset_est   = float(self._estimate_time_offset())
+
+        if (reverse_ms):
+            # For the PDelay req-resp originated at the slave, the two-way delay
+            # measurement would be 0.5((t2 - t1) + (t4 - t3)), as
+            # usual. However, since in reverse mode we exchange the tuples
+            # (t1,t2) and (t3,t4), the two-way delay estimation then becomes:
+            # 0.5((t1 - t2) + (t3 - t4)). This is in fact "-d", so the following
+            # multiplication becomes necessary:
+            delay_est *= -1
 
         # Save all relevant metrics on a dictionary
         results = {
@@ -155,10 +168,16 @@ class DelayReqResp():
             "d"         : self.d_fw, # Sync one-way delay
             "d_bw"      : self.d_bw, # Delay_Req one-way delay
             "d_est"     : delay_est,
-            "x_est"     : float(toffset_est),
+            "x_est"     : toffset_est,
         }
 
         logger = logging.getLogger("DelayReqResp")
+
+        line = '{:>4d} {:^23} {:^23} {:^23} {:^23} {:^9.1f} {:^9.1f}'.format(
+            self.seq_num, str(self.t1), str(self.t2), str(self.t3),
+            str(self.t4), delay_est, toffset_est
+        )
+        logger.info(line)
 
         # Append optionally-defined metrics
         if (self.asymmetry is not None):
@@ -166,23 +185,17 @@ class DelayReqResp():
 
         if (self.toffset is not None):
             # Time offset estimation error
-            toffset_err = float(toffset_est - self.toffset)
+            toffset_err = toffset_est - float(self.toffset)
             # Save on results
             results["x"]         = float(self.toffset)
             results["x_est_err"] = toffset_err
 
-            logger.debug("time offset: %s\testimated: %s\terr: %s" %(
-                self.toffset, toffset_est, toffset_err))
-
-        line = '{:>4d} {:^23} {:^23} {:^23} {:^23} {:^9.1f} {:^9.1f}'.format(
-            self.seq_num, str(self.t1), str(self.t2), str(self.t3),
-            str(self.t4), delay_est, float(toffset_est)
-        )
-        logger.info(line)
+            logger.debug(">>time offset: %s\testimated: %s\terr: %s" %(
+                float(self.toffset), toffset_est, toffset_err))
 
         if (self.d_fw is not None and self.d_bw is not None):
             logger = logging.getLogger("DelayReqResp")
-            logger.debug("m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
+            logger.debug(">>m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
                 self.d_fw, self.d_bw, self.asymmetry))
 
         return results

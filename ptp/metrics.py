@@ -385,7 +385,10 @@ class Analyser():
         if (show_true):
             d = np.array([r["d"] for r in self.data]) / 1e3
             plt.hist(d, bins=n_bins, density=True, alpha=0.5,
-                     label="True Values")
+                     label="True master-to-slave")
+            d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
+            plt.hist(d_bw, bins=n_bins, density=True, alpha=0.5,
+                     label="True slave-to-master")
 
         plt.xlabel('Delay (us)')
         plt.ylabel('Probability Density')

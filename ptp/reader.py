@@ -25,7 +25,7 @@ class Reader():
         self.data            = list()
         self.log_file        = log_file
 
-    def process(self, max_len, infer_secs=False, no_pps=False):
+    def process(self, max_len=0, infer_secs=False, no_pps=False, reverse_ms=True):
         """Loads timestamps and post-processes to generate PTP data
 
         First loads a list containing sets of timestamps (t1, t2, t3 and t4)
@@ -39,6 +39,10 @@ class Reader():
             infer_secs : Ignore acquired seconds and infer their values instead
             no_pps     : Logs to be processed do not contain the reference
                          timestamps acquired from the PPS RTC.
+            reverse_ms : Reverse the master-to-slave direction for offset
+                         computations. This is used when the PDelay
+                         request-response that is being processed is originated
+                         at the slave, so that t1 and t4 are slave timestamps.
 
         """
 
@@ -129,27 +133,31 @@ class Reader():
                     t4_pps  = Timestamp(data[i]["t4_pps_sec"],
                                         data[i]["t4_pps"])
 
-            # Create a delay request-response instance
-            dreqresp = DelayReqResp(idx, t1)
-
-            # Define its associated emtrics
-            dreqresp.set_t2(idx, t2)
-            dreqresp.set_t3(idx, t3)
-            dreqresp.set_t4(idx, t4)
+            # Add timestamps to delay req-resp
+            if (reverse_ms):
+                dreqresp = DelayReqResp(idx, t2)
+                dreqresp.set_t2(idx, t1)
+                dreqresp.set_t3(idx, t4)
+                dreqresp.set_t4(idx, t3)
+            else:
+                dreqresp = DelayReqResp(idx, t1)
+                dreqresp.set_t2(idx, t2)
+                dreqresp.set_t3(idx, t3)
+                dreqresp.set_t4(idx, t4)
 
             # Set ground truth based on PPS timestamps
             if (not no_pps):
-                forward_delay  = float(t2 - t1_pps)
-                backward_delay = float(t4_pps - t3)
+                if (reverse_ms):
+                    forward_delay  = float(t4_pps - t3)
+                    backward_delay = float(t2 - t1_pps)
+                else:
+                    forward_delay  = float(t2 - t1_pps)
+                    backward_delay = float(t4_pps - t3)
                 dreqresp.set_forward_delay(idx, forward_delay)
                 dreqresp.set_backward_delay(idx, backward_delay)
                 dreqresp.set_true_toffset(t4_pps, t4)
 
-                if (abs(forward_delay) > 50000 or abs(backward_delay) > 50000):
-                    print("Outlier")
-                    continue
-
             # Process and put results within self.data
-            results = dreqresp.process()
+            results = dreqresp.process(reverse_ms)
             self.data.append(results)
 

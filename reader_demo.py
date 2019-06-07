@@ -33,7 +33,7 @@ def main():
     # Run PTP simulation
     reader = ptp.reader.Reader(args.file)
     reader.process(args.num_iter, infer_secs=args.infer_secs,
-                   no_pps=args.no_pps)
+                   no_pps=args.no_pps, reverse_ms=True)
 
     # Least-squares estimator
     N    = 64                   # LS observation window length
