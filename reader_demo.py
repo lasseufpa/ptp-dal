@@ -38,7 +38,7 @@ def main():
                    no_pps=args.no_pps, reverse_ms=True)
 
     # Least-squares estimator
-    N    = 64                   # LS observation window length
+    N    = 105                  # LS observation window length
     T_ns = 1e9/4                # Nominal message period in nanoseconds
     ls = ptp.ls.Ls(N, reader.data, T_ns)
     ls.process("eff")
