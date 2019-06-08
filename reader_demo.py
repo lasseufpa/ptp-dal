@@ -12,10 +12,11 @@ def main():
     parser.add_argument('-f', '--file',
                         default="log.json",
                         help='JSON log file.')
-    parser.add_argument('--infer-secs',
+    parser.add_argument('--use-secs',
                         default=False,
                         action='store_true',
-                        help="Infer timestamp secs from captured ns values")
+                        help="Use secs that were actually captured " +
+                        "(i.e. do not infer secs)")
     parser.add_argument('--no-pps',
                         default=False,
                         action='store_true',
@@ -33,7 +34,7 @@ def main():
 
     # Run PTP simulation
     reader = ptp.reader.Reader(args.file)
-    reader.process(args.num_iter, infer_secs=args.infer_secs,
+    reader.process(args.num_iter, infer_secs=(not args.use_secs),
                    no_pps=args.no_pps, reverse_ms=True)
 
     # Least-squares estimator

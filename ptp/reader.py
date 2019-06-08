@@ -25,7 +25,7 @@ class Reader():
         self.data            = list()
         self.log_file        = log_file
 
-    def process(self, max_len=0, infer_secs=False, no_pps=False, reverse_ms=True):
+    def process(self, max_len=0, infer_secs=True, no_pps=False, reverse_ms=True):
         """Loads timestamps and post-processes to generate PTP data
 
         First loads a list containing sets of timestamps (t1, t2, t3 and t4)
