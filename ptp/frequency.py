@@ -55,3 +55,33 @@ class Estimator():
 
             r["y_est"] = y_est
 
+    def set_truth(self):
+        """Set "true" frequency offset based on "true" time offset measurements
+        """
+
+        # Use a small delta for responsive computations
+        delta = 4
+
+        for i,r in enumerate(self.data):
+            idx = r["idx"]
+
+            # Start estimating after accumulating enough history
+            if (i < delta):
+                continue
+
+            # Estimate
+            t1           = r["t1"]
+            x            = r["x"]
+            i_past       = i - delta
+            t1_past      = self.data[i_past]["t1"]
+            x_past       = self.data[i_past]["x"]
+            delta_x      = (x - x_past)
+            delta_master = float(t1 - t1_past)
+            y            = delta_x / delta_master
+
+            logger = logging.getLogger("FreqEstimator")
+            logger.debug("True Freq. Offset: Delta x: %f ns\tDelta t1: %f ns\tFreq Offset: %f ppb" %(
+                delta_x, delta_master, y*1e9))
+
+            # Add to dataset
+            r["rtc_y"] = y
