@@ -362,7 +362,7 @@ class Analyser():
             plt.show()
 
     def plot_delay_hist(self, show_raw=True, show_true=True, n_bins=50,
-                        save=False, save_format='png'):
+                        save=True, save_format='png'):
         """Plot delay histogram
 
         Plot histogram of delays in microseconds.
