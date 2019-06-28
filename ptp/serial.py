@@ -7,20 +7,24 @@ from pprint import pprint, pformat
 
 
 class Serial():
-    """Serial capture of timestamps from testbed
+    def __init__(self, fpga_dev, sensor_dev, n_samples):
+        """Serial capture of timestamps from testbed
 
-    Args:
-        device    : Target device ('bbu_uart', 'rru_uart' or 'rru2_uart')
-        n_samples : Target number of samples (0 for infinity)
+        Args:
+            fpga_dev   : FPGA device ('bbu_uart', 'rru_uart' or 'rru2_uart')
+            sensor_dev : Sensor device ('roe_sensor')
+            n_samples  : Target number of samples (0 for infinity)
 
-    """
-
-    def __init__(self, device, n_samples):
-        self.device    = device
+        """
         self.n_samples = n_samples
 
         # Initializing serial connection
-        self.connect(device)
+        self.fpga = self.connect(fpga_dev)
+
+        if (sensor_dev is not None):
+            self.sensor = self.connect(sensor_dev)
+        else:
+            self.sensor = None
 
         # Enable
         self.en_capture = True
@@ -30,32 +34,33 @@ class Serial():
         path = "data/"
         self.filename = path + "serial-" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
-    def connect(self, device):
-        """Try to establish a serial connection to a given device.
+    def connect(self, device, baudrate=115200):
+        """Establish a serial connection to a given device.
 
         Args:
             device : Target UART device within /dev
+
+        Returns:
+            Object with serial connection.
+
         """
 
         devices_list = ['bbu_uart',
                         'rru_uart',
-                        'rru2_uart']
+                        'rru2_uart',
+                        'roe_sensor']
 
         assert(device in devices_list), "Unknown UART device"
 
-        serial_args = '/dev/' + device
-
-        try:
-            self.serialdevice = serial.Serial(serial_args,
-                                              baudrate= 115200, \
-                                              bytesize= serial.EIGHTBITS, \
-                                              parity= serial.PARITY_NONE, \
-                                              stopbits= serial.STOPBITS_ONE,
-                                              timeout = 1)
-        except serial.serialutil.SerialException:
-            logging.error('Error on %s connection' %(device))
-        else:
-            logging.info("Connected %s" %(device))
+        dev_path = '/dev/' + device
+        serial_conn = serial.Serial(dev_path,
+                                    baudrate = baudrate,
+                                    bytesize = serial.EIGHTBITS,
+                                    parity   = serial.PARITY_NONE,
+                                    stopbits = serial.STOPBITS_ONE,
+                                    timeout  = 1)
+        logging.info("Connected to %s" %(device))
+        return serial_conn
 
     def start_json_array(self):
         """Start the output JSON array"""
@@ -91,10 +96,19 @@ class Serial():
         self.start_json_array()
 
         logging.info("Starting capture")
+        temperature = None
         while self.en_capture == True and \
               ((self.idx < self.n_samples) or self.n_samples == 0):
 
-            line     = self.serialdevice.readline()
+            # Read the temperature
+            if (self.sensor is not None):
+                temperature = float(self.sensor.readline())
+                # Reset input buffer so that measurements don't accumulate and
+                # we read the up-to-date temperature.
+                self.sensor.reset_input_buffer()
+
+            # Read timestamps from FPGA
+            line     = self.fpga.readline()
             line_key = line.decode().split(" ")[0]
             line_val = line.decode().split(" ")
 
@@ -131,6 +145,10 @@ class Serial():
                     't4_pps'     : t4_pps,
                     't4_pps_sec' : t4_pps_sec
                 }
+
+                # Append the temperature
+                if (temperature is not None):
+                    run_data["temp"] = temperature
 
                 logging.debug(pformat(run_data))
                 logging.info("Index %d" %self.idx)
