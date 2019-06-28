@@ -47,6 +47,7 @@ def main():
     freq_delta = 64
     freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
     freq_estimator.process()
+    freq_estimator.set_truth()
 
     # Kalman
     # kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)
