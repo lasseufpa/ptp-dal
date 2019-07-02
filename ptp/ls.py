@@ -23,6 +23,10 @@ class Ls():
         self.data = data
         self.T_ns = T_ns
 
+        if (np.isinf(T_ns)):
+            logger = logging.getLogger("LS")
+            logger.warning("Measurement period was not defined")
+
     def process(self, impl="eff"):
         """Process the observations
 
@@ -65,7 +69,12 @@ class Ls():
         x_obs   = np.array([res["x_est"] for res in self.data])
 
         # Vector of master timestamps
-        t1 = [res["t1"] for res in self.data]
+        t1 = np.array([res["t1"] for res in self.data])
+
+        # Learn the measurement period
+        if (np.isinf(self.T_ns)):
+            self.T_ns = np.mean(np.diff(t1))
+            logger.info("Automatically setting T_ns to %f ns", self.T_ns)
 
         # For "t1" and "t2", initialize vector of timestamps. For "eff",
         # initialize the matrix that is used for LS computations
@@ -119,7 +128,6 @@ class Ls():
             # Window start and end indexes
             i_s = i
             i_e = i + N
-
             # Observation window
             x_obs_w = x_obs[i_s:i_e]
 
@@ -132,19 +140,21 @@ class Ls():
                     # Slide accumulator - throw away oldest and add new
                     Q_1 -= x_obs[i_s - 1]
                     Q_1 += x_obs[i_e -1]
-
                 # Accumulator 2
-                Q_2   = np.sum(np.multiply(np.arange(N), x_obs_w))
-                # NOTE: we can't slide Q_2 like Q_1. This is because all weights
-                # change from one window to the other.
-
+                if (i == 0):
+                    Q_2 = np.sum(np.multiply(np.arange(N), x_obs_w))
+                else:
+                    # See derivation in Igor Freire's thesis, Section 3.6
+                    Q_2 -= Q_1
+                    Q_2 += N * x_obs[i_e -1]
+                # Accumulator vector
                 Q     = np.array([Q_1, Q_2])
                 # LS Estimation
                 Theta        = np.dot(P,Q.T);
                 x0           = Theta[0] # initial time offset within window
                 y_times_T_ns = Theta[1] # drift in nanoseconds/measurement
                 # Fit the final time offset within the current window
-                x_f          = x0 + (y_times_T_ns * N)
+                x_f          = x0 + (y_times_T_ns * (N-1))
                 # Fractional frequency offset
                 y            = y_times_T_ns / self.T_ns
             else:
