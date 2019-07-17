@@ -7,7 +7,8 @@ Conventions:
 - units are explicit within variable names where possible
 
 """
-import logging, heapq, random, time, json
+import logging, heapq, random, time
+import numpy as np
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
@@ -96,43 +97,23 @@ class Runner():
             self.last_progress_print = progress
 
     def save(self):
-        """Save runner data on JSON file"""
+        """Save runner data on NPZ file"""
 
         path     = "data/"
-        filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S") + ".json"
+        filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S")
 
-        # Transform timestamp objects into dicts
-        dump_data = list()
-        for line in self.data:
-            dump_line       = line
-            dump_line["t1"] = vars(line["t1"])
-            dump_line["t2"] = vars(line["t2"])
-            dump_line["t3"] = vars(line["t3"])
-            dump_line["t4"] = vars(line["t4"])
-            dump_data.append(dump_line)
-
-        with open(filename, 'w') as fd:
-            json.dump(dump_data, fd)
+        np.savez_compressed(filename, data=self.data)
 
     def load(self, filename):
-        """Load runner data from JSON file
+        """Load runner data from NPZ file
 
         Args:
-            filename : Path of the JSON file to load
+            filename : Path of the NPZ file to load
 
         """
 
-        with open(filename) as fd:
-            load_data = json.load(fd)
-
-        # Transform timestamp dicts back to objects
-        for load_line in load_data:
-            line       = load_line
-            line["t1"] = Timestamp(line["t1"]["sec"], line["t1"]["ns"])
-            line["t2"] = Timestamp(line["t2"]["sec"], line["t2"]["ns"])
-            line["t3"] = Timestamp(line["t3"]["sec"], line["t3"]["ns"])
-            line["t4"] = Timestamp(line["t4"]["sec"], line["t4"]["ns"])
-            self.data.append(line)
+        fd = np.load(filename)
+        self.data = fd.f.data
 
     def run(self):
         """Main loop
