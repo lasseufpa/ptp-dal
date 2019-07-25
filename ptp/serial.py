@@ -100,11 +100,14 @@ class Serial():
         while self.en_capture == True and \
               ((self.idx < self.n_samples) or self.n_samples == 0):
 
-            # Read the temperature
-            if (self.sensor is not None):
-                temperature = float(self.sensor.readline())
-                # Reset input buffer so that measurements don't accumulate and
-                # we read the up-to-date temperature.
+            # Read the temperature every time there is some spare time
+            # from reading the FPGA (when its serial input buffer is empty)
+            if (self.sensor is not None and (self.fpga.in_waiting == 0)):
+                temperature_str = self.sensor.readline()
+                if (len(temperature_str) > 0):
+                    temperature = float(temperature_str)
+                    # Reset input buffer so that measurements don't accumulate
+                    # and we read the up-to-date temperature.
                 self.sensor.reset_input_buffer()
 
             # Read timestamps from FPGA
