@@ -130,15 +130,11 @@ class DelayReqResp():
 
         self.toffset   = slave_tstamp - master_tstamp
 
-    def process(self, reverse_ms=False):
+    def process(self):
         """Process all four timestamps
 
         Wrap-up the delay request-response exchange by computing the associated
         metrics with the four collected timestamps.
-
-        ArgsL
-            reverse_ms : Reverse the master-to-slave direction for the two-way
-                         delay measurements.
 
         Returns:
             Dictionary with resulting metrics
@@ -148,15 +144,6 @@ class DelayReqResp():
         # Estimations
         delay_est     = self._estimate_delay()
         toffset_est   = float(self._estimate_time_offset())
-
-        if (reverse_ms):
-            # For the PDelay req-resp originated at the slave, the two-way delay
-            # measurement would be 0.5((t2 - t1) + (t4 - t3)), as
-            # usual. However, since in reverse mode we exchange the tuples
-            # (t1,t2) and (t3,t4), the two-way delay estimation then becomes:
-            # 0.5((t1 - t2) + (t3 - t4)). This is in fact "-d", so the following
-            # multiplication becomes necessary:
-            delay_est *= -1
 
         # Save all relevant metrics on a dictionary
         results = {

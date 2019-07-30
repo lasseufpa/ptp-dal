@@ -135,10 +135,10 @@ class Reader():
 
             # Add timestamps to delay req-resp
             if (reverse_ms):
-                dreqresp = DelayReqResp(idx, t2)
-                dreqresp.set_t2(idx, t1)
-                dreqresp.set_t3(idx, t4)
-                dreqresp.set_t4(idx, t3)
+                dreqresp = DelayReqResp(idx, t3)
+                dreqresp.set_t2(idx, t4)
+                dreqresp.set_t3(idx, t1)
+                dreqresp.set_t4(idx, t2)
             else:
                 dreqresp = DelayReqResp(idx, t1)
                 dreqresp.set_t2(idx, t2)
@@ -158,6 +158,6 @@ class Reader():
                 dreqresp.set_true_toffset(t4_pps, t4)
 
             # Process and put results within self.data
-            results = dreqresp.process(reverse_ms)
+            results = dreqresp.process()
             self.data.append(results)
 
