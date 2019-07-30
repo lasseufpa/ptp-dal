@@ -73,7 +73,7 @@ class Ls():
 
         # Learn the measurement period
         if (np.isinf(self.T_ns)):
-            self.T_ns = np.mean(np.diff(t1))
+            self.T_ns = float(np.mean(np.diff(t1)))
             logger.info("Automatically setting T_ns to %f ns", self.T_ns)
 
         # For "t1" and "t2", initialize vector of timestamps. For "eff",
