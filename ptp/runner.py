@@ -84,8 +84,9 @@ class Runner():
         # Progress
         self.last_progress_print = 0
 
-        # Simulation data
-        self.data = list()
+        # Simulation data and metadata
+        self.data     = list()
+        self.metadata = list()
 
     def check_progress(self, i_iter):
         """Check/print simulation progress"""
@@ -97,15 +98,21 @@ class Runner():
             self.last_progress_print = progress
 
     def save(self):
-        """Save runner data on NPZ file"""
+        """Save runner data and metadata on NPZ file"""
 
         path     = "data/"
         filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S")
+        data     = self.data
+        # Save class instance variables as metadata
+        metadata = vars(self)
+        # Delete unusable variables
+        for k in ['data', 'metadata', 'sim_timer', 'last_progress_print']:
+            del metadata[k]
 
-        np.savez_compressed(filename, data=self.data)
+        np.savez_compressed(filename, data=data, metadata=metadata)
 
     def load(self, filename):
-        """Load runner data from NPZ file
+        """Load runner data and metadata from NPZ file
 
         Args:
             filename : Path of the NPZ file to load
@@ -113,7 +120,9 @@ class Runner():
         """
 
         fd = np.load(filename)
-        self.data = fd.f.data
+
+        self.data     = fd.f.data
+        self.metadata = fd.f.metadata
 
     def run(self):
         """Main loop
