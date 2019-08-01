@@ -8,10 +8,12 @@ Conventions:
 
 """
 import logging, heapq, random, time
+from pathlib import Path
 import numpy as np
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
+from pprint import pprint
 
 
 class SimTime():
@@ -101,7 +103,7 @@ class Runner():
         """Save runner data and metadata on NPZ file"""
 
         path     = "data/"
-        filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S")
+        filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S") + ".npz"
         data     = self.data
         # Save class instance variables as metadata
         metadata = vars(self)
@@ -109,6 +111,7 @@ class Runner():
         for k in ['data', 'metadata', 'sim_timer', 'last_progress_print']:
             del metadata[k]
 
+        logging.info("Saving runner data on %s" %(filename))
         np.savez_compressed(filename, data=data, metadata=metadata)
 
     def load(self, filename):
@@ -118,11 +121,26 @@ class Runner():
             filename : Path of the NPZ file to load
 
         """
-
+        assert(Path(filename).exists()), "Load file does not exist"
         fd = np.load(filename)
 
-        self.data     = fd.f.data
-        self.metadata = fd.f.metadata
+        self.data     = fd['data']
+        self.metadata = fd['metadata'].item()
+        logging.info("Imported data from %s" %(filename))
+
+    def dump(self):
+        """Dump runner metadata and data into stdout
+
+        Runner data is printed according to the logging level.
+
+        """
+        print("Runner configurations:")
+        pprint(self.metadata)
+
+        logging.info("Runner data:")
+        DelayReqResp.log_header()
+        for x in self.data:
+            DelayReqResp.log(x)
 
     def run(self):
         """Main loop
@@ -215,6 +233,7 @@ class Runner():
 
                 # Process all four timestamps
                 results = dreqresp.process()
+                dreqresp.log(results)
 
                 # Include RTC state
                 results["rtc_y"] = slave_rtc.get_freq_offset()

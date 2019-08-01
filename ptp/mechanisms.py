@@ -161,11 +161,10 @@ class DelayReqResp():
             "d_bw"      : self.d_bw, # Delay_Req one-way delay
             "d_est"     : delay_est,
             "x_est"     : toffset_est,
+            "x"         : None,
+            "x_est_err" : None,
+            "asym"      : self.asymmetry
         }
-
-        # Append optionally-defined metrics
-        if (self.asymmetry is not None):
-            results["asym"] = self.asymmetry
 
         if (self.toffset is not None):
             # Time offset estimation error
@@ -173,24 +172,34 @@ class DelayReqResp():
             # Save on results
             results["x"]         = float(self.toffset)
             results["x_est_err"] = toffset_err
-        else:
-            toffset_err = 0
+
+        return results
+
+    @staticmethod
+    def log(r):
+        """Print results
+
+        Args:
+            r : Dictionary with results
+
+        """
 
         # Print timestamps for debugging
         logger.debug(('i: {:<4d} t1:{:<21} t2:{:<21} '
-                      't3:{:<21} t4:{:<21}').format(self.seq_num, str(self.t1),
-                                                    str(self.t2), str(self.t3),
-                                                    str(self.t4)))
+                      't3:{:<21} t4:{:<21}').format(r['idx'], str(r['t1']),
+                                                    str(r['t2']), str(r['t3']),
+                                                    str(r['t4'])))
 
         # Print metrics
         logger.info(('{:^4d} {:^ 12.1f} {:^ 12.1f} '
                      '{:^ 9.1f} {:^9.1f} '
                      '{:^9.1f} {:^9.1f} '
-                     '{:^ 9.1f}').format(self.seq_num, toffset_est,
-                                         float(self.toffset or 0),
-                                         toffset_err, delay_est,
-                                         float(self.d_fw or 0),
-                                         float(self.d_bw or 0),
-                                         float(self.asymmetry or 0)))
+                     '{:^ 9.1f}').format(r['idx'], r['x_est'],
+                                         float(r['x'] or 0),
+                                         float(r['x_est_err'] or 0),
+                                         r['d_est'],
+                                         float(r['d'] or 0),
+                                         float(r['d_bw'] or 0),
+                                         float(r['asym'] or 0)))
 
-        return results
+

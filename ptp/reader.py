@@ -154,6 +154,7 @@ class Reader():
 
         # Process
         results = dreqresp.process()
+        dreqresp.log(results)
         return results
 
     def run(self, max_len=0):
