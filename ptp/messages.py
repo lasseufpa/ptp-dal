@@ -38,8 +38,13 @@ class PtpEvt():
         # following reference:
         #
         # [1] M. Anyaegbu, C. Wang and W. Berrie, "A sample-mode packet delay
-        # variation filter for IEEE 1588 synchronization," 2012 12th International
-        # Conference on ITS Telecommunications, Taipei, 2012, pp. 1-6.
+        # variation filter for IEEE 1588 synchronization," 2012 12th
+        # International Conference on ITS Telecommunications, Taipei, 2012,
+        # pp. 1-6.
+        #
+        # FIXME the default scale and shape parameters should be set at top
+        # level, so that they can be saved on the metadata and ultimately be
+        # saved.
         if (gamma_scale is None):
             self.gamma_scale = 21400
         else:
