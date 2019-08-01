@@ -10,7 +10,7 @@ def main():
     parser = argparse.ArgumentParser(description="PTP Simulator")
     parser.add_argument('-N', '--num-iter',
                         default=10,
-                        type=float,
+                        type=int,
                         help='Number of iterations.')
     parser.add_argument('-t', '--sim-step',
                         default=1e-9,
@@ -30,7 +30,7 @@ def main():
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
-    runner = ptp.runner.Runner(n_iter=int(args.num_iter), sim_t_step=args.sim_step)
+    runner = ptp.runner.Runner(n_iter=args.num_iter, sim_t_step=args.sim_step)
 
     if (args.load_file is not None):
         runner.load(args.load_file)
