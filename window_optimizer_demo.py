@@ -1,6 +1,6 @@
 """Analyse the estimators performance as a function of window length
 """
-import argparse
+import argparse, logging, sys
 import ptp.runner, ptp.reader, ptp.window
 import matplotlib
 matplotlib.use('agg')
@@ -18,6 +18,14 @@ def main():
                         default='all',
                         help='Window-based estimator',
                         choices=est_choices)
+    parser.add_argument('-p', '--plot',
+                        default=False,
+                        action='store_true',
+                        help='Whether or not to plot results')
+    parser.add_argument('-s', '--save',
+                        default=True,
+                        action='store_true',
+                        help='Whether or not to save window configurations')
     exc_group = parser.add_mutually_exclusive_group()
     exc_group.add_argument('-f', '--file',
                         default=None,
@@ -26,11 +34,16 @@ def main():
                         default=2000,
                         type=int,
                         help='Number of iterations if running simulation.')
+    parser.add_argument('--no-stop',
+                        default=False,
+                        action='store_true',
+                        help='Do not apply early stopping')
+    parser.add_argument('--verbose', '-v', action='count', default=1,
+                        help="Verbosity (logging) level")
     args = parser.parse_args()
 
-    # Options to save and plot
-    plot = True
-    save = False
+    logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
+    logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     if (args.file is None):
         # Run PTP simulation
@@ -54,8 +67,8 @@ def main():
 
     # Optimize window lengths (based on Max|TE|)
     window_optimizer = ptp.window.Optimizer(ptp_src.data, T_ns)
-    window_optimizer.process(args.estimator, file=args.file, save=save,
-                             plot=plot)
+    window_optimizer.process(args.estimator, file=args.file, save=args.save,
+                             plot=args.plot, early_stopping=(not args.no_stop))
 
 if __name__ == "__main__":
     main()
