@@ -3,3 +3,6 @@
 *.DS_Store
 plots/
 !plots/README.md
+*.pyc
+*.json
+*.npz
