@@ -28,7 +28,7 @@ python -m unittest discover
   `ptp.metrics` module.
 * `ptp_estimators.py`: Demonstrates several estimators that can be used to
   post-process the PTP measurements and achieve better synchronization.
-* `max_te_vs_window_demo.py` : Evaluates performance of estimators with respect
+* `window_optimizer_demo.py` : Evaluates performance of estimators with respect
   to the observation window length.
 * `kalman_demo.py`: Demonstrates how to evaluate Kalman filtering.
 * `reader_demo.py`: Demonstrates how pre-acquired data can be loaded into the

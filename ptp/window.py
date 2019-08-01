@@ -1,4 +1,4 @@
-"""Analyse the estimators performance as a function of window length
+"""Helper class used to optimize processing window lengths
 """
 import argparse
 import ptp.runner, ptp.reader, ptp.ls, ptp.pktselection
@@ -48,7 +48,7 @@ est_op = {"ls"            : {"name"   : "Least Squares",
                              "est_key": "pkts_mode_ls",
                              "N_best" : None}}
 
-class MaxTeVsWindow():
+class Optimizer():
     def __init__(self, data, T_ns):
         """
 

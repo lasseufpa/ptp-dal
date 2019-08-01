@@ -1,7 +1,7 @@
 """Analyse the estimators performance as a function of window length
 """
 import argparse
-import ptp.runner, ptp.reader, ptp.max_te_vs_window
+import ptp.runner, ptp.reader, ptp.window
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -10,7 +10,7 @@ import time, re
 
 def main():
     # Available estimators
-    est_op = ptp.max_te_vs_window.est_op
+    est_op = ptp.window.est_op
     est_choices = [k for k in est_op] + ['all']
 
     parser = argparse.ArgumentParser(description="Max|TE| vs window")
@@ -52,9 +52,10 @@ def main():
             # FIXME we should use at least a command-line variable
             T_ns = 1e9/4
 
-    # Run Max|TE| vs window
-    max_te_vs_w = ptp.max_te_vs_window.MaxTeVsWindow(ptp_src.data, T_ns)
-    max_te_vs_w.process(args.estimator, file=args.file, save=save, plot=plot)
+    # Optimize window lengths (based on Max|TE|)
+    window_optimizer = ptp.window.Optimizer(ptp_src.data, T_ns)
+    window_optimizer.process(args.estimator, file=args.file, save=save,
+                             plot=plot)
 
 if __name__ == "__main__":
     main()
