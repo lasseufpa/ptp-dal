@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-WINDOW_SEARCH_PATIENCE = 80 # used for early stopping
+WINDOW_SEARCH_PATIENCE = 100 # used for early stopping
 
 est_op = {"ls"            : {"name"   : "Least Squares",
                              "impl"   : "eff",
@@ -137,7 +137,9 @@ class Optimizer():
             # Keep track of minimum max|TE| with "early stopping"
             #
             # Stop search if the window length with minimum Max|TE| remains the
-            # same for a number of consecutive windows.
+            # same for a number of consecutive windows and the difference
+            # between the min{max|TE|} and the max|TE| of the current iteration
+            # is higher than the min{|TE|}.
             #
             # NOTE: patience count tracks the number of iterations with no
             # reduction (or improvement) of max|TE|
@@ -150,7 +152,12 @@ class Optimizer():
             else:
                 patience_count += 1
 
-            if (early_stopping and patience_count > WINDOW_SEARCH_PATIENCE):
+            # Difference between the actual min{max|TE|} and the max|TE| of the
+            # current iteration
+            max_te_diff = abs(min_max_te - self.max_te[i])
+
+            if (early_stopping and patience_count > WINDOW_SEARCH_PATIENCE \
+               and max_te_diff > abs(min_max_te)):
                 break
 
             # Save the index of the last iteration
