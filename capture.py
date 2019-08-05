@@ -22,17 +22,32 @@ def main():
                         default=0,
                         type=int,
                         help='Restrict number of iterations. If set to 0, the ' +
-                        ' acquisition will run indefinetely (default: 0).')
+                        ' acquisition will run indefinitely (default: 0).')
     parser.add_argument('-p', '--print-all', default=False, action='store_true',
                         help='Print out all non-timestamp logs from the FPGA')
     parser.add_argument('--verbose', '-v', action='count', default=1,
                         help="Verbosity (logging) level.")
+    parser.add_argument('--oscillator',
+                       default="ocxo",
+                       choices=["ocxo", "xo"],
+                       help='Define the oscillator type')
+    parser.add_argument('--sync-period',
+                      default=0.25,
+                      type=float,
+                      help='Sync transmission period in seconds')
+
     args     = parser.parse_args()
 
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
-    serial = ptp.serial.Serial(args.target, args.sensor, args.num_iter)
+    # Dictionary containing the metadata
+    metadata = {
+        "oscillator": args.oscillator,
+        "sync_period": args.sync_period
+    }
+
+    serial = ptp.serial.Serial(args.target, args.sensor, args.num_iter, metadata)
     serial.run(args.print_all)
 
 if __name__ == "__main__":

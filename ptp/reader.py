@@ -29,12 +29,13 @@ class Reader():
                          at the slave, so that t1 and t4 are slave timestamps.
 
         """
-        self.running         = True
-        self.data            = list()
-        self.log_file        = log_file
-        self.infer_secs      = infer_secs
-        self.no_pps          = no_pps
-        self.reverse_ms      = reverse_ms
+        self.running    = True
+        self.data       = list()
+        self.metadata   = None
+        self.log_file   = log_file
+        self.infer_secs = infer_secs
+        self.no_pps     = no_pps
+        self.reverse_ms = reverse_ms
 
         # Prepare to infer seconds, if so desired
         self.last_t1_ns     = 0
@@ -170,7 +171,10 @@ class Reader():
         """
 
         with open(self.log_file) as fin:
-            data = json.load(fin)
+            fd = json.load(fin)
+
+        self.metadata = fd['metadata']
+        data          = fd['data']
 
         # Debug print header
         DelayReqResp.log_header()

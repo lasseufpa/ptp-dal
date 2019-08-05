@@ -11,16 +11,18 @@ logger = logging.getLogger(__name__)
 
 
 class Serial():
-    def __init__(self, fpga_dev, sensor_dev, n_samples):
+    def __init__(self, fpga_dev, sensor_dev, n_samples, metadata):
         """Serial capture of timestamps from testbed
 
         Args:
             fpga_dev   : FPGA device ('bbu_uart', 'rru_uart' or 'rru2_uart')
             sensor_dev : Sensor device ('roe_sensor')
             n_samples  : Target number of samples (0 for infinity)
+            metadata   : Information about the testbed configuration
 
         """
         self.n_samples = n_samples
+        self.metadata  = metadata
 
         # Initializing serial connection
         self.fpga = self.connect(fpga_dev)
@@ -66,17 +68,26 @@ class Serial():
         logger.info("Connected to %s" %(device))
         return serial_conn
 
-    def start_json_array(self):
-        """Start the output JSON array"""
+    def start_json_file(self):
+        """Start the JSON file structure
+
+        The JSON file is organized as a dictionary and contain the data and
+        metadata. First, the file is initialized with the initial dict structure
+        and the metadata information. After, list of dictionaries containing
+        the testbed timestamps are saved to compose the data.
+
+        """
 
         with open(self.filename, 'a') as fd:
-            fd.write('[')
+            fd.write('{"metadata": ')
+            json.dump(self.metadata, fd)
+            fd.write(', "data":[')
 
-    def end_json_array(self):
-        """Start the output JSON array"""
+    def end_json_file(self):
+        """End the JSON file structure"""
 
         with open(self.filename, 'a') as fd:
-            fd.write(']')
+            fd.write(']}')
 
     def save(self, data):
         """Save runner data on JSON file"""
@@ -87,7 +98,7 @@ class Serial():
             json.dump(data, fd)
 
     def catch(self, signum, frame):
-        self.end_json_array()
+        self.end_json_file()
         logger.info("Terminating acquisition of %s" %(self.filename))
         exit()
 
@@ -109,7 +120,7 @@ class Serial():
         # real-time and to print the associated PTP metrics
         reader = Reader()
 
-        self.start_json_array()
+        self.start_json_file()
 
         logger.info("Starting capture")
         temperature = None
@@ -183,4 +194,4 @@ class Serial():
             elif (print_en):
                 print(line.decode(), end='')
 
-        self.end_json_array()
+        self.end_json_file()
