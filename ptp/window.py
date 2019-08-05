@@ -180,10 +180,11 @@ class Optimizer():
         print(f"Best evaluated window length for {est_name}: {N_best:d}")
 
     def _filename(self, file):
-        """Format the filename correctly or create one if the file does not exist
+        """Create the filename, to save the est_op dictionary, based on the
+        name of the file passed as argument or create one if no file was used.
 
         Args:
-            file: Path of the JSON file
+            file: Path of the file
 
         Returns:
             The filename
@@ -194,8 +195,8 @@ class Optimizer():
             filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S") + \
                        "-config" + ".json"
         else:
-            filename = path + (re.search(r'([^//]*).json$', file).group(1)) + \
-                       "-config" + ".json"
+            filename = path + (re.search(r'([^//]*).(json|npz)$', file).group(1)) \
+                       + "-config" + ".json"
 
         return filename
 

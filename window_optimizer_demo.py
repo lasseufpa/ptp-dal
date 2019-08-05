@@ -23,7 +23,7 @@ def main():
                         action='store_true',
                         help='Whether or not to plot results')
     parser.add_argument('-s', '--save',
-                        default=True,
+                        default=False,
                         action='store_true',
                         help='Whether or not to save window configurations')
     exc_group = parser.add_mutually_exclusive_group()
@@ -52,15 +52,21 @@ def main():
         T_ns     = ptp_src.sync_period*1e9
 
     else:
+        # Load the simulation data
+        if (args.file.endswith('.npz')):
+            ptp_src = ptp.runner.Runner()
+            ptp_src.load(args.file)
+
         # Run reader process
-        ptp_src  = ptp.reader.Reader(args.file)
-        ptp_src.process()
+        elif (args.file.endswith('.json')):
+            ptp_src = ptp.reader.Reader(args.file)
+            ptp_src.process()
 
         # Get sync period from metadata
         if (hasattr(ptp_src, 'metadata') and
             'sync_period' in ptp_src.metadata and
             ptp_src.metadata['sync_period'] is not None):
-            xT_ns = ptp_src.metadata['sync_period']*1e9
+            T_ns = ptp_src.metadata['sync_period']*1e9
         else:
             # FIXME we should use at least a command-line variable
             T_ns = 1e9/4
