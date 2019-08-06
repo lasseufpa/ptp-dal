@@ -79,12 +79,12 @@ class Serial():
 
         with open(self.filename, 'a') as fd:
             if (self.idx > 0):
-                fd.write(', ')
+                fd.write(',\n')
             json.dump(data, fd)
 
     def catch(self, signum, frame):
         self.end_json_array()
-        logging.info("Terminating acquisition")
+        logging.info("Terminating acquisition of %s" %(self.filename))
         exit()
 
     def run(self):
