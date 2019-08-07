@@ -10,7 +10,7 @@ import time, re
 
 def main():
     # Available estimators
-    est_op = ptp.window.est_op
+    est_op = ptp.window.Optimizer.est_op
     est_choices = [k for k in est_op] + ['all']
 
     parser = argparse.ArgumentParser(description="Max|TE| vs window")

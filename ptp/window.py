@@ -10,48 +10,48 @@ import numpy as np
 
 WINDOW_SEARCH_PATIENCE = 100 # used for early stopping
 
-est_op = {"ls"            : {"name"   : "Least Squares",
-                             "impl"   : "eff",
-                             "est_key": "ls_eff",
-                             "N_best" : None},
-          "sample-average": {"name"   : "Sample Average",
-                             "impl"   : "average",
-                             "ls_impl": None,
-                             "est_key": "pkts_average",
-                             "N_best" : None},
-          "sample-median" : {"name"   : "Sample Median",
-                             "impl"   : "median",
-                             "ls_impl": None,
-                             "est_key": "pkts_median",
-                             "N_best" : None},
-          "sample-min"    : {"name"   : "Sample Minimum",
-                             "impl"   : "min",
-                             "ls_impl": None,
-                             "est_key": "pkts_min",
-                             "N_best" : None},
-          "sample-min-ls" : {"name"   : "Sample Minimum with LS",
-                             "impl"   : "min",
-                             "ls_impl": "eff",
-                             "est_key": "pkts_min_ls",
-                             "N_best" : None},
-          "sample-max"    : {"name"   : "Sample Maximum",
-                             "impl"   : "max",
-                             "ls_impl": None,
-                             "est_key": "pkts_max",
-                             "N_best" : None},
-          "sample-mode"   : {"name"   : "Sample Mode",
-                             "impl"   : "mode",
-                             "ls_impl": None,
-                             "est_key": "pkts_mode",
-                             "N_best" : None},
-          "sample-mode-ls": {"name"   : "Sample Mode with LS",
-                             "impl"   : "mode",
-                             "ls_impl": "eff",
-                             "est_key": "pkts_mode_ls",
-                             "N_best" : None}}
-
 
 class Optimizer():
+    est_op = {"ls"            : {"name"   : "Least Squares",
+                                 "impl"   : "eff",
+                                 "est_key": "ls_eff",
+                                 "N_best" : None},
+              "sample-average": {"name"   : "Sample Average",
+                                 "impl"   : "average",
+                                 "ls_impl": None,
+                                 "est_key": "pkts_average",
+                                 "N_best" : None},
+              "sample-median" : {"name"   : "Sample Median",
+                                 "impl"   : "median",
+                                 "ls_impl": None,
+                                 "est_key": "pkts_median",
+                                 "N_best" : None},
+              "sample-min"    : {"name"   : "Sample Minimum",
+                                 "impl"   : "min",
+                                 "ls_impl": None,
+                                 "est_key": "pkts_min",
+                                 "N_best" : None},
+              "sample-min-ls" : {"name"   : "Sample Minimum with LS",
+                                 "impl"   : "min",
+                                 "ls_impl": "eff",
+                                 "est_key": "pkts_min_ls",
+                                 "N_best" : None},
+              "sample-max"    : {"name"   : "Sample Maximum",
+                                 "impl"   : "max",
+                                 "ls_impl": None,
+                                 "est_key": "pkts_max",
+                                 "N_best" : None},
+              "sample-mode"   : {"name"   : "Sample Mode",
+                                 "impl"   : "mode",
+                                 "ls_impl": None,
+                                 "est_key": "pkts_mode",
+                                 "N_best" : None},
+              "sample-mode-ls": {"name"   : "Sample Mode with LS",
+                                 "impl"   : "mode",
+                                 "ls_impl": "eff",
+                                 "est_key": "pkts_mode_ls",
+                                 "N_best" : None}}
+
     def __init__(self, data, T_ns):
         """Optimizes processing window lengths
 
@@ -84,8 +84,8 @@ class Optimizer():
             early_stopping : Whether to stop search when min{max|TE|} stalls
 
         """
-        est_impl    = est_op[estimator]["impl"]
-        est_key     = est_op[estimator]["est_key"]
+        est_impl    = self.est_op[estimator]["impl"]
+        est_key     = self.est_op[estimator]["est_key"]
 
         # Window lengths to evaluate
         window_len  = np.arange(2 + self._window_skip, int(len(data)/2), \
@@ -114,7 +114,7 @@ class Optimizer():
                 ls.process(impl=est_impl)
             else:
                 # Packet Selection
-                ls_impl = est_op[estimator]["ls_impl"]
+                ls_impl = self.est_op[estimator]["ls_impl"]
                 pkts    = ptp.pktselection.PktSelection(N, data)
                 pkts.process(strategy=est_impl, ls_impl=ls_impl)
 
@@ -167,10 +167,10 @@ class Optimizer():
         self.max_te = self.max_te[:i_iter]
 
         # Save the best window length
-        est_op[estimator]["N_best"] = int(N_best)
+        self.est_op[estimator]["N_best"] = int(N_best)
 
         # Estimator name
-        est_name = est_op[estimator]['name']
+        est_name = self.est_op[estimator]['name']
 
         if (plot):
             plt.figure()
@@ -216,7 +216,7 @@ class Optimizer():
         """
         filename = self._filename(file)
         with open(filename, 'w') as fd:
-            json.dump(est_op, fd)
+            json.dump(self.est_op, fd)
 
         logging.info("Saved window configurations on %s" %(filename))
 
@@ -229,7 +229,7 @@ class Optimizer():
         """
         if (file):
             with open(file) as fd:
-                est_op = json.load(fd)
+                self.est_op = json.load(fd)
         else:
             raise ValueError("Need to pass the filename to load the \
                              configuration data")
@@ -256,7 +256,7 @@ class Optimizer():
         self._window_step = window_step
 
         # Iterate over the estimators
-        estimators = [k for k in est_op.keys()] if (estimator == 'all') \
+        estimators = [k for k in self.est_op.keys()] if (estimator == 'all') \
                      else [estimator]
 
         for estimator in estimators:
@@ -264,11 +264,11 @@ class Optimizer():
             # compensation provided by LS, first we need to find the best window
             # length for LS and then run it.
             if (re.search("-ls$", estimator)):
-                if (est_op["ls"]["N_best"] is None):
+                if (self.est_op["ls"]["N_best"] is None):
                     self._max_te_vs_window(self.data, estimator="ls")
 
                 # Do we need to re-run?
-                ls = ptp.ls.Ls(est_op["ls"]["N_best"], self.data, self.T_ns)
+                ls = ptp.ls.Ls(self.est_op["ls"]["N_best"], self.data, self.T_ns)
                 ls.process()
 
             # Search the window length that minimizes the max|TE|
