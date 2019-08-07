@@ -87,7 +87,7 @@ class Analyser():
 
         return np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides)
 
-    def mtie(self, tie, window_step = 20, starting_window = 10):
+    def mtie(self, tie, window_step = 2, starting_window = 20):
         """Maximum time interval error (MTIE)
 
         Computes the MTIE based on time interval error (TIE) samples. The MTIE
@@ -108,8 +108,8 @@ class Analyser():
 
         # Number of different intervals to be evaluated
         max_win_size = n_samples/2
-        n_tau        = math.floor((max_win_size - starting_window)/window_step)\
-                       + 1
+        n_tau        = math.floor(math.log(max_win_size/starting_window) \
+                       /math.log(window_step)) + 1
 
         # Preallocate results
         mtie_array    = np.zeros(n_tau)
@@ -138,7 +138,7 @@ class Analyser():
             tau_array[i_tau]  = window_size
 
             # Update window size
-            window_size = window_size + window_step
+            window_size = window_size * window_step
 
             i_tau += 1
 
