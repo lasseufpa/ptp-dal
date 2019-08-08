@@ -4,6 +4,10 @@
 """
 import serial, time, json, logging, signal
 from pprint import pprint, pformat
+from ptp.reader import Reader
+
+
+logger = logging.getLogger(__name__)
 
 
 class Serial():
@@ -59,7 +63,7 @@ class Serial():
                                     parity   = serial.PARITY_NONE,
                                     stopbits = serial.STOPBITS_ONE,
                                     timeout  = 1)
-        logging.info("Connected to %s" %(device))
+        logger.info("Connected to %s" %(device))
         return serial_conn
 
     def start_json_array(self):
@@ -84,7 +88,7 @@ class Serial():
 
     def catch(self, signum, frame):
         self.end_json_array()
-        logging.info("Terminating acquisition of %s" %(self.filename))
+        logger.info("Terminating acquisition of %s" %(self.filename))
         exit()
 
     def run(self, print_en):
@@ -101,9 +105,13 @@ class Serial():
                       't3:{:>5d},{:>9d} t4:{:>5d},{:>9d} '
                       't1_pps:{:>5d},{:>9d} t4_pps:{:>5d},{:>9d}')
 
+        # Use the reader class to post-process each set of timestamp in
+        # real-time and to print the associated PTP metrics
+        reader = Reader()
+
         self.start_json_array()
 
-        logging.info("Starting capture")
+        logger.info("Starting capture")
         temperature = None
         while self.en_capture == True and \
               ((self.idx < self.n_samples) or self.n_samples == 0):
@@ -157,16 +165,17 @@ class Serial():
                     't4_pps_sec' : t4_pps_sec
                 }
 
+                # Process PTP metrics for debugging
+                reader.process(run_data)
+
                 # Append the temperature
                 if (temperature is not None):
                     run_data["temp"] = temperature
 
-                logging.debug(format_str.format(self.idx, t1_sec, t1_ns,
-                                                 t2_sec, t2_ns, t3_sec, t3_ns,
-                                                 t4_sec, t4_ns, t1_pps_sec,
-                                                 t1_pps_ns, t4_pps_sec,
-                                                 t4_pps_ns))
-                logging.info("Index %d" %self.idx)
+                logger.debug(format_str.format(self.idx, t1_sec, t1_ns, t2_sec,
+                                               t2_ns, t3_sec, t3_ns, t4_sec,
+                                               t4_ns, t1_pps_sec, t1_pps_ns,
+                                               t4_pps_sec, t4_pps_ns))
 
                 # Append to output file
                 self.save(run_data)
