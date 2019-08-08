@@ -25,8 +25,9 @@ class DelayReqResp():
     def log_header(self):
         """Print logging header"""
 
-        header = '{:>4} {:^23} {:^23} {:^23} {:^23} {:^9} {:^9}'.format(
-            "idx", "t1", "t2", "t3", "t4", "delay_est", "x_est"
+        header = '{:>4} {:^9} {:^9} {:^9} {:^9} {:^9} {:^9} {:^9}'.format(
+            "idx", "x_est", "x", "x_est_err", "delay_est", "d_m2s", "d_s2m",
+            "asym"
         )
 
         logger = logging.getLogger("DelayReqResp")
@@ -160,12 +161,6 @@ class DelayReqResp():
 
         logger = logging.getLogger("DelayReqResp")
 
-        line = '{:>4d} {:^23} {:^23} {:^23} {:^23} {:^9.1f} {:^9.1f}'.format(
-            self.seq_num, str(self.t1), str(self.t2), str(self.t3),
-            str(self.t4), delay_est, toffset_est
-        )
-        logger.info(line)
-
         # Append optionally-defined metrics
         if (self.asymmetry is not None):
             results["asym"] = self.asymmetry
@@ -176,13 +171,24 @@ class DelayReqResp():
             # Save on results
             results["x"]         = float(self.toffset)
             results["x_est_err"] = toffset_err
+        else:
+            toffset_err = 0
 
-            logger.debug(">>time offset: %s\testimated: %s\terr: %s" %(
-                float(self.toffset), toffset_est, toffset_err))
+        # Print timestamps for debugging
+        logger.debug(('i: {:<4d} t1:{:<21} t2:{:<21} '
+                      't3:{:<21} t4:{:<21}').format(self.seq_num, str(self.t1),
+                                                    str(self.t2), str(self.t3),
+                                                    str(self.t4)))
 
-        if (self.d_fw is not None and self.d_bw is not None):
-            logger = logging.getLogger("DelayReqResp")
-            logger.debug(">>m-to-s delay: %f\ts-to-m delay: %f\tasymmetry: %f" %(
-                self.d_fw, self.d_bw, self.asymmetry))
+        # Print metrics
+        logger.info(('{:^4d} {:^ 9.1f} {:^ 9.1f} '
+                     '{:^ 9.1f} {:^9.1f} '
+                     '{:^9.1f} {:^9.1f} '
+                     '{:^ 9.1f}').format(self.seq_num, toffset_est,
+                                         float(self.toffset or 0),
+                                         toffset_err, delay_est,
+                                         float(self.d_fw or 0),
+                                         float(self.d_bw or 0),
+                                         float(self.asymmetry or 0)))
 
         return results
