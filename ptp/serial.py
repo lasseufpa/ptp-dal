@@ -87,11 +87,19 @@ class Serial():
         logging.info("Terminating acquisition of %s" %(self.filename))
         exit()
 
-    def run(self):
+    def run(self, print_en):
         """Continuously read the serial input and collect timestamps
+
+        Args:
+            print_en : Whether to print non-timestamp logs to stdout
+
         """
         signal.signal(signal.SIGINT, self.catch)
         signal.siginterrupt(signal.SIGINT, False)
+
+        format_str = ('i:{:>4d} t1:{:>5d},{:>9d} t2:{:>5d},{:>9d} '
+                      't3:{:>5d},{:>9d} t4:{:>5d},{:>9d} '
+                      't1_pps:{:>5d},{:>9d} t4_pps:{:>5d},{:>9d}')
 
         self.start_json_array()
 
@@ -127,9 +135,9 @@ class Serial():
                 t4_sec = int(line_val[16],16)
 
                 # PPS Timestamps
-                t1_pps     = int(line_val[18],16)
+                t1_pps_ns  = int(line_val[18],16)
                 t1_pps_sec = int(line_val[20],16)
-                t4_pps     = int(line_val[22],16)
+                t4_pps_ns  = int(line_val[22],16)
                 t4_pps_sec = int(line_val[24],16)
 
                 # Append to results
@@ -143,9 +151,9 @@ class Serial():
                     't2_sec'     : t2_sec,
                     't3_sec'     : t3_sec,
                     't4_sec'     : t4_sec,
-                    't1_pps'     : t1_pps,
+                    't1_pps'     : t1_pps_ns,
                     't1_pps_sec' : t1_pps_sec,
-                    't4_pps'     : t4_pps,
+                    't4_pps'     : t4_pps_ns,
                     't4_pps_sec' : t4_pps_sec
                 }
 
@@ -153,11 +161,17 @@ class Serial():
                 if (temperature is not None):
                     run_data["temp"] = temperature
 
-                logging.debug(pformat(run_data))
+                logging.debug(format_str.format(self.idx, t1_sec, t1_ns,
+                                                 t2_sec, t2_ns, t3_sec, t3_ns,
+                                                 t4_sec, t4_ns, t1_pps_sec,
+                                                 t1_pps_ns, t4_pps_sec,
+                                                 t4_pps_ns))
                 logging.info("Index %d" %self.idx)
 
                 # Append to output file
                 self.save(run_data)
                 self.idx += 1
+            elif (print_en):
+                print(line.decode(), end='')
 
         self.end_json_array()

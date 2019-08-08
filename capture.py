@@ -23,6 +23,8 @@ def main():
                         type=int,
                         help='Restrict number of iterations. If set to 0, the ' +
                         ' acquisition will run indefinetely (default: 0).')
+    parser.add_argument('-p', '--print-all', default=False, action='store_true',
+                        help='Print out all non-timestamp logs from the FPGA')
     parser.add_argument('--verbose', '-v', action='count', default=1,
                         help="Verbosity (logging) level.")
     args     = parser.parse_args()
@@ -31,7 +33,7 @@ def main():
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     serial = ptp.serial.Serial(args.target, args.sensor, args.num_iter)
-    serial.run()
+    serial.run(args.print_all)
 
 if __name__ == "__main__":
     main()
