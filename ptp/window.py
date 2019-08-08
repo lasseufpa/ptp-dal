@@ -7,9 +7,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 WINDOW_SEARCH_PATIENCE = 100 # used for early stopping
-
 
 class Optimizer():
     est_op = {"ls"            : {"name"   : "Least Squares",
@@ -20,6 +18,11 @@ class Optimizer():
                                  "impl"   : "average",
                                  "ls_impl": None,
                                  "est_key": "pkts_average",
+                                 "N_best" : None},
+              "sample-ewma"   : {"name"   : "EWMA",
+                                 "impl"   : "ewma",
+                                 "ls_impl": None,
+                                 "est_key": "pkts_ewma",
                                  "N_best" : None},
               "sample-median" : {"name"   : "Sample Median",
                                  "impl"   : "median",
