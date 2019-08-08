@@ -172,7 +172,7 @@ class Runner():
         # Start with a sync transmission
         sync.next_tx = 0
 
-        DelayReqResp(0,0).log_header()
+        DelayReqResp.log_header()
 
         while (not stop):
             sim_time = self.sim_timer.get_time()

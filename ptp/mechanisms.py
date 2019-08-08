@@ -3,6 +3,7 @@
 import logging
 from .timestamping import *
 
+logger = logging.getLogger("DelayReqResp")
 
 class DelayReqResp():
     def __init__(self, seq_num, t1):
@@ -22,16 +23,19 @@ class DelayReqResp():
         self.toffset   = None
         self.asymmetry = None
 
-    def log_header(self):
+    @staticmethod
+    def log_header():
         """Print logging header"""
 
-        header = '{:>4} {:^9} {:^9} {:^9} {:^9} {:^9} {:^9} {:^9}'.format(
+        logger.info(("-----------------------------------------------"
+                     "---------------------------------"))
+        header = '{:>4} {:^12} {:^12} {:^9} {:^9} {:^9} {:^9} {:^9}'.format(
             "idx", "x_est", "x", "x_est_err", "delay_est", "d_m2s", "d_s2m",
             "asym"
         )
-
-        logger = logging.getLogger("DelayReqResp")
         logger.info(header)
+        logger.info(("-----------------------------------------------"
+                     "---------------------------------"))
 
     def set_t2(self, seq_num, t2):
         """Set Sync arrival timestamp
@@ -159,8 +163,6 @@ class DelayReqResp():
             "x_est"     : toffset_est,
         }
 
-        logger = logging.getLogger("DelayReqResp")
-
         # Append optionally-defined metrics
         if (self.asymmetry is not None):
             results["asym"] = self.asymmetry
@@ -181,7 +183,7 @@ class DelayReqResp():
                                                     str(self.t4)))
 
         # Print metrics
-        logger.info(('{:^4d} {:^ 9.1f} {:^ 9.1f} '
+        logger.info(('{:^4d} {:^ 12.1f} {:^ 12.1f} '
                      '{:^ 9.1f} {:^9.1f} '
                      '{:^9.1f} {:^9.1f} '
                      '{:^ 9.1f}').format(self.seq_num, toffset_est,

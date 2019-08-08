@@ -50,6 +50,8 @@ class Reader():
         self.t1_pps_sec     = 0
         self.t4_pps_sec     = 0
 
+        self.idx = 0
+
     def process(self, data):
         """Process a set of timestamps
 
@@ -64,7 +66,11 @@ class Reader():
 
         """
 
-        idx = data["idx"]
+        self.idx = idx = data["idx"]
+
+        # Print header periodically
+        if (self.idx % 20 == 0):
+            DelayReqResp.log_header()
 
         if (self.infer_secs):
             # Ns values
@@ -166,7 +172,7 @@ class Reader():
             data = json.load(fin)
 
         # Debug print header
-        DelayReqResp(0,0).log_header()
+        DelayReqResp.log_header()
 
         # Restrict number of iterations, if so desired
         if (max_len > 0):
