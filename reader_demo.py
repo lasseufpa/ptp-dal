@@ -33,9 +33,9 @@ def main():
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     # Run PTP simulation
-    reader = ptp.reader.Reader(args.file)
-    reader.process(args.num_iter, infer_secs=(not args.use_secs),
-                   no_pps=args.no_pps, reverse_ms=True)
+    reader = ptp.reader.Reader(args.file, infer_secs=(not args.use_secs),
+                               no_pps=args.no_pps, reverse_ms=True)
+    reader.run(args.num_iter)
 
     # Least-squares estimator
     N    = 105                  # LS observation window length
