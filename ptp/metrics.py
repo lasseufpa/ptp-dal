@@ -400,22 +400,35 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_delay_vs_time(self, save=True, save_format='png'):
+    def plot_delay_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot delay estimations vs time
 
         Args:
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
         n_data = len(self.data)
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
+                                     self.data]) / NS_PER_MIN
+            x_axis_label = 'Time (min)'
+
+        elif (x_unit == "samples"):
+            x_axis_vec   = range(0, n_data)
+            x_axis_label = 'Realization'
+
         d      = [r["d"] for r in self.data]
         d_est  = [r["d_est"] for r in self.data]
 
         plt.figure()
-        plt.scatter(range(0, n_data), d_est, label="Raw Measurements", s = 1.0)
-        plt.scatter(range(0, n_data), d, label="True Values", s = 1.0)
-        plt.xlabel('Realization')
+        plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
+        plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
+        plt.xlabel(x_axis_label)
         plt.ylabel('Delay Estimation (ns)')
         plt.legend()
 
@@ -424,20 +437,33 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_delay_est_err_vs_time(self, save=True, save_format='png'):
+    def plot_delay_est_err_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot delay estimations error vs time
 
         Args:
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
         n_data    = len(self.data)
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
+                                     self.data]) / NS_PER_MIN
+            x_axis_label = 'Time (min)'
+
+        elif (x_unit == "samples"):
+            x_axis_vec   = range(0, n_data)
+            x_axis_label = 'Realization'
+
         d_est_err = [r["d_est"] - r["d"] for r in self.data]
 
         plt.figure()
-        plt.scatter(range(0, n_data), d_est_err, s = 1.0)
-        plt.xlabel('Realization')
+        plt.scatter(x_axis_vec, d_est_err, s = 1.0)
+        plt.xlabel(x_axis_label)
         plt.ylabel('Delay Estimation Error (ns)')
 
         if (save):
@@ -517,7 +543,7 @@ class Analyser():
         else:
             plt.show()
 
-    def plot_pdv_vs_time(self, save=True, save_format='png'):
+    def plot_pdv_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot PDV over time
 
         Each value represents the measured difference of the current Sync delay
@@ -532,11 +558,23 @@ class Analyser():
         the same delay, which we don't know.
 
         Args:
-            save      : Save the figure
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
         n_data  = len(self.data)
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
+                                     self.data]) / NS_PER_MIN
+            x_axis_label = 'Time (min)'
+
+        elif (x_unit == "samples"):
+            x_axis_vec   = range(0, n_data)
+            x_axis_label = 'Realization'
 
         # Timestamps
         t2      = [res["t2"] for res in self.data]
@@ -550,8 +588,8 @@ class Analyser():
         pdv = delta_t2 - delta_t1
 
         plt.figure()
-        plt.scatter(range(0, n_data-1), pdv, s = 1.0)
-        plt.xlabel('Realization')
+        plt.scatter(x_axis_vec[1:], pdv, s = 1.0)
+        plt.xlabel(x_axis_label)
         plt.ylabel('Delay Variation (ns)')
 
         if (save):
