@@ -5,6 +5,7 @@ import ptp.metrics
 import ptp.pktselection
 import ptp.kalman
 import ptp.frequency
+import ptp.window
 
 
 def main():
@@ -12,6 +13,10 @@ def main():
     parser.add_argument('-f', '--file',
                         default="log.json",
                         help='JSON log file.')
+    parser.add_argument('--optimizer',
+                        default=False,
+                        action='store_true',
+                        help='Whether or not to optimize window length')
     parser.add_argument('--use-secs',
                         default=False,
                         action='store_true',
@@ -37,10 +42,34 @@ def main():
                                no_pps=args.no_pps, reverse_ms=True)
     reader.run(args.num_iter)
 
+    # Nominal message in nanoseconds
+    T_ns = reader.metadata["sync_period"]*1e9
+
+    # Optimize window length configuration
+    if (args.optimizer):
+        window_optimizer = ptp.window.Optimizer(reader.data, T_ns)
+        window_optimizer.process('all')
+        est_op    = window_optimizer.est_op
+        N_ls      = est_op["ls"]["N_best"]             # LS
+        N_movavg  = est_op["sample-average"]["N_best"] # Moving average
+        N_median  = est_op["sample-median"]["N_best"]  # Sample-median
+        N_min     = est_op["sample-min"]["N_best"]     # Sample-minimum
+        N_min_ls  = est_op["sample-min-ls"]["N_best"]  # Sample-minimum with LS
+        N_mode    = est_op["sample-mode"]["N_best"]    # Sample-minimum
+        N_mode_ls = est_op["sample-mode-ls"]["N_best"] # Sample-mode with LS
+        N_ewma    = est_op["ls"]["N_best"]             # EWMA window
+    else:
+        N_ls      = 105
+        N_movavg  = 16
+        N_median  = 16
+        N_min     = 16
+        N_min_ls  = 16
+        N_mode    = 16
+        N_mode_ls = 16
+        N_ewma    = 16
+
     # Least-squares estimator
-    N    = 105                  # LS observation window length
-    T_ns = 1e9/4                # Nominal message period in nanoseconds
-    ls = ptp.ls.Ls(N, reader.data, T_ns)
+    ls = ptp.ls.Ls(N_ls, reader.data, T_ns)
     ls.process("eff")
 
     # Raw frequency estimations (differentiation of raw time offset measurements)
@@ -57,12 +86,6 @@ def main():
     kalman.process()
 
     # Moving average
-    N_movavg = 16                # Moving average window
-    N_median = 16                # Sample-median window
-    N_min    = 16                # Sample-minimum window
-    N_ewma   = 16                # EWMA window
-
-    # Moving average
     pkts = ptp.pktselection.PktSelection(N_movavg, reader.data)
     pkts.process("average", avg_impl="recursive")
 
@@ -73,6 +96,7 @@ def main():
     # Sample-minimum
     pkts.set_window_len(N_min)
     pkts.process("min")
+    pkts.set_window_len(N_min_ls)
     pkts.process("min", ls_impl="eff")
 
     # Exponentially weighted moving average
@@ -80,8 +104,9 @@ def main():
     pkts.process("ewma")
 
     # Sample-mode
-    pkts.set_window_len(N_min)
+    pkts.set_window_len(N_mode)
     pkts.process("mode")
+    pkts.set_window_len(N_mode_ls)
     pkts.process("mode", ls_impl="eff")
 
     # PTP analyser
@@ -96,7 +121,6 @@ def main():
         analyser.plot_delay_hist(save=True, n_bins=20)
         analyser.plot_mtie(show_raw = False)
         analyser.plot_max_te(show_raw=False, window_len = 200)
-
 
 if __name__ == "__main__":
     main()
