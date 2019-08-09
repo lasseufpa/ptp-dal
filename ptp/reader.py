@@ -188,6 +188,9 @@ class Reader():
         # Put info in dictionary and append to self.data
         for i in range (0, n_data):
             results = self.process(data[i])
+            # Append temperature to results if exists
+            if (data[i].get("temp")):
+                results["temp"] = data[i]["temp"]
             self.data.append(results)
 
 
