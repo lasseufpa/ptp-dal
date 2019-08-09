@@ -52,38 +52,46 @@ def main():
                                   help='Whether or not background traffic is \
                                   active')
     bg_traffic_group.add_argument('--type',
+                                  choices=["inline","cross"],
                                   default=cfg_parser.get('BG-TRAFFIC',
                                                          'type'),
                                   help='Fronthaul traffic type')
-    bg_traffic_group.add_argument('--bitrate-dl',
+    bg_traffic_group.add_argument('--fs',
+                                  type=float,
+                                  choices=[7680000, 30720000],
                                   default=cfg_parser.get('BG-TRAFFIC',
-                                                         'bitrate_dl'),
-                                  help='Bitrate on downlink in Mbps')
-    bg_traffic_group.add_argument('--bitrate-up',
-                                  default=cfg_parser.get('BG-TRAFFIC',
-                                                         'bitrate_up'),
-                                  help='Bitrate on uplink in Mbps')
+                                                         'fs'),
+                                  help='LTE sample rate')
     bg_traffic_group.add_argument('--iq-size',
+                                  type=int,
+                                  choices=list(range(4,34,2)),
                                   default=cfg_parser.get('BG-TRAFFIC',
                                                          'iq_size'),
                                   help='IQ samples size')
     bg_traffic_group.add_argument('--n-spf',
+                                  type=int,
                                   default=cfg_parser.get('BG-TRAFFIC',
                                                          'n_spf'),
                                   help='Number of IQ samples per frame')
     bg_traffic_group.add_argument('--n-rru-cfg',
+                                  type=int,
                                   default=cfg_parser.get('BG-TRAFFIC',
                                                          'n_rru_cfg'),
-                                  help='Number of RRUs to deliver')
+                                  help='Number of RRUs that the BBU is \
+                                  configured to deliver data to in DL')
     bg_traffic_group.add_argument('--n-rru-active',
+                                  type=int,
                                   default=cfg_parser.get('BG-TRAFFIC',
                                                          'n_rru_active'),
-                                  help='Number of active RRUs')
+                                  help='Number of RRUs actually active in the \
+                                  testbed (delivering UL data) ')
     bg_traffic_group.add_argument('--topology',
+                                  choices=["tree"],
                                   default=cfg_parser.get('BG-TRAFFIC',
                                                          'topology'),
                                   help='Type of network topology')
     bg_traffic_group.add_argument('--hops',
+                                  type=int,
                                   default=cfg_parser.get('BG-TRAFFIC',
                                                          'hops'),
                                   help='Number of hops')
@@ -96,11 +104,23 @@ def main():
     # If background traffic is active, create a dictionary with all
     # information to save as metadata
     if (args.bg) :
+        # Compute theoretical DL/UL bitrates
+        eth_hdr_len    = 14*8
+        fh_hdr_len     = 12*8
+        n_axc_per_rru  = 2
+        fh_payload_len = args.n_spf * args.iq_size
+        fh_frame_len   = eth_hdr_len + fh_hdr_len + fh_payload_len
+        i_bg           = args.n_spf / (n_axc_per_rru * args.fs);
+        rate_per_rru   = fh_frame_len / i_bg
+        bitrate_dl     = rate_per_rru * args.n_rru_cfg
+        bitrate_ul     = rate_per_rru * args.n_rru_active
+
         bg_traffic = {
             "type" : args.type,
-            "bitrate" : {
-                "dl" : args.bitrate_dl,
-                "ul" : args.bitrate_up,
+            "fs"   : args.fs, # in Hz
+            "bitrate" : { # in bps
+                "dl" : bitrate_dl,
+                "ul" : bitrate_ul,
             },
             "iq_size" : args.iq_size,
             "n_spf" : args.n_spf,
