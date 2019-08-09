@@ -38,64 +38,57 @@ def main():
                         default=1,
                         help="Verbosity (logging) level.")
     parser.add_argument('--oscillator',
-                        default="ocxo",
+                        default="xo",
                         choices=["ocxo", "xo"],
                         help='Define the oscillator type')
     parser.add_argument('--sync-period',
                         default=0.25,
                         type=float,
                         help='Sync transmission period in seconds')
+    parser.add_argument('--hops',
+                        type=int,
+                        default=4,
+                        help='Number of hops')
 
-    bg_traffic_group = parser.add_argument_group('background traffic')
-    bg_traffic_group.add_argument('--bg',
+    fh_traffic_group = parser.add_argument_group('background traffic')
+    fh_traffic_group.add_argument('--fh-traffic',
                                   default=False,
                                   action='store_true',
-                                  help='Whether or not background traffic is \
-                                  active')
-    bg_traffic_group.add_argument('--type',
+                                  help='Whether or not FH traffic is active')
+    fh_traffic_group.add_argument('--type',
                                   choices=["inline","cross"],
-                                  default=cfg_parser.get('BG-TRAFFIC',
+                                  default=cfg_parser.get('FH-TRAFFIC',
                                                          'type'),
                                   help='Fronthaul traffic type')
-    bg_traffic_group.add_argument('--fs',
+    fh_traffic_group.add_argument('--fs',
                                   type=float,
                                   choices=[7680000, 30720000],
-                                  default=cfg_parser.get('BG-TRAFFIC',
+                                  default=cfg_parser.get('FH-TRAFFIC',
                                                          'fs'),
                                   help='LTE sample rate')
-    bg_traffic_group.add_argument('--iq-size',
+    fh_traffic_group.add_argument('--iq-size',
                                   type=int,
                                   choices=list(range(4,34,2)),
-                                  default=cfg_parser.get('BG-TRAFFIC',
+                                  default=cfg_parser.get('FH-TRAFFIC',
                                                          'iq_size'),
                                   help='IQ samples size')
-    bg_traffic_group.add_argument('--n-spf',
+    fh_traffic_group.add_argument('--n-spf',
                                   type=int,
-                                  default=cfg_parser.get('BG-TRAFFIC',
+                                  default=cfg_parser.get('FH-TRAFFIC',
                                                          'n_spf'),
                                   help='Number of IQ samples per frame')
-    bg_traffic_group.add_argument('--n-rru-cfg',
+    fh_traffic_group.add_argument('--n-rru-cfg',
                                   type=int,
-                                  default=cfg_parser.get('BG-TRAFFIC',
+                                  default=cfg_parser.get('FH-TRAFFIC',
                                                          'n_rru_cfg'),
                                   help='Number of RRUs that the BBU is \
                                   configured to deliver data to in DL')
-    bg_traffic_group.add_argument('--n-rru-active',
+    fh_traffic_group.add_argument('--n-rru-active',
                                   type=int,
-                                  default=cfg_parser.get('BG-TRAFFIC',
+                                  default=cfg_parser.get('FH-TRAFFIC',
                                                          'n_rru_active'),
                                   help='Number of RRUs actually active in the \
                                   testbed (delivering UL data) ')
-    bg_traffic_group.add_argument('--topology',
-                                  choices=["tree"],
-                                  default=cfg_parser.get('BG-TRAFFIC',
-                                                         'topology'),
-                                  help='Type of network topology')
-    bg_traffic_group.add_argument('--hops',
-                                  type=int,
-                                  default=cfg_parser.get('BG-TRAFFIC',
-                                                         'hops'),
-                                  help='Number of hops')
 
     args     = parser.parse_args()
 
@@ -104,7 +97,7 @@ def main():
 
     # If background traffic is active, create a dictionary with all
     # information to save as metadata
-    if (args.bg) :
+    if (args.fh_traffic) :
         # Compute theoretical DL/UL bitrates
         eth_hdr_len    = 14*8
         fh_hdr_len     = 12*8
@@ -116,7 +109,7 @@ def main():
         bitrate_dl     = rate_per_rru * args.n_rru_cfg
         bitrate_ul     = rate_per_rru * args.n_rru_active
 
-        bg_traffic = {
+        fh_traffic = {
             "type" : args.type,
             "fs"   : args.fs, # in Hz
             "bitrate" : { # in bps
@@ -127,17 +120,16 @@ def main():
             "n_spf" : args.n_spf,
             "n_rru_cfg" : args.n_rru_cfg,
             "n_rru_active" : args.n_rru_active,
-            "topology" : args.topology,
-            "hops" : args.hops
         }
     else:
-        bg_traffic = None
+        fh_traffic = None
 
     # Dictionary containing the metadata
     metadata = {
         "oscillator": args.oscillator,
         "sync_period": args.sync_period,
-        "bg_traffic" : bg_traffic
+        "fh_traffic" : fh_traffic,
+        "hops" : args.hops
     }
 
     print("Metadata:")
