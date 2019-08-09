@@ -709,3 +709,39 @@ class Analyser():
             plt.savefig("plots/max_te_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
+
+    def plot_temperature(self, x_unit='time', save=True, save_format='png'):
+        """Plot temperature vs time
+
+        Args:
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        n_data = len(self.data)
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            time_vec     = np.array([float(r["t1"] - t_start) for r in \
+                                    self.data]) / NS_PER_MIN
+            x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
+                            if "temp" in r]
+            x_axis_label = 'Time (min)'
+
+        elif (x_unit == "samples"):
+            x_axis_vec   = [r["idx"] for r in self.data if "temp" in r]
+            x_axis_label = 'Realization'
+
+        temp = [r["temp"] for r in self.data if "temp" in r]
+
+        plt.figure()
+        plt.scatter(x_axis_vec, temp, s = 1.0)
+        plt.xlabel(x_axis_label)
+        plt.ylabel('Temperature (C)')
+
+        if (save):
+            plt.savefig("plots/temperature_vs_time", format=save_format, dpi=300)
+        else:
+            plt.show()

@@ -113,6 +113,7 @@ def main():
     analyser = ptp.metrics.Analyser(reader.data)
     analyser.plot_toffset_vs_time()
     analyser.plot_foffset_vs_time()
+    analyser.plot_temperature()
 
     # When the reference timestamps are available
     if (not args.no_pps):
