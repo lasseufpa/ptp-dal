@@ -1,4 +1,10 @@
+import logging
 import numpy as np
+
+
+logger = logging.getLogger(__name__)
+SAMPLE_MODE_BIN_0 = 10 # starting value
+
 
 class PktSelection():
 
@@ -25,7 +31,7 @@ class PktSelection():
         self._ewma_n        = 0 # sample index for bias correction
 
         # Sample-mode params
-        self._sample_mode_bin = 10
+        self._sample_mode_bin = SAMPLE_MODE_BIN_0
 
     def _sample_avg_normal(self, x_obs):
         """Calculate the average of a given time offset vector
@@ -224,7 +230,6 @@ class PktSelection():
         # Automatically tune the bin as long as drift compensation is used
         if (np.amax(counts) < 10 and drift is not None):
             self._sample_mode_bin += 10
-            print("Increase sample-mode bin to %d" %(self._sample_mode_bin))
 
         # Find the mode for (t4 - t3)
         (_, idx, counts) = np.unique(t4_minus_t3_q,
@@ -350,4 +355,9 @@ class PktSelection():
                     self.data[i_e - 1]["x_pkts_{}_ls".format(strategy)] = x_est
                 else:
                     self.data[i_e - 1]["x_pkts_{}".format(strategy)] = x_est
+
+            if (strategy == 'mode' and
+                (self._sample_mode_bin != SAMPLE_MODE_BIN_0)):
+                logger.info("Sample-mode bin was increased up to %d" %(
+                    self._sample_mode_bin))
 
