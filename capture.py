@@ -4,6 +4,7 @@
 
 """
 import argparse, configparser, logging, sys
+from pprint import pprint
 import ptp.serial
 
 
@@ -139,8 +140,15 @@ def main():
         "bg_traffic" : bg_traffic
     }
 
-    serial = ptp.serial.Serial(args.target, args.sensor, args.num_iter, metadata)
-    serial.run(args.print_all)
+    print("Metadata:")
+    pprint(metadata)
+    raw_resp = input("Proceed? [Y/n] ") or "Y"
+    response = raw_resp.lower()
+
+    if (response.lower() == "y"):
+        serial = ptp.serial.Serial(args.target, args.sensor, args.num_iter,
+                                   metadata)
+        serial.run(args.print_all)
 
 if __name__ == "__main__":
     main()
