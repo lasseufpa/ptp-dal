@@ -173,8 +173,12 @@ class Reader():
         with open(self.log_file) as fin:
             fd = json.load(fin)
 
-        self.metadata = fd['metadata']
-        data          = fd['data']
+        # Check metadata for compatibility with old captures
+        if ('metadata' in fd):
+            self.metadata = fd['metadata']
+            data          = fd['data']
+        else:
+            data = fd
 
         # Debug print header
         DelayReqResp.log_header()

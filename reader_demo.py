@@ -13,8 +13,8 @@ def main():
     parser.add_argument('-f', '--file',
                         default="log.json",
                         help='JSON log file.')
-    parser.add_argument('--optimizer',
-                        default=True,
+    parser.add_argument('--no-optimizer',
+                        default=False,
                         action='store_true',
                         help='Whether or not to optimize window length')
     parser.add_argument('--use-secs',
@@ -43,10 +43,13 @@ def main():
     reader.run(args.num_iter)
 
     # Nominal message in nanoseconds
-    T_ns = reader.metadata["sync_period"]*1e9
+    if (reader.metadata is not None and "sync_period" in reader.metadata):
+        T_ns = reader.metadata["sync_period"]*1e9
+    else:
+        T_ns = 1e9/4
 
     # Optimize window length configuration
-    if (args.optimizer):
+    if (not args.no_optimizer):
         window_optimizer = ptp.window.Optimizer(reader.data, T_ns)
         window_optimizer.process('all', file=args.file)
         window_optimizer.save(args.file)
