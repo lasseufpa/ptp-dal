@@ -3,6 +3,8 @@
 import logging
 import numpy as np
 from pykalman import KalmanFilter
+logger = logging.getLogger(__name__)
+
 
 class Kalman():
     def __init__(self, data, T,
@@ -86,7 +88,7 @@ class Kalman():
 
         """
 
-        logger = logging.getLogger("KF")
+        logger.info("Processing")
 
         # Vector of noisy time offset observations
         idx_vec    = np.array([r["idx"] for r in self.data if "y_est" in r])

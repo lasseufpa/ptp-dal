@@ -6,10 +6,10 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
+logger = logging.getLogger(__name__)
 
 
 WINDOW_SEARCH_PATIENCE = 100 # used for early stopping
-logger = logging.getLogger(__name__)
 
 
 class Optimizer():

@@ -1,8 +1,8 @@
 import logging
 import numpy as np
-
-
 logger = logging.getLogger(__name__)
+
+
 SAMPLE_MODE_BIN_0 = 10 # starting value
 
 
@@ -278,6 +278,8 @@ class PktSelection():
                         is significantly more CPU efficient.
 
         """
+
+        logger.info("Processing sample-%s" %(strategy))
 
         # Select vector of noisy time offset observations and delay estimation
         x_obs = [res["x_est"] for res in self.data]

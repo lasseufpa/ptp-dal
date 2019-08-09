@@ -1,14 +1,14 @@
 """PTP metrics
 """
-import math
+import math, logging, re
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
-import re
+logger = logging.getLogger(__name__)
+
 
 NS_PER_MIN = (60 * 1e9)
-
 est_keys = {"raw"         : {"label": "Raw Measurements",
                              "marker": None,
                              "show": True},
@@ -233,6 +233,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot time offset vs. time")
         n_data  = len(self.data)
 
         # Time axis
@@ -318,6 +319,7 @@ class Analyser():
         """
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
+        logger.info("Plot time offset estimation error vs. time")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
         n_data         = len(post_tran_data)
@@ -376,6 +378,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot delay histogram")
         n_data = len(self.data)
 
         plt.figure()
@@ -409,6 +412,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot delay vs. time")
         n_data = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
@@ -446,6 +450,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot delay estimation error vs. time")
         n_data    = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
@@ -492,6 +497,7 @@ class Analyser():
 
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
+        logger.info("Plot frequency offset vs. time")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
         n_data         = len(post_tran_data)
@@ -563,6 +569,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot PDV vs. time")
         n_data  = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
@@ -622,6 +629,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot MTIE")
         plt.figure()
 
         # To facilitate inspection, it is better to skip the transitory
@@ -667,6 +675,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot max|TE| vs. time")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
 
@@ -719,6 +728,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
+        logger.info("Plot temperature")
         n_data = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator

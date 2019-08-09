@@ -1,6 +1,7 @@
 """Estimators
 """
 import logging
+logger = logging.getLogger(__name__)
 
 
 class Estimator():
@@ -32,6 +33,8 @@ class Estimator():
 
         """
 
+        logger.info("Processing")
+
         for i,r in enumerate(self.data):
             idx = r["idx"]
 
@@ -49,7 +52,6 @@ class Estimator():
             delta_master = float(t1 - t1_past)
             y_est        = (delta_slave - delta_master) / delta_master
 
-            logger = logging.getLogger("FreqEstimator")
             logger.debug("Delta t2: %f ns\tDelta t1: %f ns\tFreq Offset: %f ppb" %(
                 delta_slave, delta_master, y_est*1e9))
 
@@ -79,7 +81,6 @@ class Estimator():
             delta_master = float(t1 - t1_past)
             y            = delta_x / delta_master
 
-            logger = logging.getLogger("FreqEstimator")
             logger.debug("True Freq. Offset: Delta x: %f ns\tDelta t1: %f ns\tFreq Offset: %f ppb" %(
                 delta_x, delta_master, y*1e9))
 

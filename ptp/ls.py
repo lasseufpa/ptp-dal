@@ -2,6 +2,7 @@
 """
 import logging
 import numpy as np
+logger = logging.getLogger(__name__)
 
 
 class Ls():
@@ -24,7 +25,6 @@ class Ls():
         self.T_ns = T_ns
 
         if (np.isinf(T_ns)):
-            logger = logging.getLogger("LS")
             logger.warning("Measurement period was not defined")
 
     def process(self, impl="eff"):
@@ -60,7 +60,7 @@ class Ls():
 
         """
 
-        logger = logging.getLogger("LS")
+        logger.info("Processing")
 
         n_data = len(self.data)
         N      = self.N
