@@ -6,7 +6,9 @@
 import argparse, configparser, logging, sys
 import ptp.serial
 
+
 DEFAULT_CONFIG = "config/capture.cfg"
+
 
 def main():
     cfg_parser = configparser.ConfigParser()

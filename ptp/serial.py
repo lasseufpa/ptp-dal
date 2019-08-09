@@ -73,8 +73,8 @@ class Serial():
 
         The JSON file is organized as a dictionary and contain the data and
         metadata. First, the file is initialized with the initial dict structure
-        and the metadata information. After, list of dictionaries containing
-        the testbed timestamps are saved to compose the data.
+        and the metadata information. After, list of dictionaries containing the
+        testbed timestamps are saved to compose the data.
 
         """
 

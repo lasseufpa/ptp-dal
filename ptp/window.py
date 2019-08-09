@@ -160,7 +160,7 @@ class Optimizer():
             max_te_diff = abs(min_max_te - self.max_te[i])
 
             if (early_stopping and patience_count > WINDOW_SEARCH_PATIENCE \
-               and max_te_diff > abs(min_max_te)):
+                and max_te_diff > abs(min_max_te)):
                 break
 
             # Save the index of the last iteration
@@ -190,14 +190,17 @@ class Optimizer():
         print(f"Best evaluated window length for {est_name}: {N_best:d}")
 
     def _filename(self, file):
-        """Create the filename, to save the est_op dictionary, based on the
-        name of the file passed as argument or create one if no file was used.
+        """Define the filename used to save window configurations
+
+        Set the filename based on the name of the file passed as argument or
+        create a new name if no file was used.
 
         Args:
             file: Path of the file
 
         Returns:
             The filename
+
         """
         path = "config/"
 
