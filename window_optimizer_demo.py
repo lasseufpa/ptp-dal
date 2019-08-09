@@ -60,7 +60,7 @@ def main():
         # Run reader process
         elif (args.file.endswith('.json')):
             ptp_src = ptp.reader.Reader(args.file)
-            ptp_src.process()
+            ptp_src.run()
 
         # Get sync period from metadata
         if (hasattr(ptp_src, 'metadata') and
