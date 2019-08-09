@@ -1,13 +1,16 @@
 """Helper class used to optimize processing window lengths
 """
-import logging, re, json, time
+import logging, re, json, time, os
 import ptp.ls, ptp.pktselection
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 WINDOW_SEARCH_PATIENCE = 100 # used for early stopping
+logger = logging.getLogger(__name__)
+
 
 class Optimizer():
     est_op = {"ls"            : {"name"   : "Least Squares",
@@ -108,7 +111,7 @@ class Optimizer():
 
             progress = (i/n_iter)
             if (progress - last_print > 0.1):
-                print(f'{estimator} vs. window progress {progress*100:5.2f} %')
+                logger.info(f'{estimator} vs. window progress {progress*100:5.2f} %')
                 last_print = progress
 
             if (estimator == "ls"):
@@ -187,7 +190,7 @@ class Optimizer():
             logging.info("Saved figure at %s" %(
                 f"plots/{est_key}_max_te_vs_window"))
 
-        print(f"Best evaluated window length for {est_name}: {N_best:d}")
+        logger.info(f"Best evaluated window length for {est_name}: {N_best:d}")
 
     def _filename(self, file):
         """Define the filename used to save window configurations
@@ -213,7 +216,7 @@ class Optimizer():
 
         return filename
 
-    def _save(self, file):
+    def save(self, file):
         """Save est_op dictionary on JSON file
 
         Args:
@@ -242,7 +245,7 @@ class Optimizer():
 
     def process(self, estimator, file=None, save=False, plot=False, \
                 sample_skip=0, window_skip=0, window_step=1,
-                early_stopping=True):
+                early_stopping=True, force=False):
         """Process the observations
 
         Args:
@@ -255,11 +258,20 @@ class Optimizer():
             starting_window : Starting window size
             window_step     : Enlarge window by this step on every iteration
             early_stopping  : Whether to stop search when min{max|TE|} stalls
+            force           : Force processing even if already done previously
 
         """
         self._sample_skip = sample_skip
         self._window_skip = window_skip
         self._window_step = window_step
+
+        # Has the given file been processed already?
+        window_cfg_file = self._filename(file)
+        if ((not force) and os.path.isfile(window_cfg_file)):
+            logger.info("Window tuning file %s exists." %(window_cfg_file))
+            logger.info("Loading configurations from %s." %(window_cfg_file))
+            self.load(window_cfg_file)
+            return
 
         # Iterate over the estimators
         estimators = [k for k in self.est_op.keys()] if (estimator == 'all') \
@@ -283,4 +295,4 @@ class Optimizer():
 
         # Save results on JSON file
         if (save):
-            self._save(file)
+            self.save(file)

@@ -14,7 +14,7 @@ def main():
                         default="log.json",
                         help='JSON log file.')
     parser.add_argument('--optimizer',
-                        default=False,
+                        default=True,
                         action='store_true',
                         help='Whether or not to optimize window length')
     parser.add_argument('--use-secs',
@@ -48,7 +48,8 @@ def main():
     # Optimize window length configuration
     if (args.optimizer):
         window_optimizer = ptp.window.Optimizer(reader.data, T_ns)
-        window_optimizer.process('all')
+        window_optimizer.process('all', file=args.file)
+        window_optimizer.save(args.file)
         est_op    = window_optimizer.est_op
         N_ls      = est_op["ls"]["N_best"]             # LS
         N_movavg  = est_op["sample-average"]["N_best"] # Moving average
@@ -58,6 +59,10 @@ def main():
         N_mode    = est_op["sample-mode"]["N_best"]    # Sample-minimum
         N_mode_ls = est_op["sample-mode-ls"]["N_best"] # Sample-mode with LS
         N_ewma    = est_op["ls"]["N_best"]             # EWMA window
+
+        print("Tuned window lengths:")
+        for i in est_op:
+            print("%20s: %d" %(i, est_op[i]["N_best"]))
     else:
         N_ls      = 105
         N_movavg  = 16
