@@ -269,7 +269,6 @@ class PktSelection():
         if (self._mode_stall_cnt > stall_patience):
             self._sample_mode_bin += 10
             self._mode_stall_cnt   = 0
-            print("New bin: %d" %(self._sample_mode_bin))
 
         # Final estimate (with drift compensation offset)
         x_est            = offset + (t2_minus_t1 - t4_minus_t3)/2

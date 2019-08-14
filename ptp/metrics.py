@@ -61,6 +61,28 @@ class Analyser():
         """
         self.data = data
 
+    def delay_asymmetry(self):
+        """Analyze the delay asymmetry
+
+        Compute and print some relevant asymmetry metrics.
+
+        """
+        print("Delay asymmetry analysis:\n")
+        d_asym = np.array([r['asym'] for r in self.data])
+        d_ms   = np.array([r["d"] for r in self.data])
+        d_sm   = np.array([r["d_bw"] for r in self.data])
+
+        print("Metric \t%12s\t%12s\t%12s" %("m-to-s", "s-to-m", "asymmetry"))
+        print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+            np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)))
+        print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+            np.amin(d_ms), np.amin(d_sm), (np.amin(d_ms) - np.amin(d_sm))/2))
+        print("Maximum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+            np.amax(d_ms), np.amax(d_sm), (np.amax(d_ms) - np.amax(d_sm))/2))
+        print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+            np.median(d_ms), np.median(d_sm),
+            (np.median(d_ms) - np.median(d_sm))/2))
+
     def rolling_window_mtx(self, x, window_size):
         """Compute all overlapping (rolling) observation windows in a matrix
 
@@ -293,7 +315,7 @@ class Analyser():
             elif (x_unit == "samples"):
                 x_axis_vec   = best_idx
 
-            plt.scatter(x_axis_vec, x_tilde[best_idx],
+            plt.scatter(x_axis_vec, x_tilde[best_idx], s=1.0,
                         label="Accurate Measurements")
 
         plt.xlabel(x_axis_label)
@@ -456,11 +478,13 @@ class Analyser():
             else:
                 plt.show()
 
-    def plot_delay_vs_time(self, x_unit='time', save=True, save_format='png'):
+    def plot_delay_vs_time(self, x_unit='time', split=False, save=True,
+                           save_format='png'):
         """Plot delay estimations vs time
 
         Args:
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            split       : Whether to split m-to-s and s-to-m plots
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
@@ -480,19 +504,41 @@ class Analyser():
             x_axis_label = 'Realization'
 
         d      = [r["d"] for r in self.data]
+        d_bw   = [r["d_bw"] for r in self.data]
         d_est  = [r["d_est"] for r in self.data]
 
-        plt.figure()
-        plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
-        plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
-        plt.xlabel(x_axis_label)
-        plt.ylabel('Delay Estimation (ns)')
-        plt.legend()
+        if (split):
+            plt.figure()
+            plt.scatter(x_axis_vec, d, s = 1.0)
+            plt.xlabel(x_axis_label)
+            plt.ylabel('m-to-s delay (ns)')
 
-        if (save):
-            plt.savefig("plots/delay_vs_time", format=save_format, dpi=300)
+            if (save):
+                plt.savefig("plots/m2s_delay_vs_time", format=save_format, dpi=300)
+            else:
+                plt.show()
+
+            plt.figure()
+            plt.scatter(x_axis_vec, d_bw, s = 1.0)
+            plt.xlabel(x_axis_label)
+            plt.ylabel('s-to-m delay (ns)')
+
+            if (save):
+                plt.savefig("plots/s2m_delay_vs_time", format=save_format, dpi=300)
+            else:
+                plt.show()
         else:
-            plt.show()
+            plt.figure()
+            plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
+            plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
+            plt.xlabel(x_axis_label)
+            plt.ylabel('Delay Estimation (ns)')
+            plt.legend()
+
+            if (save):
+                plt.savefig("plots/delay_vs_time", format=save_format, dpi=300)
+            else:
+                plt.show()
 
     def plot_delay_est_err_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot delay estimations error vs time
@@ -527,6 +573,66 @@ class Analyser():
         if (save):
             plt.savefig("plots/delay_est_err_vs_time", format=save_format,
                         dpi=300)
+        else:
+            plt.show()
+
+    def plot_delay_asym_hist(self, n_bins=50, save=True, save_format='png'):
+        """Plot delay asymmetry histogram
+
+        Args:
+            n_bins      : Target number of bins
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot delay asymmetry histogram")
+        n_data  = len(self.data)
+
+        plt.figure()
+        d_asym = np.array([r['asym'] for r in self.data]) / 1e3
+        plt.hist(d_asym, bins=n_bins, density=True)
+        plt.xlabel('Delay asymmetry (us)')
+        plt.ylabel('Probability Density')
+        plt.legend()
+
+        if (save):
+            plt.savefig("plots/delay_asym_hist", format=save_format, dpi=300)
+        else:
+            plt.show()
+
+    def plot_delay_asym_vs_time(self, save=True, x_unit='time',
+                                save_format='png'):
+        """Plot delay asymmetry over time
+
+        Args:
+            n_bins      : Target number of bins
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot delay asymmetry vs. time")
+        n_data  = len(self.data)
+
+        # Time axis
+        t_start  = self.data[0]["t1"]
+        time_vec = np.array([float(r["t1"] - t_start) for r in self.data])\
+                   / NS_PER_MIN
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            x_axis_label = 'Time (min)'
+        elif (x_unit == "samples"):
+            x_axis_label = 'Realization'
+
+        d_asym = np.array([r['asym'] for r in self.data]) / 1e3
+
+        plt.figure()
+        plt.scatter(time_vec, d_asym, s=1.0)
+        plt.xlabel(x_axis_label)
+        plt.ylabel('Delay asymmetry (us)')
+
+        if (save):
+            plt.savefig("plots/delay_asym_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
 

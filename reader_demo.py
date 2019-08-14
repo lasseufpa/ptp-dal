@@ -125,12 +125,16 @@ def main():
 
     # When the reference timestamps are available
     if (not args.no_pps):
+        analyser.delay_asymmetry()
         analyser.plot_toffset_err_vs_time(show_raw = False)
-        analyser.plot_delay_vs_time(save=True)
-        analyser.plot_delay_hist(save=True, n_bins=20)
-        analyser.plot_delay_hist(save=True, split=True, n_bins=20)
+        analyser.plot_delay_vs_time()
+        analyser.plot_delay_vs_time(split=True)
+        analyser.plot_delay_hist(n_bins=50)
+        analyser.plot_delay_hist(split=True, n_bins=50)
+        analyser.plot_delay_asym_hist(n_bins=50)
+        analyser.plot_delay_asym_vs_time()
         analyser.plot_mtie(show_raw = False)
-        analyser.plot_max_te(show_raw=False, window_len = 200)
+        analyser.plot_max_te(show_raw=False, window_len = 1000)
 
 if __name__ == "__main__":
     main()
