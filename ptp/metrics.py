@@ -237,11 +237,13 @@ class Analyser():
 
         """
         logger.info("Plot time offset vs. time")
-        n_data  = len(self.data)
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+        n_data         = len(post_tran_data)
 
         # Time axis
         t_start  = self.data[0]["t1"]
-        time_vec = np.array([float(r["t1"] - t_start) for r in self.data])\
+        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
                    / NS_PER_MIN
 
         # TODO: move the definition of x-axis label into the decorator
@@ -261,14 +263,15 @@ class Analyser():
                 else:
                     key = "x_" + suffix
 
-                x_est = [r[key] for r in self.data if key in r]
+                x_est = [r[key] for r in post_tran_data if key in r]
 
                 # Define the x axis - either in time or in samples
                 if (x_unit == "time"):
                     x_axis_vec   = [time_vec[i] for i, r in
-                                    enumerate(self.data) if key in r]
+                                    enumerate(post_tran_data) if key in r]
                 elif (x_unit == "samples"):
-                    x_axis_vec   = [r["idx"] for r in self.data if key in r]
+                    x_axis_vec   = [r["idx"] for r in post_tran_data
+                                    if key in r]
 
                 if (len(x_est) > 0):
                     plt.scatter(x_axis_vec, x_est,
@@ -277,8 +280,8 @@ class Analyser():
 
         # Best raw measurements
         if (show_best):
-            x_tilde  = np.array([r["x_est"] for r in self.data])
-            x        = np.array([r["x"] for r in self.data])
+            x_tilde  = np.array([r["x_est"] for r in post_tran_data])
+            x        = np.array([r["x"] for r in post_tran_data])
 
             # Find best raw measurements (with error under 10 ns)
             err      = x_tilde - x
