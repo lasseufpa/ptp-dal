@@ -294,7 +294,7 @@ class Analyser():
                 x_axis_vec   = best_idx
 
             plt.scatter(x_axis_vec, x_tilde[best_idx],
-                        label="Accurate Measurements", s=50)
+                        label="Accurate Measurements")
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time offset (ns)')
@@ -371,7 +371,7 @@ class Analyser():
             plt.show()
 
     def plot_delay_hist(self, show_raw=True, show_true=True, n_bins=50,
-                        save=True, save_format='png'):
+                        split=False, save=True, save_format='png'):
         """Plot delay histogram
 
         Plot histogram of delays in microseconds.
@@ -380,34 +380,81 @@ class Analyser():
             show_raw    : Show histogram of raw delay measurements
             show_true   : Show histogram true delay values
             n_bins      : Target number of bins
+            split       : Whether to split each delay histogram (m-to-s, s-to-m
+                          and estimate) on a different figure
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
         logger.info("Plot delay histogram")
-        n_data = len(self.data)
+        n_data  = len(self.data)
+        x_label = 'Delay (us)'
+        y_label = 'Probability Density'
 
-        plt.figure()
-        if (show_raw):
-            d_est = np.array([r['d_est'] for r in self.data]) / 1e3
-            plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
-                     label="Two-way Measurements")
-        if (show_true):
-            d = np.array([r["d"] for r in self.data]) / 1e3
-            plt.hist(d, bins=n_bins, density=True, alpha=0.5,
-                     label="True master-to-slave")
-            d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
-            plt.hist(d_bw, bins=n_bins, density=True, alpha=0.5,
-                     label="True slave-to-master")
+        if (split):
+            plots   = list()
 
-        plt.xlabel('Delay (us)')
-        plt.ylabel('Probability Density')
-        plt.legend()
+            if (show_raw):
+                d_est = np.array([r['d_est'] for r in self.data]) / 1e3
+                plt.figure()
+                plt.hist(d_est, bins=n_bins, density=True)
+                plt.xlabel(x_label)
+                plt.ylabel(y_label)
+                plt.title("Two-way Measurements")
+                plots.append({"plt" : plt,
+                              "label" : "raw"})
 
-        if (save):
-            plt.savefig("plots/delay_hist", format=save_format, dpi=300)
+            if (show_true):
+                d = np.array([r["d"] for r in self.data]) / 1e3
+                d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
+
+                plt.figure()
+                plt.hist(d, bins=n_bins, density=True)
+                plt.xlabel(x_label)
+                plt.ylabel(y_label)
+                plt.title("True master-to-slave")
+                plots.append({"plt": plt,
+                              "label": "m2s"})
+
+                plt.figure()
+                plt.hist(d_bw, bins=n_bins, density=True)
+                plt.xlabel(x_label)
+                plt.ylabel(y_label)
+                plt.title("True slave-to-master")
+                plots.append({"plt": plt,
+                              "label": "s2m"})
+
+            for p in plots:
+                if (save):
+                    p["plt"].savefig("plots/delay_hist_" + p["label"],
+                                     format=save_format, dpi=300)
+                else:
+                    p["plt"].show()
         else:
-            plt.show()
+            # Single plot
+
+            plt.figure()
+            if (show_raw):
+                d_est = np.array([r['d_est'] for r in self.data]) / 1e3
+                plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
+                         label="Two-way Measurements")
+
+            if (show_true):
+                d = np.array([r["d"] for r in self.data]) / 1e3
+                plt.hist(d, bins=n_bins, density=True, alpha=0.5,
+                         label="True master-to-slave")
+                d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
+                plt.hist(d_bw, bins=n_bins, density=True, alpha=0.5,
+                         label="True slave-to-master")
+
+            plt.xlabel(x_label)
+            plt.ylabel(y_label)
+            plt.legend()
+
+            if (save):
+                plt.savefig("plots/delay_hist", format=save_format, dpi=300)
+            else:
+                plt.show()
 
     def plot_delay_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot delay estimations vs time
