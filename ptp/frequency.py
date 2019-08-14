@@ -57,12 +57,16 @@ class Estimator():
 
             r["y_est"] = y_est
 
-    def set_truth(self):
+    def set_truth(self, delta=4):
         """Set "true" frequency offset based on "true" time offset measurements
-        """
 
-        # Use a small delta for responsive computations
-        delta = 4
+        Args:
+            delta : (int > 0) Observation interval in samples. When set to 1,
+                    estimates the frequency offsets based on consecutive data
+                    entries.  When set to 2, estimates frequency offset i based
+                    on timestamps from the i-th iteration and from iteration
+                    'i-2', and so on (default: 4)
+        """
 
         for i,r in enumerate(self.data):
             idx = r["idx"]
