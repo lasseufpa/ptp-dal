@@ -192,10 +192,13 @@ class Analyser():
             for k, v in kwargs.items():
                 if (not v):
                     # Extract the preffix_keys from 'show_' variables
-                    preffix_key = (re.search(r'(?<=show_).*', k)).group(0)
+                    prefix_re  = (re.search(r'(?<=show_).*', k))
+                    if (prefix_re is None):
+                        continue
+                    prefix_key = prefix_re.group(0)
                     # Find the dict keys that match with the preffix_keys
                     key_values  = [key for key in est_keys if
-                                   re.match(r'^{}_*'.format(preffix_key), key)]
+                                   re.match(r'^{}_*'.format(prefix_key), key)]
                     # Set show key to 'False' on global 'est_keys' dict
                     for suffix, v in est_keys.items():
                         if (suffix in key_values):
