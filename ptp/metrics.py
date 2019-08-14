@@ -293,7 +293,7 @@ class Analyser():
     @dec_plot_filter
     def plot_toffset_vs_time(self, show_raw=True, show_best=True, show_ls=True,
                              show_pkts=True, show_kf=True, show_true=True,
-                             n_skip_kf=0, x_unit='time', save=True,
+                             n_skip=None, x_unit='time', save=True,
                              save_format='png'):
         """Plot time offset vs Time
 
@@ -305,19 +305,21 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show Packet Selection fit
             show_kf     : Show Kalman filtering results
-            n_skip_kf   : Number of initial Kalman filter samples to skip
+            n_skip      : Number of initial samples to skip
             show_true   : Show true values
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
+        # To facilitate inspection, it is better to skip the transitory
+        # (e.g. due to Kalman)
         logger.info("Plot time offset vs. time")
-        n_skip         = int(0.2*len(self.data))
+        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
-        t_start  = self.data[0]["t1"]
+        t_start  = post_tran_data[0]["t1"]
         time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
                    / NS_PER_MIN
 
@@ -366,7 +368,7 @@ class Analyser():
             if (x_unit == "time"):
                 x_axis_vec   = time_vec[best_idx]
             elif (x_unit == "samples"):
-                x_axis_vec   = best_idx
+                x_axis_vec   = best_idx + n_skip
 
             plt.scatter(x_axis_vec, x_tilde[best_idx], s=1.0,
                         label="Accurate Measurements")
@@ -383,8 +385,8 @@ class Analyser():
 
     @dec_plot_filter
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
-                                 show_pkts=True, show_kf=True, x_unit='time',
-                                 save=True, save_format='png'):
+                                 show_pkts=True, show_kf=True, n_skip=None,
+                                 x_unit='time', save=True, save_format='png'):
         """Plot time offset error vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -394,6 +396,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show packet selection fit
             show_kf     : Show Kalman filtering results
+            n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -402,7 +405,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot time offset estimation error vs. time")
-        n_skip         = int(0.2*len(self.data))
+        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
@@ -738,7 +741,7 @@ class Analyser():
 
     @dec_plot_filter
     def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
-                             show_true=True, n_skip_kf=0, x_unit='time',
+                             show_true=True, n_skip=None, x_unit='time',
                              save=True, save_format='png'):
         """Plot freq. offset vs time
 
@@ -746,7 +749,7 @@ class Analyser():
             show_raw    : Show raw measurements
             show_ls     : Show least-squares estimations
             show_kf     : Show Kalman filtering results
-            n_skip_kf   : Number of initial Kalman filter samples to skip
+            n_skip      : Number of initial samples to skip
             show_true   : Show true values
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
@@ -757,7 +760,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot frequency offset vs. time")
-        n_skip         = int(0.2*len(self.data))
+        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
@@ -1113,6 +1116,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show Packet Selection fit
             show_kf     : Show Kalman filtering results
+            n_skip      : Number of initial samples to skip
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
@@ -1149,8 +1153,8 @@ class Analyser():
 
     @dec_plot_filter
     def plot_max_te(self, window_len, show_raw=True, show_ls=True,
-                    show_pkts=True, show_kf=True, x_unit='time', save=True,
-                    save_format='png'):
+                    show_pkts=True, show_kf=True, n_skip=None, x_unit='time',
+                    save=True, save_format='png'):
         """Plot Max|TE| vs time.
 
         Args:
@@ -1159,13 +1163,14 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show Packet Selection fit
             show_kf     : Show Kalman filtering results
+            n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
 
         """
         logger.info("Plot max|TE| vs. time")
-        n_skip         = int(0.2*len(self.data))
+        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
