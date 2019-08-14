@@ -32,6 +32,7 @@ class PktSelection():
 
         # Sample-mode params
         self._sample_mode_bin = SAMPLE_MODE_BIN_0
+        self._mode_stall_cnt  = 0
 
     def _sample_avg_normal(self, x_obs):
         """Calculate the average of a given time offset vector
@@ -198,20 +199,34 @@ class PktSelection():
         x_est       = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
-    def _sample_mode(self, t2_minus_t1_w, t4_minus_t3_w, drift=None):
+    def _sample_mode(self, t2_minus_t1_w, t4_minus_t3_w, drift=None,
+                     cnt_threshold=3, stall_patience=10):
         """Compute the time offset based on sample-mode
 
         For the drift compensation, c.f. the explanation of EAPF.
 
+        Regarding the bin adjustment algorithm, note that a higher
+        `cnt_threshold` will lead to more frequent adjustments (enlargements) of
+        the bin width. A lower patience will also enlarge the bin width more
+        frequently. Moreover, note that if the bin becomes too wide, the
+        estimation resolution reduces. Hence, loosely speaking the
+        `cnt_threshold` should be relatively small and `stall_patience`
+        moderately higher.
+
         Args:
-            t2_minus_t1_w : Vector of (t2 - t1) differences
-            t4_minus_t3_w : Vector of (t4 - t3) differences
+            t2_minus_t1_w  : Vector of (t2 - t1) differences
+            t4_minus_t3_w  : Vector of (t4 - t3) differences
+            cnt_threshold  : Minimum number of ocurrences on the mode bin
+            stall_patience : Number of consecutive iterations of stalled mode
+                             bin ocurrence count before the bin width is
+                             adjusted
 
         Returns:
            The time offset estimate
 
         """
-        bin_width = self._sample_mode_bin
+        bin_width      = self._sample_mode_bin
+        half_bin_width = 0.5 * bin_width
 
         # Subtract the drift from slave timestamps
         if (drift is not None):
@@ -228,18 +243,33 @@ class PktSelection():
         # Find the mode for (t2 - t1)
         (_, idx, counts) = np.unique(t2_minus_t1_q, return_index=True,
                                      return_counts=True)
+        mode_cnt_fw      = np.amax(counts)
         mode_idx_fw      = idx[np.argmax(counts)]
-        t2_minus_t1      = t2_minus_t1_q[mode_idx_fw] * bin_width
-
-        # Automatically tune the bin as long as drift compensation is used
-        if (np.amax(counts) < 10 and drift is not None):
-            self._sample_mode_bin += 10
+        t2_minus_t1      = t2_minus_t1_q[mode_idx_fw] * bin_width + \
+                           half_bin_width
 
         # Find the mode for (t4 - t3)
         (_, idx, counts) = np.unique(t4_minus_t3_q,
                                      return_index=True, return_counts=True)
+        mode_cnt_bw      = np.amax(counts)
         mode_idx_bw      = idx[np.argmax(counts)]
-        t4_minus_t3      = t4_minus_t3_q[mode_idx_bw] * bin_width
+        t4_minus_t3      = t4_minus_t3_q[mode_idx_bw] * bin_width + \
+                           half_bin_width
+
+        # Detect when we can't find a mode
+        #
+        # In case the occurrence count of the mode bin is below a threshold for
+        # some consecutive number of iterations (denominated patience), we infer
+        # that the mode detection is stalled and increase the bin width.
+        if (mode_cnt_fw < cnt_threshold and mode_cnt_bw < cnt_threshold):
+            self._mode_stall_cnt += 1
+        else:
+            self._mode_stall_cnt = 0
+
+        if (self._mode_stall_cnt > stall_patience):
+            self._sample_mode_bin += 10
+            self._mode_stall_cnt   = 0
+            print("New bin: %d" %(self._sample_mode_bin))
 
         # Final estimate (with drift compensation offset)
         x_est            = offset + (t2_minus_t1 - t4_minus_t3)/2
@@ -260,6 +290,8 @@ class PktSelection():
         self._ewma_beta     = 1 - (1/N)
         self._ewma_last_avg = 0
         self._ewma_n        = 0
+        self._sample_mode_bin = SAMPLE_MODE_BIN_0
+        self._mode_stall_cnt  = 0
 
     def process(self, strategy, ls_impl=None, avg_impl="recursive"):
         """Process the observations
