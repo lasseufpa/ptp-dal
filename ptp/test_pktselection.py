@@ -43,9 +43,9 @@ class TestPktSelection(unittest.TestCase):
         x_est_median = [r["x_pkts_median"] for r in data if "x_pkts_median" in r]
 
         # Check values
-        self.assertEqual(x_est_median[0], 6)
-        self.assertEqual(x_est_median[1], 15)
-        self.assertEqual(x_est_median[2], 17)
+        self.assertEqual(x_est_median[0], (16 - 12)/2)
+        self.assertEqual(x_est_median[1], (16 - 15)/2)
+        self.assertEqual(x_est_median[2], (16 - 15)/2)
 
     def test_sample_min(self):
         N    = 3

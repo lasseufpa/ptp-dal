@@ -91,17 +91,21 @@ class PktSelection():
         corr_avg            = new_avg * bias_corr
         return corr_avg
 
-    def _sample_median(self, x_obs):
+    def _sample_median(self, t2_minus_t1_w, t4_minus_t3_w):
         """Calculate the median of a given time offset vector
 
         Args:
-            x_obs   : Vector time offset
+            t2_minus_t1_w : Vector of (t2 - t1) differences
+            t4_minus_t3_w : Vector of (t4 - t3) differences
 
         Returns:
             The moving average
         """
 
-        return np.median(x_obs)
+        t2_minus_t1 = np.median(t2_minus_t1_w)
+        t4_minus_t3 = np.median(t4_minus_t3_w)
+        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        return x_est
 
     def _eapf(self, t2_minus_t1_w, t4_minus_t3_w, drift=None):
         """Compute the time offset based on earliest arrivals
@@ -321,36 +325,37 @@ class PktSelection():
                 else:
                     drift = None
 
-                # Compute the time offset depending on the selected strategy
+                # Selection operator that processes observations directly
                 if (strategy == 'average' and avg_impl == 'normal'):
                     x_est = self._sample_avg_normal(x_obs_w)
 
-                elif (strategy == 'median'):
-                    x_est = self._sample_median(x_obs_w)
-
-                elif (strategy == 'min'):
-                    t2_minus_t1_w = np.array([float(r["t2"] - r["t1"]) for r
-                                              in self.data[i_s:i_e]])
-                    t4_minus_t3_w = np.array([float(r["t4"] - r["t3"]) for r
-                                              in self.data[i_s:i_e]])
-                    x_est = self._eapf(t2_minus_t1_w, t4_minus_t3_w, drift)
-
-                elif (strategy == 'max'):
-                    t2_minus_t1_w = [float(r["t2"] - r["t1"]) for r
-                                     in self.data[i_s:i_e]]
-                    t4_minus_t3_w = [float(r["t4"] - r["t3"]) for r
-                                     in self.data[i_s:i_e]]
-                    x_est = self._sample_maximum(t2_minus_t1_w, t4_minus_t3_w)
-                elif (strategy == 'mode'):
-                    t2_minus_t1_w = np.array([float(r["t2"] - r["t1"]) for r
-                                     in self.data[i_s:i_e]])
-                    t4_minus_t3_w = np.array([float(r["t4"] - r["t3"]) for r
-                                     in self.data[i_s:i_e]])
-                    x_est = self._sample_mode(t2_minus_t1_w, t4_minus_t3_w,
-                                              drift)
-
+                # Selection operator that processes timestamp differences
                 else:
-                    raise ValueError("Strategy choice %s unknown" %(strategy))
+                    t2_minus_t1_w = np.array([float(r["t2"] - r["t1"])
+                                              for r in self.data[i_s:i_e]])
+                    t4_minus_t3_w = np.array([float(r["t4"] - r["t3"])
+                                              for r in self.data[i_s:i_e]])
+
+                    if (strategy == 'median'):
+                        x_est = self._sample_median(t2_minus_t1_w,
+                                                    t4_minus_t3_w)
+
+                    elif (strategy == 'min'):
+                        x_est = self._eapf(t2_minus_t1_w,
+                                           t4_minus_t3_w,
+                                           drift)
+
+                    elif (strategy == 'max'):
+                        x_est = self._sample_maximum(t2_minus_t1_w,
+                                                     t4_minus_t3_w)
+
+                    elif (strategy == 'mode'):
+                        x_est = self._sample_mode(t2_minus_t1_w,
+                                                  t4_minus_t3_w,
+                                                  drift)
+                    else:
+                        raise ValueError("Strategy choice %s unknown" %(
+                            strategy))
 
                 # Include Packet Selection estimations within the simulation data
                 if (drift is not None):
