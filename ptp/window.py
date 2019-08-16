@@ -77,8 +77,8 @@ class Optimizer():
         self._window_step = None
         self._window_skip = None
 
-    def _search_min_max_te(self, data, estimator, plot=False,
-                           early_stopping=True):
+    def _search_min_max_te(self, data, estimator, early_stopping=True,
+                           plot=False, save=True):
         """Search the window length that minimizes Max|TE|
 
         Calculate the max|TE| for differents sizes of window length.
@@ -86,8 +86,9 @@ class Optimizer():
         Args:
             data           : Array of objects with simulation or testbed data
             estimator      : Select the estimator
-            plot           : Plot Max|TE| vs window
             early_stopping : Whether to stop search when min{max|TE|} stalls
+            plot           : Plot Max|TE| vs window
+            save           : Save plot
 
         """
         est_impl    = self.est_op[estimator]["impl"]
@@ -186,7 +187,10 @@ class Optimizer():
             plt.xlabel("window length (samples)")
             plt.ylabel("max|TE| (ns)")
             plt.legend()
-            plt.savefig(f"plots/{est_key}_max_te_vs_window")
+            if (save):
+                plt.savefig(f"plots/{est_key}_max_te_vs_window")
+            else:
+                plt.show()
             logging.info("Saved figure at %s" %(
                 f"plots/{est_key}_max_te_vs_window"))
 
@@ -243,22 +247,23 @@ class Optimizer():
             raise ValueError("Need to pass the filename to load the \
                              configuration data")
 
-    def process(self, estimator, file=None, save=False, plot=False, \
-                sample_skip=0, window_skip=0, window_step=1,
-                early_stopping=True, force=False):
+    def process(self, estimator, file=None, save=False, sample_skip=0,
+                window_skip=0, window_step=1, early_stopping=True, force=False,
+                plot=False, save_plot=True):
         """Process the observations
 
         Args:
             estimator       : Select the estimator
             file            : Path of the JSON file to save
             save            : Save the best window length in a json file
-            plot            : Plot Max|TE| vs window
             sample_skip     : Number of initial samples to skip
             window_skip     : Number of initial windows to skip
             starting_window : Starting window size
             window_step     : Enlarge window by this step on every iteration
             early_stopping  : Whether to stop search when min{max|TE|} stalls
             force           : Force processing even if already done previously
+            plot            : Plot Max|TE| vs window
+            save_plot       : Save plot if plotting
 
         """
         self._sample_skip = sample_skip
@@ -290,8 +295,9 @@ class Optimizer():
                 ls.process()
 
             # Search the window length that minimizes the max|TE|
-            self._search_min_max_te(self.data, estimator=estimator, plot=plot,
-                                    early_stopping=early_stopping)
+            self._search_min_max_te(self.data, estimator,
+                                    early_stopping=early_stopping, plot=plot,
+                                    save=save_plot)
 
         # Save results on JSON file
         if (save):
