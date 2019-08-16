@@ -314,7 +314,7 @@ class PktSelection():
 
         """
 
-        logger.info("Processing sample-%s" %(strategy))
+        logger.info("Processing sample-%s with N=%d" %(strategy, self.N))
 
         # Select vector of noisy time offset observations and delay estimation
         x_obs = [res["x_est"] for res in self.data]

@@ -9,9 +9,6 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-WINDOW_SEARCH_PATIENCE = 100 # used for early stopping
-
-
 class Optimizer():
     est_op = {"ls"            : {"name"   : "Least Squares",
                                  "impl"   : "eff",
@@ -69,38 +66,32 @@ class Optimizer():
         self.data   = data
         self.T_ns   = T_ns
 
-        # Max |TE| data
-        self.max_te = None
-
         # Window configuration
         self._sample_skip = None
-        self._window_step = None
-        self._window_skip = None
 
-    def _search_min_max_te(self, data, estimator, early_stopping=True,
-                           plot=False, save=True):
-        """Search the window length that minimizes Max|TE|
-
-        Calculate the max|TE| for differents sizes of window length.
+    def _eval_max_te(self, window_vec, estimator, early_stopping=True,
+                     patience=5):
+        """Evaluate the max|TE| for a given estimator and given window lengths
 
         Args:
-            data           : Array of objects with simulation or testbed data
+            window_vec     : Vector of window lengths to evaluate
             estimator      : Select the estimator
             early_stopping : Whether to stop search when min{max|TE|} stalls
-            plot           : Plot Max|TE| vs window
-            save           : Save plot
+            patience       : Number of consecutive iterations without
+                             improvement to wait before signaling an early stop.
+
+        Returns:
+            N_best : Best evaluated window length
+            max_te : vector with max|TE| computed for all given window lengths
+            i_stop : Index where evaluation halted (if early stopping is active)
 
         """
-        est_impl    = self.est_op[estimator]["impl"]
-        est_key     = self.est_op[estimator]["est_key"]
 
-        # Window lengths to evaluate
-        window_len  = np.arange(2 + self._window_skip, int(len(data)/2), \
-                                self._window_step)
-        n_iter      = len(window_len)
-
-        # Compute max|TE| for each window length
-        self.max_te = np.zeros(window_len.shape)
+        data      = self.data
+        est_impl  = self.est_op[estimator]["impl"]
+        est_key   = self.est_op[estimator]["est_key"]
+        n_windows = len(window_vec)
+        max_te    = np.zeros(n_windows)
 
         # Control variables
         last_print     = 0
@@ -108,19 +99,20 @@ class Optimizer():
         i_iter         = 0
         patience_count = 0
 
-        for i,N in enumerate(window_len):
+        for i,N in enumerate(window_vec):
+            N = int(N)
 
-            progress = (i/n_iter)
+            # Track progress
+            progress = (i/n_windows)
             if (progress - last_print > 0.1):
                 logger.info(f'{estimator} vs. window progress {progress*100:5.2f} %')
                 last_print = progress
 
+            # Run estimator
             if (estimator == "ls"):
-                # Least-squares
                 ls = ptp.ls.Ls(N, data, self.T_ns)
                 ls.process(impl=est_impl)
             else:
-                # Packet Selection
                 ls_impl = self.est_op[estimator]["ls_impl"]
                 pkts    = ptp.pktselection.PktSelection(N, data)
                 pkts.process(strategy=est_impl, ls_impl=ls_impl)
@@ -134,12 +126,13 @@ class Optimizer():
             # Get time offset estimation errors
             x_err = np.array([r[f"x_{est_key}"] - r["x"] for r in
                               post_tran_data if f"x_{est_key}" in r])
+
             # Erase results from runner data
             for r in data:
                 r.pop(f"x_{est_key}", None)
 
             # Compute max|TE| based on the entire "x_err" time series
-            self.max_te[i] = np.amax(np.abs(x_err))
+            max_te[i] = np.amax(np.abs(x_err))
 
             # Keep track of minimum max|TE| with "early stopping"
             #
@@ -152,26 +145,98 @@ class Optimizer():
             # reduction (or improvement) of max|TE|
 
             # Update min{max|TE|}
-            if (self.max_te[i] < min_max_te):
-                min_max_te = self.max_te[i] # min max|TE| so far
-                N_best     = N              # best window length so far
+            if (max_te[i] < min_max_te):
+                min_max_te = max_te[i] # min max|TE| so far
+                N_best     = N         # best window length so far
                 patience_count = 0
             else:
                 patience_count += 1
 
-            # Difference between the actual min{max|TE|} and the max|TE| of the
-            # current iteration
-            max_te_diff = abs(min_max_te - self.max_te[i])
-
-            if (early_stopping and patience_count > WINDOW_SEARCH_PATIENCE \
-                and max_te_diff > abs(min_max_te)):
+            if (early_stopping and patience_count > patience):
                 break
 
             # Save the index of the last iteration
             i_iter = i
 
-        # Consider the max_te array only until the last evaluated iteration
-        self.max_te = self.max_te[:i_iter]
+        return N_best, max_te, i_iter
+
+    def _search_min_max_te(self, estimator, early_stopping=True, plot=False,
+                           save=True):
+        """Search the window length that minimizes Max|TE|
+
+        Calculate the max|TE| for differents sizes of window length. Runs two
+        passes through the data. The first (coarse pass) evaluates power-of-2
+        window lengths. The second (fine pass) evaluates intermediate values
+        between the two best power-of-2 lengths.
+
+        Args:
+            estimator      : Select the estimator
+            early_stopping : Whether to stop search when min{max|TE|} stalls
+            plot           : Plot Max|TE| vs window
+            save           : Save plot
+
+        """
+
+        est_key   = self.est_op[estimator]["est_key"]
+
+        # Coarse pass
+        #
+        # Evaluate power-of-2 window lengths. If using early stopping, use the
+        # default patience.
+        log_max_window = np.floor(np.log2(len(self.data)/2))
+        log_min_window = 1
+        log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
+        window_len     = 2**log_window_len
+
+        N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
+                                                   early_stopping=early_stopping)
+
+        # Truncate results by considering the early stopping index
+        max_te     = max_te[:i_stop]
+        i_max_te   = np.argsort(max_te[:i_stop])
+        window_len = window_len[:i_stop]
+
+        # Best and second best indexes
+        i_best      = i_max_te[0]
+        i_scnd_best = i_max_te[1]
+
+        # Second best window length
+        N_scnd_best = window_len[i_max_te[1]]
+
+        # Fine pass
+        #
+        # Evaluate window lengths between the two best power-of-2 window lengths
+        # of the coarse pass. If using early stopping, use a relative high
+        # patience for the fine pass, as this region of the curve can be noisy.
+
+        # Sanity check
+        if (np.abs(i_scnd_best - i_best) != 1):
+            logging.warning("Best (%d) and second-best (%d) windows are not \
+            consecutive" %(N_best, N_scnd_best))
+
+        # Before running, prepare to concatenate previous max_te values with the
+        # ones computed during the fine pass
+        global_max_te  = max_te
+        global_win_len = window_len
+
+        # Define the fine range of window lengths and run
+        if (N_best > N_scnd_best):
+            window_len = np.arange(N_scnd_best, N_best, 1)
+        else:
+            window_len = np.arange(N_best, N_scnd_best, 1)
+
+        N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
+                                                   early_stopping=early_stopping,
+                                                   patience=100)
+
+        # Truncate results again by considering the early stopping index
+        i_max_te   = np.argsort(max_te[:i_stop])
+        max_te     = max_te[:i_stop]
+        window_len = window_len[:i_stop]
+
+        # Concatenate fine pass results within global vectors
+        global_max_te  = np.concatenate((global_max_te, max_te))
+        global_win_len = np.concatenate((global_win_len, window_len))
 
         # Save the best window length
         self.est_op[estimator]["N_best"] = int(N_best)
@@ -181,12 +246,12 @@ class Optimizer():
 
         if (plot):
             plt.figure()
-            plt.scatter(window_len[self._window_skip:i_iter], \
-                        self.max_te[self._window_skip:])
+            plt.scatter(window_len[:i_stop], max_te[:i_stop])
+            # TODO: add option to plot global curve (not only the fine region)
+            # plt.scatter(global_win_len, global_max_te)
             plt.title(est_name)
             plt.xlabel("window length (samples)")
             plt.ylabel("max|TE| (ns)")
-            plt.legend()
             if (save):
                 plt.savefig(f"plots/{est_key}_max_te_vs_window")
             else:
@@ -248,8 +313,7 @@ class Optimizer():
                              configuration data")
 
     def process(self, estimator, file=None, save=False, sample_skip=0,
-                window_skip=0, window_step=1, early_stopping=True, force=False,
-                plot=False, save_plot=True):
+                early_stopping=True, force=False, plot=False, save_plot=True):
         """Process the observations
 
         Args:
@@ -257,9 +321,7 @@ class Optimizer():
             file            : Path of the JSON file to save
             save            : Save the best window length in a json file
             sample_skip     : Number of initial samples to skip
-            window_skip     : Number of initial windows to skip
             starting_window : Starting window size
-            window_step     : Enlarge window by this step on every iteration
             early_stopping  : Whether to stop search when min{max|TE|} stalls
             force           : Force processing even if already done previously
             plot            : Plot Max|TE| vs window
@@ -267,8 +329,6 @@ class Optimizer():
 
         """
         self._sample_skip = sample_skip
-        self._window_skip = window_skip
-        self._window_step = window_step
 
         # Has the given file been processed already?
         window_cfg_file = self._filename(file)
@@ -288,16 +348,15 @@ class Optimizer():
             # length for LS and then run it.
             if (re.search("-ls$", estimator)):
                 if (self.est_op["ls"]["N_best"] is None):
-                    self._max_te_vs_window(self.data, estimator="ls")
+                    self._search_min_max_te("ls", early_stopping=early_stopping)
 
                 # Do we need to re-run?
                 ls = ptp.ls.Ls(self.est_op["ls"]["N_best"], self.data, self.T_ns)
                 ls.process()
 
             # Search the window length that minimizes the max|TE|
-            self._search_min_max_te(self.data, estimator,
-                                    early_stopping=early_stopping, plot=plot,
-                                    save=save_plot)
+            self._search_min_max_te(estimator, early_stopping=early_stopping,
+                                    plot=plot, save=save_plot)
 
         # Save results on JSON file
         if (save):

@@ -60,7 +60,7 @@ class Ls():
 
         """
 
-        logger.info("Processing")
+        logger.info("Processing with N=%d" %(self.N))
 
         n_data = len(self.data)
         N      = self.N
