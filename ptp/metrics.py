@@ -851,6 +851,74 @@ class Analyser():
         else:
             plt.show()
 
+    def plot_toffset_diff_vs_time(self, x_unit='time', save=True,
+                                  save_format='png'):
+        """Plot time offset diff vs. time
+
+        It is useful to analyze how x[n] varies between consecutive PTP
+        exchanges. This plot shows (x[n] - x[n-1]) over time.
+
+        Args:
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot PDV vs. time")
+        n_data  = len(self.data)
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
+                                     self.data]) / NS_PER_MIN
+            x_axis_label = 'Time (min)'
+
+        elif (x_unit == "samples"):
+            x_axis_vec   = range(0, n_data)
+            x_axis_label = 'Realization'
+
+        # True time offset
+        x = np.array([r["x"] for r in self.data])
+
+        plt.figure()
+        plt.scatter(x_axis_vec[1:], np.diff(x), s = 1.0)
+        plt.xlabel(x_axis_label)
+        plt.ylabel('x[n] - x[n-1] (ns)')
+        plt.title('Time offset diff')
+
+        if (save):
+            plt.savefig("plots/toffset_diff_vs_time", format=save_format,
+                        dpi=300)
+        else:
+            plt.show()
+
+    def plot_toffset_diff_hist(self, n_bins=50, save=True, save_format='png'):
+        """Plot time offset diff histogram
+
+        Args:
+            n_bins      : Target number of bins
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot PDV vs. time")
+
+        # True time offset
+        x = np.array([r["x"] for r in self.data])
+
+        plt.figure()
+        plt.hist(np.diff(x), bins=n_bins, density=True)
+        plt.xlabel('x[n] - x[n-1] (ns)')
+        plt.ylabel('Probability Density')
+        plt.title('Time offset diff')
+
+        if (save):
+            plt.savefig("plots/toffset_diff_hist", format=save_format,
+                        dpi=300)
+        else:
+            plt.show()
+
     @dec_plot_filter
     def plot_mtie(self, show_raw=True, show_ls=True, show_pkts=True,
                   show_kf=True, save=True, save_format='png'):
