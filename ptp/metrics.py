@@ -331,7 +331,7 @@ class Analyser():
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
                                  show_pkts=True, show_kf=True, x_unit='time',
                                  save=True, save_format='png'):
-        """Plot time offset vs Time
+        """Plot time offset error vs Time
 
         A comparison between the measured time offset and the true time offset.
 
@@ -368,7 +368,7 @@ class Analyser():
         for suffix, value in est_keys.items():
             if (value["show"]):
                 key   = "x_est" if (suffix == "raw") else "x_" + suffix
-                x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
+                x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
 
                 # Define the x axis - either in time or in samples
                 if (x_unit == "time"):
@@ -377,10 +377,9 @@ class Analyser():
                 elif (x_unit == "samples"):
                     x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
-                if (len(x_est) > 0):
-                    plt.scatter(x_axis_vec, x_est,
-                                label=value["label"], marker=value["marker"],
-                                s=20.0, alpha=0.7)
+                if (len(x_err) > 0):
+                    plt.scatter(x_axis_vec, x_err, label=value["label"],
+                                marker=value["marker"], s=20.0, alpha=0.7)
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time offset Error (ns)')
@@ -388,6 +387,50 @@ class Analyser():
 
         if (save):
             plt.savefig("plots/toffset_err_vs_time", format=save_format,
+                        dpi=300)
+        else:
+            plt.show()
+
+    @dec_plot_filter
+    def plot_toffset_err_hist(self, show_raw=True, show_ls=True, show_pkts=True,
+                              show_kf=True, n_bins=50, save=True,
+                              save_format='png'):
+        """Plot time offset error histogram
+
+        Args:
+            show_raw    : Show raw measurements
+            show_ls     : Show least-squares fit
+            show_pkts   : Show packet selection fit
+            show_kf     : Show Kalman filtering results
+            n_bins      : Target number of bins
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        # To facilitate inspection, it is better to skip the transitory
+        # (e.g. due to Kalman)
+        logger.info("Plot time offset estimation error histogram")
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+        n_data         = len(post_tran_data)
+
+        plt.figure()
+
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                key   = "x_est" if (suffix == "raw") else "x_" + suffix
+                x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
+
+                if (len(x_err) > 0):
+                    plt.hist(x_err, bins=50, density=True, alpha=0.7,
+                             label=value["label"])
+
+        plt.xlabel('Time offset Error (ns)')
+        plt.ylabel('Probability Density')
+        plt.legend()
+
+        if (save):
+            plt.savefig("plots/toffset_err_hist", format=save_format,
                         dpi=300)
         else:
             plt.show()
@@ -593,7 +636,6 @@ class Analyser():
         plt.hist(d_asym, bins=n_bins, density=True)
         plt.xlabel('Delay asymmetry (us)')
         plt.ylabel('Probability Density')
-        plt.legend()
 
         if (save):
             plt.savefig("plots/delay_asym_hist", format=save_format, dpi=300)
