@@ -753,16 +753,27 @@ class Analyser():
     def plot_pdv_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot PDV over time
 
-        Each value represents the measured difference of the current Sync delay
-        with respect to the delay experienced by the previous Sync. Note that
-        the actual delay is not measurable, but the difference in delay is. We
-        define the PDV as follows:
+        Each plotted value represents the measured difference of the current
+        Sync/DelayReq delay with respect to the delay experienced by the
+        previous Sync/DelayReq. Note that the actual delay is not measurable,
+        but the difference in delay between consecutive messages is.
 
-        pdv = (t2[k] - t2[k-1]) - (t1[k] - t1[k-1])
-        pdv = delta_t2[k] - delta_t1[k]
+        Timestamp differences can be used for this computation. Recall they are:
 
-        If delta_t2[k] == delta_t1[k], it means both Sync messsages experienced
-        the same delay, which we don't know.
+        t_{2,1}[n] = t_2[n] - t_1[n] = x[n] + d_{ms}[n]
+        t_{4,3}[n] = t_4[n] - t_3[n] = -x[n] + d_{sm}[n]
+
+        Thus, by observing the diff of $t_{2,1}[n]$, for example, we get:
+
+        t_{2,1}[n] - t_{2,1}[n-1] = (x[n] - x[n-1]) + (d_{ms}[n] - d_{ms}[n-1])
+
+        Since $x[n]$ varies slowly, this is approximately equal to:
+
+        t_{2,1}[n] - t_{2,1}[n-1] \approx d_{ms}[n] - d_{ms}[n-1]
+
+        Similarly, in the reverse direction, we have:
+
+        t_{4,3}[n] - t_{4,3}[n-1] \approx d_{sm}[n] - d_{sm}[n-1]
 
         Args:
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
@@ -784,24 +795,59 @@ class Analyser():
             x_axis_vec   = range(0, n_data)
             x_axis_label = 'Realization'
 
-        # Timestamps
-        t2      = [res["t2"] for res in self.data]
-        t1      = [res["t1"] for res in self.data]
+        # Timestamp differences
+        t2_1 = np.array([float(r["t2"] - r["t1"]) for r in self.data])
+        t4_3 = np.array([float(r["t4"] - r["t3"]) for r in self.data])
 
-        # Deltas
-        delta_t1 = np.asarray([float(t1[i+1] - t) for i,t in enumerate(t1[:-1])])
-        delta_t2 = np.asarray([float(t2[i+1] - t) for i,t in enumerate(t2[:-1])])
-
-        # PDV
-        pdv = delta_t2 - delta_t1
+        # Diffs
+        diff_t2_1 = np.diff(t2_1)
+        diff_t4_3 = np.diff(t4_3)
 
         plt.figure()
-        plt.scatter(x_axis_vec[1:], pdv, s = 1.0)
+        plt.scatter(x_axis_vec[1:], diff_t2_1, s = 1.0, label="m-to-s")
+        plt.scatter(x_axis_vec[1:], diff_t4_3, s = 1.0, label="s-to-m")
         plt.xlabel(x_axis_label)
         plt.ylabel('Delay Variation (ns)')
+        plt.legend()
 
         if (save):
             plt.savefig("plots/pdv_vs_time", format=save_format, dpi=300)
+        else:
+            plt.show()
+
+    def plot_pdv_hist(self, n_bins=50, save=True, save_format='png'):
+        """Plot PDV histogram
+
+        See explanation of "plot_pdv_vs_time".
+
+        Args:
+            n_bins      : Target number of bins
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot PDV histogram")
+        n_data  = len(self.data)
+
+        # Timestamp differences
+        t2_1 = np.array([float(r["t2"] - r["t1"]) for r in self.data])
+        t4_3 = np.array([float(r["t4"] - r["t3"]) for r in self.data])
+
+        # Diffs
+        diff_t2_1 = np.diff(t2_1)
+        diff_t4_3 = np.diff(t4_3)
+
+        plt.figure()
+        plt.hist(diff_t2_1, bins=n_bins, density=True, alpha=0.7,
+                 label="m-to-s")
+        plt.hist(diff_t4_3, bins=n_bins, density=True, alpha=0.7,
+                 label="s-to-m")
+        plt.xlabel('Delay Variation (ns)')
+        plt.ylabel('Probability Density')
+        plt.legend()
+
+        if (save):
+            plt.savefig("plots/pdv_hist", format=save_format, dpi=300)
         else:
             plt.show()
 
