@@ -525,7 +525,7 @@ class Analyser():
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.title("Two-way Measurements")
-                plots.append({"plt" : plt,
+                plots.append({"plt" : plt.gcf(),
                               "label" : "raw"})
 
             if (show_true):
@@ -537,7 +537,7 @@ class Analyser():
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.title("True master-to-slave")
-                plots.append({"plt": plt,
+                plots.append({"plt": plt.gcf(),
                               "label": "m2s"})
 
                 plt.figure()
@@ -545,7 +545,7 @@ class Analyser():
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.title("True slave-to-master")
-                plots.append({"plt": plt,
+                plots.append({"plt": plt.gcf(),
                               "label": "s2m"})
 
             for p in plots:
