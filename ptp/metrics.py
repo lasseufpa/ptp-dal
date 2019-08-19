@@ -61,27 +61,53 @@ class Analyser():
         """
         self.data = data
 
-    def delay_asymmetry(self):
+    def delay_asymmetry(self, verbose=True):
         """Analyze the delay asymmetry
 
         Compute and print some relevant asymmetry metrics.
 
+        Returns:
+            Average delay asymmetry
+
         """
-        print("Delay asymmetry analysis:\n")
         d_asym = np.array([r['asym'] for r in self.data])
         d_ms   = np.array([r["d"] for r in self.data])
         d_sm   = np.array([r["d_bw"] for r in self.data])
 
-        print("Metric \t%12s\t%12s\t%12s" %("m-to-s", "s-to-m", "asymmetry"))
-        print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-            np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)))
-        print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-            np.amin(d_ms), np.amin(d_sm), (np.amin(d_ms) - np.amin(d_sm))/2))
-        print("Maximum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-            np.amax(d_ms), np.amax(d_sm), (np.amax(d_ms) - np.amax(d_sm))/2))
-        print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-            np.median(d_ms), np.median(d_sm),
-            (np.median(d_ms) - np.median(d_sm))/2))
+        if (verbose):
+            print("Delay asymmetry analysis:\n")
+            print("Metric \t%12s\t%12s\t%12s" %("m-to-s", "s-to-m", "asymmetry"))
+            print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)))
+            print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                np.amin(d_ms), np.amin(d_sm), (np.amin(d_ms) - np.amin(d_sm))/2))
+            print("Maximum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                np.amax(d_ms), np.amax(d_sm), (np.amax(d_ms) - np.amax(d_sm))/2))
+            print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                np.median(d_ms), np.median(d_sm),
+                (np.median(d_ms) - np.median(d_sm))/2))
+
+        return np.mean(d_asym)
+
+    def toffset_err_stats(self):
+        """Print the time offset error first and second-order statistics
+
+        """
+        # Skip the transitory (e.g. due to Kalman)
+        logger.info("Eval time offset estimation error vs. time")
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+        n_data         = len(post_tran_data)
+
+        for suffix, value in est_keys.items():
+            key   = "x_est" if (suffix == "raw") else "x_" + suffix
+            x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
+
+            if (len(x_err) > 0):
+                print("[%14s] Mean: % 7.2f Sdev: % 7.2f" %(
+                    key, np.mean(x_err), np.std(x_err)))
+
+            del x_err
 
     def rolling_window_mtx(self, x, window_size):
         """Compute all overlapping (rolling) observation windows in a matrix
