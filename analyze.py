@@ -9,6 +9,7 @@ import ptp.kalman
 import ptp.frequency
 import ptp.window
 import ptp.outlier
+import ptp.bias
 
 
 def main():
@@ -42,6 +43,13 @@ def main():
                         action='store_true',
                         help="Use secs that were actually captured " +
                         "(i.e. do not infer secs)")
+    parser.add_argument('--bias',
+                        choices=['pre', 'post', 'both', 'none'],
+                        default='both',
+                        help="Compensate the bias prior to any post-processing \
+                        (pre), after post-processing (post), both pre and \
+                        post post-processing (both) or disable it ('none') \
+                        (default: 'both')")
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
@@ -68,8 +76,20 @@ def main():
     else:
         T_ns = 1e9/4
 
+    # Compensate the bias of two-way time offset measurements prior to
+    # post-processing
+    #
+    # NOTE the raw time offset measurements are processed directly by some
+    # packet selection operators (sample-average and EWMA), as well as by LS and
+    # Kalman. Thus, with correction of the bias of "x_est" here it is expected
+    # that the referred estimators also produce unbiased results.
+    if (args.bias == 'pre' or args.bias == 'both'):
+        bias = ptp.bias.Bias(reader.data)
+        corr = bias.calc_true_asymmetry(operator="raw")
+        bias.compensate(corr=corr, toffset_key="x_est")
+
     # Raw frequency estimations (mostly for visualization)
-    freq_delta     = 64
+    freq_delta = 64
     freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
     freq_estimator.set_truth(delta=freq_delta)
     freq_estimator.optimize_to_y()
@@ -144,6 +164,26 @@ def main():
     # Sample-mode
     pkts.set_window_len(N_mode)
     pkts.process("mode")
+
+    # Compensate bias of results produced by some packet selection operators
+    if (args.bias == 'post' or args.bias == 'both'):
+        bias = ptp.bias.Bias(reader.data)
+
+        # Sample-median
+        corr_median = bias.calc_true_asymmetry(operator="median")
+        bias.compensate(corr=corr_median, toffset_key="x_pkts_median")
+
+        # Sample-minimum
+        corr_min = bias.calc_true_asymmetry(operator="min")
+        bias.compensate(corr=corr_min, toffset_key="x_pkts_min")
+
+        # Sample-maximum
+        corr_max = bias.calc_true_asymmetry(operator="max")
+        bias.compensate(corr=corr_max, toffset_key="x_pkts_max")
+
+        # Sample-mode
+        corr_mode = bias.calc_true_asymmetry(operator="mode")
+        bias.compensate(corr=corr_mode, toffset_key="x_pkts_mode")
 
     # PTP analyser
     analyser = ptp.metrics.Analyser(reader.data, args.file)
