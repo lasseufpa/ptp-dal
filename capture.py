@@ -4,6 +4,7 @@
 
 """
 import argparse, configparser, logging, sys
+from datetime import datetime
 from pprint import pprint
 import ptp.serial
 
@@ -129,7 +130,8 @@ def main():
         "oscillator": args.oscillator,
         "sync_period": args.sync_period,
         "fh_traffic" : fh_traffic,
-        "hops" : args.hops
+        "hops" : args.hops,
+        "start_time" : datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
 
     print("Metadata:")
