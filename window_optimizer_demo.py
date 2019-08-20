@@ -45,11 +45,15 @@ def main():
     exc_group.add_argument('-N', '--num-iter',
                         default=2000,
                         type=int,
-                        help='Number of iterations if running simulation.')
+                        help='Number of iterations if running simulation')
     parser.add_argument('--no-stop',
                         default=False,
                         action='store_true',
                         help='Do not apply early stopping')
+    parser.add_argument('--force',
+                        default=False,
+                        action='store_true',
+                        help='Force processing even if already done previously')
     parser.add_argument('--verbose', '-v', action='count', default=1,
                         help="Verbosity (logging) level")
     args = parser.parse_args()
