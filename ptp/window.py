@@ -149,8 +149,8 @@ class Optimizer():
 
         return N_best, max_te, i_iter
 
-    def _search_min_max_te(self, estimator, early_stopping=True, plot=False,
-                           save=True):
+    def _search_min_max_te(self, estimator, early_stopping=True, save=True,
+                           plot=False, global_plot=False, plot_info=True):
         """Search the window length that minimizes Max|TE|
 
         Calculate the max|TE| for differents sizes of window length. Runs two
@@ -161,8 +161,10 @@ class Optimizer():
         Args:
             estimator      : Select the estimator
             early_stopping : Whether to stop search when min{max|TE|} stalls
-            plot           : Plot Max|TE| vs window
             save           : Save plot
+            plot           : Plot Max|TE| vs window
+            global_plot    : Plot global curve (not only the fine region)
+            plot_info      : Add window information in the plot
 
         """
 
@@ -235,16 +237,24 @@ class Optimizer():
 
         if (plot):
             plt.figure()
-            plt.scatter(window_len[:i_stop], max_te[:i_stop])
-            # TODO: add option to plot global curve (not only the fine region)
-            # plt.scatter(global_win_len, global_max_te)
+            if (global_plot):
+                plt.scatter(global_win_len, global_max_te)
+            else:
+                plt.scatter(window_len[:i_stop], max_te[:i_stop])
+
             plt.title(est_name)
             plt.xlabel("window length (samples)")
             plt.ylabel("max|TE| (ns)")
+
+            if (plot_info):
+                plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
+                         transform=plt.gca().transAxes, va='top', ha='right')
+
             if (save):
                 plt.savefig(f"plots/{est_key}_max_te_vs_window")
             else:
                 plt.show()
+
             logging.info("Saved figure at %s" %(
                 f"plots/{est_key}_max_te_vs_window"))
 
@@ -302,7 +312,8 @@ class Optimizer():
                              configuration data")
 
     def process(self, estimator, file=None, save=False, sample_skip=0,
-                early_stopping=True, force=False, plot=False, save_plot=True):
+                early_stopping=True, force=False, plot=False, save_plot=True,
+                global_plot=False, plot_info=False):
         """Process the observations
 
         Args:
@@ -315,6 +326,8 @@ class Optimizer():
             force           : Force processing even if already done previously
             plot            : Plot Max|TE| vs window
             save_plot       : Save plot if plotting
+            global_plot     : Plot global curve (not only the fine region)
+            plot_info       : Add window information in the plot
 
         """
         self._sample_skip = sample_skip
@@ -345,7 +358,8 @@ class Optimizer():
 
             # Search the window length that minimizes the max|TE|
             self._search_min_max_te(estimator, early_stopping=early_stopping,
-                                    plot=plot, save=save_plot)
+                                    plot=plot, save=save_plot,
+                                    global_plot=global_plot, plot_info=plot_info)
 
         # Save results on JSON file
         if (save):

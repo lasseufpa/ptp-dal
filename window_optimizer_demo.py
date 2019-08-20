@@ -22,6 +22,18 @@ def main():
                         default=False,
                         action='store_true',
                         help='Whether or not to plot results')
+    parser.add_argument('--save-plot',
+                        default=False,
+                        action='store_true',
+                        help='Whether or not to save plot results')
+    parser.add_argument('--global-plot',
+                        default=False,
+                        action='store_true',
+                        help='Whether or not to plot global curve')
+    parser.add_argument('--no-plot-info',
+                        default=False,
+                        action='store_true',
+                        help='Whether or not to save window information in plot')
     parser.add_argument('-s', '--save',
                         default=False,
                         action='store_true',
@@ -74,7 +86,10 @@ def main():
     # Optimize window lengths (based on Max|TE|)
     window_optimizer = ptp.window.Optimizer(ptp_src.data, T_ns)
     window_optimizer.process(args.estimator, file=args.file, save=args.save,
-                             plot=args.plot, early_stopping=(not args.no_stop))
+                             plot=args.plot, early_stopping=(not args.no_stop),
+                             save_plot=args.save_plot, force=args.force,
+                             plot_info=(not args.no_plot_info),
+                             global_plot=args.global_plot)
 
 if __name__ == "__main__":
     main()
