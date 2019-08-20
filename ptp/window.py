@@ -128,9 +128,7 @@ class Optimizer():
             # Keep track of minimum max|TE| with "early stopping"
             #
             # Stop search if the window length with minimum Max|TE| remains the
-            # same for a number of consecutive windows and the difference
-            # between the min{max|TE|} and the max|TE| of the current iteration
-            # is higher than the min{|TE|}.
+            # same for a number of consecutive windows.
             #
             # NOTE: patience count tracks the number of iterations with no
             # reduction (or improvement) of max|TE|
