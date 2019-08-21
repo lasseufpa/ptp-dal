@@ -127,6 +127,7 @@ def main():
     if (not args.no_pps):
         analyser.delay_asymmetry()
         analyser.toffset_err_stats()
+        analyser.plot_toffset_err_hist()
         analyser.plot_toffset_err_vs_time(show_raw = False)
         analyser.plot_delay_vs_time()
         analyser.plot_delay_vs_time(split=True)
