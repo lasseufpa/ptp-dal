@@ -90,11 +90,11 @@ class Analyser():
         return np.mean(d_asym)
 
     def toffset_err_stats(self):
-        """Print the time offset error first and second-order statistics
+        """Print the time offset estimation error statistics
 
         """
         # Skip the transitory (e.g. due to Kalman)
-        logger.info("Eval time offset estimation error vs. time")
+        logger.info("Eval time offset estimation error statistics")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
         n_data         = len(post_tran_data)
@@ -104,10 +104,27 @@ class Analyser():
             x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
 
             if (len(x_err) > 0):
-                print("[%14s] Mean: % 7.2f Sdev: % 7.2f" %(
+                print("[%14s] Mean: % 7.2f ns\tSdev: % 7.2f ns" %(
                     key, np.mean(x_err), np.std(x_err)))
 
             del x_err
+
+    def foffset_err_stats(self):
+        """Print the frequency offset estimation error statistics
+
+        """
+        # Skip the transitory (e.g. due to Kalman)
+        logger.info("Eval frequency offset estimation error statistics")
+
+        for suffix, value in est_keys.items():
+            key   = "y_est" if (suffix == "raw") else "y_" + suffix
+            y_err = [1e9*(r[key] - r["rtc_y"]) for r in self.data if key in r]
+
+            if (len(y_err) > 0):
+                print("[%14s] Mean: % 7.4f ppb\tSdev: % 7.4f ppb" %(
+                    key, np.mean(y_err), np.std(y_err)))
+
+            del y_err
 
     def rolling_window_mtx(self, x, window_size):
         """Compute all overlapping (rolling) observation windows in a matrix
@@ -772,6 +789,117 @@ class Analyser():
 
         if (save):
             plt.savefig("plots/foffset_vs_time", format=save_format,
+                        dpi=300)
+        else:
+            plt.show()
+
+    @dec_plot_filter
+    def plot_foffset_err_vs_time(self, show_raw=True, show_ls=True,
+                                 show_kf=True, n_skip_kf=0, x_unit='time',
+                                 save=True, save_format='png'):
+        """Plot freq. offset estimation error vs time
+
+        Args:
+            show_raw    : Show raw measurements
+            show_ls     : Show least-squares estimations
+            show_kf     : Show Kalman filtering results
+            n_skip_kf   : Number of initial Kalman filter samples to skip
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+
+        # To facilitate inspection, it is better to skip the transitory
+        # (e.g. due to Kalman)
+        logger.info("Plot frequency offset estimation error vs. time")
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+        n_data         = len(post_tran_data)
+
+        # Time axis
+        t_start  = post_tran_data[0]["t1"]
+        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
+                   / NS_PER_MIN
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            x_axis_label = 'Time (min)'
+        elif (x_unit == "samples"):
+            x_axis_label = 'Realization'
+
+        plt.figure()
+
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                if (suffix == "raw"):
+                    key   = "y_est"
+                else:
+                    key   = "y_" + suffix
+
+                # Get the normalized frequency offset values and convert to ppb
+                y_est_err_ppb = [1e9*(r[key] - r["rtc_y"]) for r
+                                 in post_tran_data if key in r]
+
+                # Define the x axis - either in time or in samples
+                if (x_unit == "time"):
+                    x_axis_vec   = [time_vec[i] for i, r in
+                                    enumerate(post_tran_data) if key in r]
+                elif (x_unit == "samples"):
+                    x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
+
+                if (len(y_est_err_ppb) > 0):
+                    plt.scatter(x_axis_vec, y_est_err_ppb,
+                                label=value["label"], marker=value["marker"],
+                                s=1.0)
+
+        plt.xlabel(x_axis_label)
+        plt.ylabel('Frequency Offset Error (ppb)')
+        plt.legend()
+
+        if (save):
+            plt.savefig("plots/foffset_err_vs_time", format=save_format,
+                        dpi=300)
+        else:
+            plt.show()
+
+    @dec_plot_filter
+    def plot_foffset_err_hist(self, show_raw=True, show_ls=True, show_kf=True,
+                              n_bins=50, save=True, save_format='png'):
+        """Plot frequency offset error histogram
+
+        Args:
+            show_raw    : Show raw measurements
+            show_ls     : Show least-squares fit
+            show_kf     : Show Kalman filtering results
+            n_bins      : Target number of bins
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        # To facilitate inspection, it is better to skip the transitory
+        # (e.g. due to Kalman)
+        logger.info("Plot time offset estimation error histogram")
+        n_skip         = int(0.2*len(self.data))
+        post_tran_data = self.data[n_skip:]
+
+        plt.figure()
+
+        for suffix, value in est_keys.items():
+            if (value["show"]):
+                key   = "y_est" if (suffix == "raw") else "y_" + suffix
+                y_err = [r[key] - r["rtc_y"] for r in post_tran_data if key in r]
+
+                if (len(y_err) > 0):
+                    plt.hist(y_err, bins=50, density=True, alpha=0.7,
+                             label=value["label"])
+
+        plt.xlabel('Frequency Offset Error (ns)')
+        plt.ylabel('Probability Density')
+        plt.legend()
+
+        if (save):
+            plt.savefig("plots/foffset_err_hist", format=save_format,
                         dpi=300)
         else:
             plt.show()
