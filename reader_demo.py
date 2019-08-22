@@ -22,10 +22,6 @@ def main():
                         action='store_true',
                         help="Use secs that were actually captured " +
                         "(i.e. do not infer secs)")
-    parser.add_argument('--no-pps',
-                        default=False,
-                        action='store_true',
-                        help="Do not look for reference timestamps from PPS RTC")
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
@@ -39,7 +35,7 @@ def main():
 
     # Run PTP simulation
     reader = ptp.reader.Reader(args.file, infer_secs=(not args.use_secs),
-                               no_pps=args.no_pps, reverse_ms=True)
+                               reverse_ms=True)
     reader.run(args.num_iter)
 
     # Nominal message in nanoseconds
@@ -124,21 +120,27 @@ def main():
     analyser.plot_toffset_vs_time()
     analyser.plot_foffset_vs_time()
     analyser.plot_temperature()
-
-    # When the reference timestamps are available
-    if (not args.no_pps):
-        analyser.delay_asymmetry()
-        analyser.toffset_err_stats()
-        analyser.plot_toffset_err_hist()
-        analyser.plot_toffset_err_vs_time(show_raw = False)
-        analyser.plot_delay_vs_time()
-        analyser.plot_delay_vs_time(split=True)
-        analyser.plot_delay_hist(n_bins=50)
-        analyser.plot_delay_hist(split=True, n_bins=50)
-        analyser.plot_delay_asym_hist(n_bins=50)
-        analyser.plot_delay_asym_vs_time()
-        analyser.plot_mtie(show_raw = False)
-        analyser.plot_max_te(show_raw=False, window_len = 1000)
+    analyser.plot_toffset_err_hist()
+    analyser.plot_toffset_err_vs_time(show_raw = False)
+    analyser.plot_foffset_err_hist()
+    analyser.plot_foffset_err_vs_time()
+    analyser.plot_delay_vs_time()
+    analyser.plot_delay_vs_time(split=True)
+    analyser.plot_delay_hist(n_bins=50)
+    analyser.plot_delay_hist(split=True, n_bins=50)
+    analyser.plot_delay_est_err_vs_time()
+    analyser.plot_delay_asym_hist(n_bins=50)
+    analyser.plot_delay_asym_vs_time()
+    analyser.plot_pdv_vs_time()
+    analyser.plot_pdv_hist()
+    analyser.plot_toffset_diff_vs_time()
+    analyser.plot_toffset_diff_hist()
+    analyser.plot_mtie(show_raw = False)
+    analyser.plot_max_te(show_raw=False, window_len = 1000)
+    analyser.ptp_exchanges_per_sec()
+    analyser.delay_asymmetry()
+    analyser.toffset_err_stats()
+    analyser.foffset_err_stats()
 
 if __name__ == "__main__":
     main()
