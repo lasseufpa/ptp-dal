@@ -61,6 +61,23 @@ class Analyser():
         """
         self.data = data
 
+    def ptp_exchanges_per_sec(self):
+        """Compute average number of PTP exchanges per second
+
+        Returns:
+            The computed average
+
+        """
+        logger.info("Analyze PTP exchanges per second")
+        start_time = self.data[0]["t1"]
+        end_time   = self.data[-1]["t1"]
+        duration   = float(end_time - start_time)
+        n_per_sec  = 1e9 * len(self.data) / duration
+
+        print("Average no. of PTP exchanges per second: %f" %(n_per_sec))
+
+        return n_per_sec
+
     def delay_asymmetry(self, verbose=True):
         """Analyze the delay asymmetry
 
