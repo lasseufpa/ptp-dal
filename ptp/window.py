@@ -311,6 +311,34 @@ class Optimizer():
             raise ValueError("Need to pass the filename to load the \
                              configuration data")
 
+    def _check_cfg_file(self, window_cfg_file):
+        """Check if configuration file is complete, i.e. if it contains the
+        best window for all estimators.
+
+        Args:
+            file  : Path of the configuration file
+
+        Return:
+            bool  : Returns 'True' if file is incomplete and the user want to
+                    find the missing windows. 'False' otherwise.
+
+        """
+        logger.info("Loading configurations from %s." %(window_cfg_file))
+        self.load(window_cfg_file)
+
+        # Check if the file is complete, i.e. have window configuration
+        # of all estimators
+        for k, v in self.est_op.items():
+            if (not v["N_best"]):
+                print("Window configuration file is incomplete.")
+                raw_resp = input("Find missing windows? [Y/n] ") or "Y"
+                response = raw_resp.lower()
+                if (response == 'y'):
+                    return True
+                else:
+                    break
+        return False
+
     def process(self, estimator, file=None, save=False, sample_skip=0,
                 early_stopping=True, force=False, plot=False, save_plot=True,
                 global_plot=False, plot_info=False):
@@ -334,11 +362,15 @@ class Optimizer():
 
         # Has the given file been processed already?
         window_cfg_file = self._filename(file)
-        if ((not force) and os.path.isfile(window_cfg_file)):
+        if (os.path.isfile(window_cfg_file)):
             logger.info("Window tuning file %s exists." %(window_cfg_file))
-            logger.info("Loading configurations from %s." %(window_cfg_file))
-            self.load(window_cfg_file)
-            return
+            if (force):
+                logger.info("Cleaning configurations from %s." %(window_cfg_file))
+                # Save a clean structure on file
+                self.save(file)
+            else:
+                if (not self._check_cfg_file(window_cfg_file)):
+                    return
 
         # Iterate over the estimators
         estimators = [k for k in self.est_op.keys()] if (estimator == 'all') \
@@ -357,10 +389,12 @@ class Optimizer():
                 ls.process()
 
             # Search the window length that minimizes the max|TE|
-            self._search_min_max_te(estimator, early_stopping=early_stopping,
-                                    plot=plot, save=save_plot,
-                                    global_plot=global_plot, plot_info=plot_info)
+            if (not self.est_op[estimator]["N_best"]):
+                self._search_min_max_te(estimator, plot=plot, save=save_plot,
+                                        early_stopping=early_stopping,
+                                        global_plot=global_plot,
+                                        plot_info=plot_info)
 
-        # Save results on JSON file
-        if (save):
-            self.save(file)
+            # Save results on JSON file
+            if (save):
+                self.save(file)
