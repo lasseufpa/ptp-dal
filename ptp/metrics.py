@@ -915,7 +915,7 @@ class Analyser():
                     plt.hist(y_err, bins=50, density=True, alpha=0.7,
                              label=value["label"])
 
-        plt.xlabel('Frequency Offset Error (ns)')
+        plt.xlabel('Frequency Offset Error (ppb)')
         plt.ylabel('Probability Density')
         plt.legend()
 
