@@ -385,6 +385,7 @@ class Analyser():
             plt.savefig("plots/toffset_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
 
     @dec_plot_filter
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
@@ -448,6 +449,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     @dec_plot_filter
     def plot_toffset_err_hist(self, show_raw=True, show_ls=True, show_pkts=True,
@@ -491,6 +493,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_delay_hist(self, show_raw=True, show_true=True, n_bins=50,
                         split=False, save=True, save_format='png'):
@@ -576,6 +579,7 @@ class Analyser():
                 plt.savefig("plots/delay_hist", format=save_format, dpi=300)
             else:
                 plt.show()
+            plt.close()
 
     def plot_delay_vs_time(self, x_unit='time', split=False, save=True,
                            save_format='png'):
@@ -616,6 +620,7 @@ class Analyser():
                 plt.savefig("plots/m2s_delay_vs_time", format=save_format, dpi=300)
             else:
                 plt.show()
+            plt.close()
 
             plt.figure()
             plt.scatter(x_axis_vec, d_bw, s = 1.0)
@@ -626,6 +631,7 @@ class Analyser():
                 plt.savefig("plots/s2m_delay_vs_time", format=save_format, dpi=300)
             else:
                 plt.show()
+            plt.close()
         else:
             plt.figure()
             plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
@@ -638,6 +644,7 @@ class Analyser():
                 plt.savefig("plots/delay_vs_time", format=save_format, dpi=300)
             else:
                 plt.show()
+            plt.close()
 
     def plot_delay_est_err_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot delay estimations error vs time
@@ -674,6 +681,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_delay_asym_hist(self, n_bins=50, save=True, save_format='png'):
         """Plot delay asymmetry histogram
@@ -696,6 +704,7 @@ class Analyser():
             plt.savefig("plots/delay_asym_hist", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_delay_asym_vs_time(self, save=True, x_unit='time',
                                 save_format='png'):
@@ -731,6 +740,7 @@ class Analyser():
             plt.savefig("plots/delay_asym_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
 
     @dec_plot_filter
     def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
@@ -802,6 +812,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     @dec_plot_filter
     def plot_foffset_err_vs_time(self, show_raw=True, show_ls=True,
@@ -871,6 +882,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     @dec_plot_filter
     def plot_foffset_err_hist(self, show_raw=True, show_ls=True, show_kf=True,
@@ -912,6 +924,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_pdv_vs_time(self, x_unit='time', save=True, save_format='png'):
         """Plot PDV over time
@@ -977,6 +990,7 @@ class Analyser():
             plt.savefig("plots/pdv_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_pdv_hist(self, n_bins=50, save=True, save_format='png'):
         """Plot PDV histogram
@@ -1012,6 +1026,7 @@ class Analyser():
             plt.savefig("plots/pdv_hist", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_toffset_diff_vs_time(self, x_unit='time', save=True,
                                   save_format='png'):
@@ -1054,6 +1069,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_toffset_diff_hist(self, n_bins=50, save=True, save_format='png'):
         """Plot time offset diff histogram
@@ -1080,6 +1096,7 @@ class Analyser():
                         dpi=300)
         else:
             plt.show()
+        plt.close()
 
     @dec_plot_filter
     def plot_mtie(self, show_raw=True, show_ls=True, show_pkts=True,
@@ -1134,6 +1151,7 @@ class Analyser():
             plt.savefig("plots/mtie_vs_tau", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
 
     @dec_plot_filter
     def plot_max_te(self, window_len, show_raw=True, show_ls=True,
@@ -1195,6 +1213,7 @@ class Analyser():
             plt.savefig("plots/max_te_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
 
     def plot_temperature(self, x_unit='time', save=True, save_format='png'):
         """Plot temperature vs time
@@ -1231,3 +1250,4 @@ class Analyser():
             plt.savefig("plots/temperature_vs_time", format=save_format, dpi=300)
         else:
             plt.show()
+        plt.close()
