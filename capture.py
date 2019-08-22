@@ -42,8 +42,8 @@ def main():
                         default="xo",
                         choices=["ocxo", "xo"],
                         help='Define the oscillator type')
-    parser.add_argument('--sync-period',
-                        default=0.25,
+    parser.add_argument('--sync-rate',
+                        default=4,
                         type=float,
                         help='Sync transmission period in seconds')
     parser.add_argument('--hops',
@@ -128,7 +128,7 @@ def main():
     # Dictionary containing the metadata
     metadata = {
         "oscillator": args.oscillator,
-        "sync_period": args.sync_period,
+        "sync_period": 1.0/args.sync_rate,
         "fh_traffic" : fh_traffic,
         "hops" : args.hops,
         "start_time" : datetime.now().strftime('%Y-%m-%d %H:%M:%S')
