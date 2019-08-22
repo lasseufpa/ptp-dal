@@ -83,8 +83,10 @@ def main():
     # Raw frequency estimations (differentiation of raw time offset measurements)
     freq_delta = 64
     freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
-    freq_estimator.process()
     freq_estimator.set_truth(delta=freq_delta)
+    if (not args.no_optimizer):
+        freq_estimator.optimize()
+    freq_estimator.process()
 
     # Kalman
     # kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)

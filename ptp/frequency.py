@@ -1,5 +1,6 @@
 """Estimators
 """
+import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,11 @@ class Estimator():
 
         """
 
-        logger.info("Processing")
+        logger.info("Processing with N=%d" %(self.delta))
+
+        # Remove previous estimates in case they already exist
+        for r in self.data:
+            r.pop("y_est", None)
 
         for i,r in enumerate(self.data):
             idx = r["idx"]
@@ -56,6 +61,42 @@ class Estimator():
                 delta_slave, delta_master, y_est*1e9))
 
             r["y_est"] = y_est
+
+    def optimize(self):
+        """Optimize observation interval for minimum MSE
+
+        """
+
+        log_min_window = 1
+        log_max_window = 16
+        log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
+        window_len     = 2**log_window_len
+
+        logger.info("Optimize observation window" %())
+        logger.info("Try from N = %d to N = %d" %(
+            2**log_min_window, 2**log_max_window))
+
+        min_y_mse  = 1e9
+        N_opt      = 0
+
+        for N in window_len:
+            for r in self.data:
+                r.pop("y_est", None)
+
+            self.delta = N
+            self.process()
+
+            y_err = np.array([1e9*(r["y_est"] - r["rtc_y"]) for r in self.data
+                              if ("y_est" in r and "rtc_y" in r)])
+            y_mse = np.square(y_err).mean()
+
+            if (y_mse < min_y_mse):
+                N_opt     = N
+                min_y_mse = y_mse
+
+        logger.info("Minimum MSE: %f" %(min_y_mse))
+        logger.info("Optimum N:   %d" %(N_opt))
+        self.delta = N_opt
 
     def set_truth(self, delta=4):
         """Set "true" frequency offset based on "true" time offset measurements
