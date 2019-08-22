@@ -38,6 +38,10 @@ class Reader():
         self.reverse_ms = reverse_ms
 
         # Prepare to infer seconds, if so desired
+        self.last_t1        = 0
+        self.last_t2        = 0
+        self.last_t3        = 0
+        self.last_t4        = 0
         self.last_t1_ns     = 0
         self.last_t2_ns     = 0
         self.last_t3_ns     = 0
@@ -128,6 +132,16 @@ class Reader():
                                     data["t1_pps"])
                 t4_pps  = Timestamp(data["t4_pps_sec"],
                                     data["t4_pps"])
+
+        # Are all the timestamps progressing monotonically?
+        assert(float(t1 - self.last_t1) > 0)
+        assert(float(t2 - self.last_t2) > 0)
+        assert(float(t3 - self.last_t3) > 0)
+        assert(float(t4 - self.last_t4) > 0)
+        self.last_t1 = t1
+        self.last_t2 = t2
+        self.last_t3 = t3
+        self.last_t4 = t4
 
         # Add timestamps to delay req-resp
         if (self.reverse_ms):
