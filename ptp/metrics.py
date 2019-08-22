@@ -87,6 +87,7 @@ class Analyser():
             Average delay asymmetry
 
         """
+        logger.info("Analyze delay asymmetry")
         d_asym = np.array([r['asym'] for r in self.data])
         d_ms   = np.array([r["d"] for r in self.data])
         d_sm   = np.array([r["d_bw"] for r in self.data])
@@ -114,7 +115,6 @@ class Analyser():
         logger.info("Eval time offset estimation error statistics")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
-        n_data         = len(post_tran_data)
 
         for suffix, value in est_keys.items():
             key   = "x_est" if (suffix == "raw") else "x_" + suffix
@@ -321,7 +321,6 @@ class Analyser():
         logger.info("Plot time offset vs. time")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
-        n_data         = len(post_tran_data)
 
         # Time axis
         t_start  = self.data[0]["t1"]
@@ -410,7 +409,6 @@ class Analyser():
         logger.info("Plot time offset estimation error vs. time")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
-        n_data         = len(post_tran_data)
 
         # Time axis
         t_start  = post_tran_data[0]["t1"]
@@ -472,7 +470,6 @@ class Analyser():
         logger.info("Plot time offset estimation error histogram")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
-        n_data         = len(post_tran_data)
 
         plt.figure()
 
@@ -512,7 +509,6 @@ class Analyser():
 
         """
         logger.info("Plot delay histogram")
-        n_data  = len(self.data)
         x_label = 'Delay (us)'
         y_label = 'Probability Density'
 
@@ -689,7 +685,6 @@ class Analyser():
 
         """
         logger.info("Plot delay asymmetry histogram")
-        n_data  = len(self.data)
 
         plt.figure()
         d_asym = np.array([r['asym'] for r in self.data]) / 1e3
@@ -713,7 +708,6 @@ class Analyser():
 
         """
         logger.info("Plot delay asymmetry vs. time")
-        n_data  = len(self.data)
 
         # Time axis
         t_start  = self.data[0]["t1"]
@@ -761,7 +755,6 @@ class Analyser():
         logger.info("Plot frequency offset vs. time")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
-        n_data         = len(post_tran_data)
 
         # Time axis
         t_start  = post_tran_data[0]["t1"]
@@ -832,7 +825,6 @@ class Analyser():
         logger.info("Plot frequency offset estimation error vs. time")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
-        n_data         = len(post_tran_data)
 
         # Time axis
         t_start  = post_tran_data[0]["t1"]
@@ -998,7 +990,6 @@ class Analyser():
 
         """
         logger.info("Plot PDV histogram")
-        n_data  = len(self.data)
 
         # Timestamp differences
         t2_1 = np.array([float(r["t2"] - r["t1"]) for r in self.data])
@@ -1215,7 +1206,6 @@ class Analyser():
 
         """
         logger.info("Plot temperature")
-        n_data = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
