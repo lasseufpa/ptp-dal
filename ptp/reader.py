@@ -57,6 +57,9 @@ class Reader():
 
         self.idx = 0
 
+        # Progress
+        self.last_progress_print = 0
+
     def process(self, data):
         """Process a set of timestamps
 
@@ -172,6 +175,21 @@ class Reader():
         dreqresp.log(results)
         return results
 
+    def check_progress(self, i_iter, n_iter):
+        """Check/print simulation progress
+
+        Args:
+            i_iter : Iteration index
+            n_iter : Numger of iterations
+
+        """
+
+        progress = i_iter / n_iter
+
+        if (progress > self.last_progress_print + 0.1):
+            logger.info("Reader progress: %6.2f %%" %(progress * 100))
+            self.last_progress_print = progress
+
     def run(self, max_len=0):
         """Loads timestamps and post-processes to generate PTP data
 
@@ -210,5 +228,6 @@ class Reader():
             if (data[i].get("temp")):
                 results["temp"] = data[i]["temp"]
             self.data.append(results)
+            self.check_progress(i, n_data)
 
 

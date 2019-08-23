@@ -27,14 +27,14 @@ class DelayReqResp():
     def log_header():
         """Print logging header"""
 
-        logger.info(("-----------------------------------------------"
+        logger.debug(("-----------------------------------------------"
                      "---------------------------------"))
         header = '{:>4} {:^12} {:^12} {:^9} {:^9} {:^9} {:^9} {:^9}'.format(
             "idx", "x_est", "x", "x_est_err", "delay_est", "d_m2s", "d_s2m",
             "asym"
         )
-        logger.info(header)
-        logger.info(("-----------------------------------------------"
+        logger.debug(header)
+        logger.debug(("-----------------------------------------------"
                      "---------------------------------"))
 
     def set_t2(self, seq_num, t2):
@@ -184,14 +184,8 @@ class DelayReqResp():
 
         """
 
-        # Print timestamps for debugging
-        logger.debug(('i: {:<4d} t1:{:<21} t2:{:<21} '
-                      't3:{:<21} t4:{:<21}').format(r['idx'], str(r['t1']),
-                                                    str(r['t2']), str(r['t3']),
-                                                    str(r['t4'])))
-
         # Print metrics
-        logger.info(('{:^4d} {:^ 12.1f} {:^ 12.1f} '
+        logger.debug(('{:^4d} {:^ 12.1f} {:^ 12.1f} '
                      '{:^ 9.1f} {:^9.1f} '
                      '{:^9.1f} {:^9.1f} '
                      '{:^ 9.1f}').format(r['idx'], r['x_est'],
