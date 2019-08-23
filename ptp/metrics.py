@@ -70,8 +70,8 @@ class Analyser():
 
         """
         if (file):
-            path = 'plots/' + (re.search(r'([^//]*).(json|npz)$', \
-                                         file).group(1)) + '/'
+            basename = os.path.splitext(os.path.basename(file))[0]
+            path     = 'plots/' + basename + '/'
         else:
             path = 'plots/'
 
