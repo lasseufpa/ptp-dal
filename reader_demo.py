@@ -119,6 +119,7 @@ def main():
 
     # PTP analyser
     analyser = ptp.metrics.Analyser(reader.data, args.file)
+    analyser.save_metadata(reader.metadata)
     analyser.plot_toffset_vs_time()
     analyser.plot_foffset_vs_time()
     analyser.plot_temperature()

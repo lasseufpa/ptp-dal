@@ -1,11 +1,10 @@
 """PTP metrics
 """
-import math, logging, re
+import math, logging, re, os, json
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
-import re, os
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +79,13 @@ class Analyser():
             os.makedirs(path)
 
         return path
+
+    def save_metadata(self, metadata):
+        """Save metadata info on the path where plots are saved
+        """
+
+        with open(os.path.join(self.path, 'info.txt'), 'w') as outfile:
+            json.dump(metadata, outfile)
 
     def ptp_exchanges_per_sec(self):
         """Compute average number of PTP exchanges per second
