@@ -102,11 +102,12 @@ class Serial():
         logger.info("Terminating acquisition of %s" %(self.filename))
         exit()
 
-    def run(self, print_en):
+    def run(self, print_en, capture_occ=True):
         """Continuously read the serial input and collect timestamps
 
         Args:
-            print_en : Whether to print non-timestamp logs to stdout
+            print_en    : Whether to print non-timestamp logs to stdout
+            capture_occ : Whether to capture the RoE DAC interface occupancy
 
         """
         signal.signal(signal.SIGINT, self.catch)
@@ -124,6 +125,7 @@ class Serial():
 
         logger.info("Starting capture")
         temperature = None
+        occupancy   = None
         while self.en_capture == True and \
               ((self.idx < self.n_samples) or self.n_samples == 0):
 
@@ -138,9 +140,17 @@ class Serial():
                 self.sensor.reset_input_buffer()
 
             # Read timestamps from FPGA
-            line     = self.fpga.readline()
-            line_key = line.decode().split(" ")[0]
-            line_val = line.decode().split(" ")
+            line     = self.fpga.readline().decode()
+            line_key = line.split(" ")[0]
+            line_val = line.split(" ")
+
+            if capture_occ and "Occupancy" in line:
+                split_line = line.split("\t")
+                if (len(split_line) > 1):
+                    try:
+                        occupancy = split_line[1]
+                    except ValueError:
+                        occupancy = None
 
             if line_key == "Timestamps":
                 # Normal PTP Timestamps
@@ -183,6 +193,10 @@ class Serial():
                 if (temperature is not None):
                     run_data["temp"] = temperature
 
+                # Append the occupancy
+                if (occupancy is not None):
+                    run_data["occupancy"] = occupancy
+
                 logger.debug(format_str.format(self.idx, t1_sec, t1_ns, t2_sec,
                                                t2_ns, t3_sec, t3_ns, t4_sec,
                                                t4_ns, t1_pps_sec, t1_pps_ns,
@@ -192,6 +206,6 @@ class Serial():
                 self.save(run_data)
                 self.idx += 1
             elif (print_en):
-                print(line.decode(), end='')
+                print(line, end='')
 
         self.end_json_file()
