@@ -76,13 +76,16 @@ def main():
     ls = ptp.ls.Ls(N_ls, reader.data, T_ns)
     ls.process("eff")
 
-    # Raw frequency estimations (differentiation of raw time offset measurements)
+    # Raw frequency estimations (differentiation of time offset measurements)
     freq_delta = 64
     freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
     freq_estimator.set_truth(delta=freq_delta)
     if (not args.no_optimizer):
         freq_estimator.optimize()
     freq_estimator.process()
+
+    # Estimate time offset drifts due to frequency offset
+    freq_estimator.estimate_drift()
 
     # Kalman
     # kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)
@@ -103,7 +106,7 @@ def main():
     pkts.set_window_len(N_min)
     pkts.process("min")
     pkts.set_window_len(N_min_ls)
-    pkts.process("min", ls_impl="eff")
+    pkts.process("min")
 
     # Exponentially weighted moving average
     pkts.set_window_len(N_ewma)
@@ -113,7 +116,7 @@ def main():
     pkts.set_window_len(N_mode)
     pkts.process("mode")
     pkts.set_window_len(N_mode_ls)
-    pkts.process("mode", ls_impl="eff")
+    pkts.process("mode")
 
     # PTP analyser
     analyser = ptp.metrics.Analyser(reader.data)

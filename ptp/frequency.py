@@ -131,3 +131,27 @@ class Estimator():
 
             # Add to dataset
             r["rtc_y"] = y
+
+    def estimate_drift(self):
+        """Estimate the incremental drifts due to frequency offset
+
+        On each iteration, the true time offset changes due to the instantaneous
+        frequency offset. On iteration n, with freq. offset y[n], it will
+        roughly change w.r.t. the previous iteration by:
+
+        drift[n] = y[n] * (t1[n] - t1[n-1])
+
+        Estimate these incremental changes and save on the dataset.
+
+        """
+
+        # Compute the drift within the observation window
+        for i,r in enumerate(self.data[1:]):
+            if ("y_est" in r):
+                delta = float(r["t1"] - self.data[i]["t1"])
+                # NOTE: index i is the enumerated index, not the data entry
+                # index. Since we get self.data[1:] (i.e. starting from index
+                # 1), "i" lags the actual data index by 1.
+                r["drift"] = r["y_est"] * delta
+
+

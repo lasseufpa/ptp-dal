@@ -108,7 +108,7 @@ class PktSelection():
         x_est       = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
-    def _eapf(self, t2_minus_t1_w, t4_minus_t3_w, drift=None):
+    def _eapf(self, t2_minus_t1_w, t4_minus_t3_w):
         """Compute the time offset based on earliest arrivals
 
         Apply an earliest arrival packet filter (EAPF) on both master-to-slave
@@ -126,57 +126,19 @@ class PktSelection():
         same as the index of minimum (t4 - t3), as long as the time offset
         remains sufficiently constant within the window.
 
-        If vector of drifts is defined, use it to compensate the differences of
-        timestamps along the observation window. Note that:
-
-            x[n] = t2[n] - (t1[n] + dms[n])
-        or
-            x[n] = (t3[n] + dsm[n]) - t4[n]
-
-        so that
-
-            t2[n] - t1[n] = +x[n] + dms[n],
-            t4[n] - t3[n] = -x[n] + dsm[n]
-
-        However, x[n] can be modeled as:
-
-            x[n] = x_0 + drift[n]
-
-        If the drift is compensated, we have:
-
-            t2[n] - t1[n] - drift[n] = +x_0 + dms[n],
-            t4[n] - t3[n] + drift[n] = -x_0 + dsm[n]
-
-        In the end, the conventional sample-minumum results in:
-
-            x_est -> x_0
-
-        Thus, a final dirft compensation must be applied:
-
-            x_est += drift[N-1]
-
         Args:
             t2_minus_t1_w : Vector of (t2 - t1) differences
             t4_minus_t3_w : Vector of (t4 - t3) differences
-            drift         : Vector of time drifts accumulated along the window
 
         Returns:
            The time offset estimate
 
         """
-        # Subtract the drift from slave timestamps
-        if (drift is not None):
-            t2_minus_t1_w = t2_minus_t1_w - drift
-            t4_minus_t3_w = t4_minus_t3_w + drift
-            offset        = drift[-1]
-        else:
-            offset = 0
-
         t2_minus_t1 = np.amin(t2_minus_t1_w)
         t4_minus_t3 = np.amin(t4_minus_t3_w)
 
-        # Final estimate (with drift compensation offset)
-        x_est       = offset + (t2_minus_t1 - t4_minus_t3)/2
+        # Final estimate
+        x_est = (t2_minus_t1 - t4_minus_t3)/2
 
         return x_est
 
@@ -199,11 +161,9 @@ class PktSelection():
         x_est       = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
-    def _sample_mode(self, t2_minus_t1_w, t4_minus_t3_w, drift=None,
-                     cnt_threshold=3, stall_patience=10):
+    def _sample_mode(self, t2_minus_t1_w, t4_minus_t3_w, cnt_threshold=3,
+                     stall_patience=10):
         """Compute the time offset based on sample-mode
-
-        For the drift compensation, c.f. the explanation of EAPF.
 
         Regarding the bin adjustment algorithm, note that a higher
         `cnt_threshold` will lead to more frequent adjustments (enlargements) of
@@ -227,14 +187,6 @@ class PktSelection():
         """
         bin_width      = self._sample_mode_bin
         half_bin_width = 0.5 * bin_width
-
-        # Subtract the drift from slave timestamps
-        if (drift is not None):
-            t2_minus_t1_w = t2_minus_t1_w - drift
-            t4_minus_t3_w = t4_minus_t3_w + drift
-            offset        = drift[-1]
-        else:
-            offset = 0
 
         # Quantize timestamp difference vectors
         t2_minus_t1_q = np.round(t2_minus_t1_w / bin_width)
@@ -270,8 +222,8 @@ class PktSelection():
             self._sample_mode_bin += 10
             self._mode_stall_cnt   = 0
 
-        # Final estimate (with drift compensation offset)
-        x_est            = offset + (t2_minus_t1 - t4_minus_t3)/2
+        # Final estimate
+        x_est = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
     def set_window_len(self, N):
@@ -292,46 +244,124 @@ class PktSelection():
         self._sample_mode_bin = SAMPLE_MODE_BIN_0
         self._mode_stall_cnt  = 0
 
-    def process(self, strategy, ls_impl=None, avg_impl="recursive"):
+    def process(self, strategy, avg_impl="recursive", drift_comp=True):
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
         sample-average ("average"), EWMA ("ewma"), sample-median ("median") or
         sample-minimum ("min") over sliding windows of observations.
 
+        If drift compensation is enabled, use vector of drifts to compensate the
+        differences of timestamps along the observation window.
+
+        Note that:
+            x[n] = t2[n] - (t1[n] + dms[n])
+            x[n] = (t3[n] + dsm[n]) - t4[n]
+
+        so that
+
+            t2[n] - t1[n] = +x[n] + dms[n],
+            t4[n] - t3[n] = -x[n] + dsm[n]
+
+        However, x[n] can be modeled as:
+
+            x[n] = x_0 + drift[n],
+
+        where the drift[n] term is mostly due to frequency offset, which
+        sometimes can be accurately estimated (especially for high quality
+        oscillators).
+
+        Using this model, and if the drift is compensated, it can be stated
+        that:
+
+            t2[n] - t1[n] - drift[n] = +x_0 + dms[n],
+            t4[n] - t3[n] + drift[n] = -x_0 + dsm[n]
+
+        In the end, this means that drift-compensated timestamp differences will
+        lead to an approximately constant time offset corrupted by variable
+        delay realizations. This is the ideal input to packet selection
+        operators. Once the operators process the drift-compensated timestamp
+        differences, ideally its result would approach:
+
+            x_est -> x_0
+
+        To complete the work, the total (cumulative) drift over the observation
+        window should be re-added to the estimate, so that it approaches the
+        true time offset by the end of the observation window (while `x_0` is
+        the offset in the beginning):
+
+            x_est += drift[N-1]
+
+        For the operators that process time offset observations x_est[n]
+        directly, the drift can be similarly removed prior to the selection
+        operator and the sum of the drift re-added to the final result.
+
         Args:
-            strategy  : Select the strategy of interest.
-            ls_impl   : Combine packet selection to information/estimations
-                        obtained via LS using one of the three distinct
-                        implementations: "t2", "t1" and "eff". The specific
-                        combination is defined per selection method.
-            avg_impl  : Sample-avg implementation ("recursive" or "normal").
-                        The recursive implementation theoretically produces the
-                        same result as the "normal" implementation, except
-                        during initialization, due to the transitory of the
-                        recursive implementation. However, the recursive one
-                        is significantly more CPU efficient.
+            strategy   : Select the strategy of interest.
+            avg_impl   : Sample-avg implementation ("recursive" or "normal").
+                         The recursive implementation theoretically produces the
+                         same result as the "normal" implementation, except
+                         during initialization, due to the transitory of the
+                         recursive implementation. However, the recursive one
+                         is significantly more CPU efficient.
+            drift_comp : Whether to compensate drift of timestamp differences or
+                         time offset measuremrents prior to computing packet
+                         selection operators.
 
         """
 
-        logger.info("Processing sample-%s with N=%d" %(strategy, self.N))
+        if (drift_comp):
+            drift_msg = " and drift compensation"
+        else:
+            drift_msg = ""
+
+        logger.info("Processing sample-%s with N=%d" %(strategy, self.N) +
+                    drift_msg)
 
         # Select vector of noisy time offset observations and delay estimation
-        x_obs = [res["x_est"] for res in self.data]
-        d_obs = [res["d_est"] for res in self.data]
-
+        x_obs = np.array([res["x_est"] for res in self.data])
+        d_obs = np.array([res["d_est"] for res in self.data])
         n_data = len(x_obs)
+
+        # Assume that all elements of self.data contain "x_est" and "d_est"
+        assert(len(x_obs) == len(self.data))
+        assert(len(d_obs) == len(self.data))
+
+        # Vector of time offset incremental drifts due to freq. offset:
+        if (drift_comp):
+            drift_est = np.zeros(x_obs.shape)
+            for i in range(0, n_data):
+                if ("drift" in self.data[i]):
+                    drift_est[i] = self.data[i]["drift"]
 
         if (strategy == 'average' and avg_impl == 'recursive'):
             # Sample-by-sample processing
-            for i in range(0, n_data):
-                x_est = self._sample_avg_recursive(x_obs[i])
-                self.data[i]["x_pkts_average"] = x_est
+            if (drift_comp):
+                # Accumulate drift continuously and try to average out
+                # drift-removed time offset estimates
+                drift_accum = 0
+                for i in range(0, n_data):
+                    drift_accum += drift_est[i]
+                    x_est = self._sample_avg_recursive(x_obs[i] - drift_accum)
+                    self.data[i]["x_pkts_average"] = x_est + drift_accum
+            else:
+                for i in range(0, n_data):
+                    x_est = self._sample_avg_recursive(x_obs[i])
+                    self.data[i]["x_pkts_average"] = x_est
         elif (strategy == 'ewma'):
             # Sample-by-sample processing
-            for i in range(0, n_data):
-                x_est = self._sample_avg_ewma(x_obs[i])
-                self.data[i]["x_pkts_ewma"] = x_est
+            if (drift_comp):
+                # Accumulate drift continuously and try to average out
+                # drift-removed time offset estimates
+                drift_accum = 0
+                for i in range(0, n_data):
+                    drift_accum += drift_est[i]
+                    x_est = self._sample_avg_ewma(x_obs[i] - drift_accum)
+                    self.data[i]["x_pkts_ewma"] = x_est + drift_accum
+            else:
+                for i in range(0, n_data):
+                    x_est = self._sample_avg_ewma(x_obs[i])
+                    self.data[i]["x_pkts_ewma"] = x_est
         else:
             # Window-based processing
             for i in range(0, (n_data - self.N) + 1):
@@ -343,29 +373,33 @@ class PktSelection():
                 x_obs_w = x_obs[i_s:i_e]
                 d_obs_w = d_obs[i_s:i_e]
 
-                # Apply frequency compensation using the frequency offset
-                # estimation obtained via LS
-                if (ls_impl is not None and
-                    "y_ls_{}".format(ls_impl) in self.data[i_e - 1]):
+                # Drift vector is the cumulative time offset drift due to
+                # frequency offset relative to the beginning of the observation
+                # window. Say if first sample of the window has an incremental
+                # drift of 5 ns and second sample has a drift of 6 ns, the first
+                # two elements of the drift vector below will be 5 and 11 ns.
+                if (drift_comp):
+                    drift_w = drift_est[i_s:i_e].cumsum()
 
-                    # Compute the drift within the observation window
-                    t_w   = np.array([float(r["t1"] - self.data[i_s]["t1"]) for
-                                      r in self.data[i_s:i_e]])
-                    y     = self.data[i_e - 1]["y_ls_{}".format(ls_impl)]
-                    drift = y * t_w
-                else:
-                    drift = None
-
-                # Selection operator that processes observations directly
+                # Operator that processes time offset measurement windows
                 if (strategy == 'average' and avg_impl == 'normal'):
+                    # Remove drift from observed time offset
+                    if (drift_comp):
+                        x_obs_w = x_obs_w - drift_w
+
                     x_est = self._sample_avg_normal(x_obs_w)
 
-                # Selection operator that processes timestamp differences
+                # Operator that processes timestamp difference windows
                 else:
                     t2_minus_t1_w = np.array([float(r["t2"] - r["t1"])
                                               for r in self.data[i_s:i_e]])
                     t4_minus_t3_w = np.array([float(r["t4"] - r["t3"])
                                               for r in self.data[i_s:i_e]])
+
+                    # Remove drift from observed timestamp differences
+                    if (drift_comp):
+                        t2_minus_t1_w = t2_minus_t1_w - drift_w
+                        t4_minus_t3_w = t4_minus_t3_w + drift_w
 
                     if (strategy == 'median'):
                         x_est = self._sample_median(t2_minus_t1_w,
@@ -373,8 +407,7 @@ class PktSelection():
 
                     elif (strategy == 'min'):
                         x_est = self._eapf(t2_minus_t1_w,
-                                           t4_minus_t3_w,
-                                           drift)
+                                           t4_minus_t3_w)
 
                     elif (strategy == 'max'):
                         x_est = self._sample_maximum(t2_minus_t1_w,
@@ -382,17 +415,18 @@ class PktSelection():
 
                     elif (strategy == 'mode'):
                         x_est = self._sample_mode(t2_minus_t1_w,
-                                                  t4_minus_t3_w,
-                                                  drift)
+                                                  t4_minus_t3_w)
                     else:
                         raise ValueError("Strategy choice %s unknown" %(
                             strategy))
 
-                # Include Packet Selection estimations within the simulation data
-                if (drift is not None):
-                    self.data[i_e - 1]["x_pkts_{}_ls".format(strategy)] = x_est
-                else:
-                    self.data[i_e - 1]["x_pkts_{}".format(strategy)] = x_est
+                # Re-add the total drift of this observation window to the
+                # estimate that was produced by the selection operator
+                if (drift_comp):
+                    x_est = x_est + drift_w[-1]
+
+                # Save on global data records
+                self.data[i_e - 1]["x_pkts_{}".format(strategy)] = x_est
 
             if (strategy == 'mode' and
                 (self._sample_mode_bin != SAMPLE_MODE_BIN_0)):

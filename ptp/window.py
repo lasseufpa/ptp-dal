@@ -16,42 +16,34 @@ class Optimizer():
                                  "N_best" : None},
               "sample-average": {"name"   : "Sample Average",
                                  "impl"   : "average",
-                                 "ls_impl": None,
                                  "est_key": "pkts_average",
                                  "N_best" : None},
               "sample-ewma"   : {"name"   : "EWMA",
                                  "impl"   : "ewma",
-                                 "ls_impl": None,
                                  "est_key": "pkts_ewma",
                                  "N_best" : None},
               "sample-median" : {"name"   : "Sample Median",
                                  "impl"   : "median",
-                                 "ls_impl": None,
                                  "est_key": "pkts_median",
                                  "N_best" : None},
               "sample-min"    : {"name"   : "Sample Minimum",
                                  "impl"   : "min",
-                                 "ls_impl": None,
                                  "est_key": "pkts_min",
                                  "N_best" : None},
               "sample-min-ls" : {"name"   : "Sample Minimum with LS",
                                  "impl"   : "min",
-                                 "ls_impl": "eff",
                                  "est_key": "pkts_min_ls",
                                  "N_best" : None},
               "sample-max"    : {"name"   : "Sample Maximum",
                                  "impl"   : "max",
-                                 "ls_impl": None,
                                  "est_key": "pkts_max",
                                  "N_best" : None},
               "sample-mode"   : {"name"   : "Sample Mode",
                                  "impl"   : "mode",
-                                 "ls_impl": None,
                                  "est_key": "pkts_mode",
                                  "N_best" : None},
               "sample-mode-ls": {"name"   : "Sample Mode with LS",
                                  "impl"   : "mode",
-                                 "ls_impl": "eff",
                                  "est_key": "pkts_mode_ls",
                                  "N_best" : None}}
 
@@ -113,9 +105,8 @@ class Optimizer():
                 ls = ptp.ls.Ls(N, data, self.T_ns)
                 ls.process(impl=est_impl)
             else:
-                ls_impl = self.est_op[estimator]["ls_impl"]
                 pkts    = ptp.pktselection.PktSelection(N, data)
-                pkts.process(strategy=est_impl, ls_impl=ls_impl)
+                pkts.process(strategy=est_impl)
 
             # The recursive moving average methods have transitories. Try to
             # skip them by throwing away an arbitrary number of initial values.
