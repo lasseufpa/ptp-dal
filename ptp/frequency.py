@@ -94,7 +94,7 @@ class Estimator():
                 N_opt     = N
                 min_y_mse = y_mse
 
-        logger.info("Minimum MSE: %f" %(min_y_mse))
+        logger.info("Minimum MSE: %f ppb" %(min_y_mse))
         logger.info("Optimum N:   %d" %(N_opt))
         self.delta = N_opt
 

@@ -80,8 +80,7 @@ def main():
     freq_delta = 64
     freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
     freq_estimator.set_truth(delta=freq_delta)
-    if (not args.no_optimizer):
-        freq_estimator.optimize()
+    freq_estimator.optimize()
     freq_estimator.process()
 
     # Estimate time offset drifts due to frequency offset
