@@ -67,9 +67,8 @@ def main():
         N_movavg  = 16
         N_median  = 16
         N_min     = 16
-        N_min_ls  = 16
+        N_max     = 16
         N_mode    = 16
-        N_mode_ls = 16
         N_ewma    = 16
 
     # Least-squares estimator
@@ -104,8 +103,10 @@ def main():
     # Sample-minimum
     pkts.set_window_len(N_min)
     pkts.process("min")
-    pkts.set_window_len(N_min_ls)
-    pkts.process("min")
+
+    # Sample-maximum
+    pkts.set_window_len(N_max)
+    pkts.process("max")
 
     # Exponentially weighted moving average
     pkts.set_window_len(N_ewma)
@@ -113,8 +114,6 @@ def main():
 
     # Sample-mode
     pkts.set_window_len(N_mode)
-    pkts.process("mode")
-    pkts.set_window_len(N_mode_ls)
     pkts.process("mode")
 
     # PTP analyser
