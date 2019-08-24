@@ -580,7 +580,7 @@ class Analyser():
 
             for p in plots:
                 if (save):
-                    p["plt"].savefig("plots/delay_hist_" + p["label"],
+                    p["plt"].savefig(self.path + "delay_hist_" + p["label"],
                                      format=save_format, dpi=300)
                 else:
                     p["plt"].show()
@@ -914,7 +914,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/foffset_err_vs_time", format=save_format,
+            plt.savefig(self.path + "foffset_err_vs_time", format=save_format,
                         dpi=300)
         else:
             plt.show()
@@ -956,7 +956,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig("plots/foffset_err_hist", format=save_format,
+            plt.savefig(self.path + "foffset_err_hist", format=save_format,
                         dpi=300)
         else:
             plt.show()
