@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+from scipy import stats
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +35,37 @@ class PktSelection():
         self._sample_mode_bin = SAMPLE_MODE_BIN_0
         self._mode_stall_cnt  = 0
 
+    def _window(self, v, N, shift = 1, copy = False):
+        """Split numpy vector into overlapping windows
+
+        From https://stackoverflow.com/a/45730836/2859410
+
+        Args:
+            v     : Numpy vector to split
+            N     : Target window length
+            shift : Controls the shift between consecutive windows or,
+                    equivalently, the overlap. For instance, if shift=1, each
+                    window overlaps with N-1 samples of the previous window.
+            copy  : Set True to write to the array that is returned by this
+                    function, as otherwise the returned array is a
+                    memory-sharing view of the same numpy array (like the
+                    result of a numpy.reshape).
+
+        Returns:
+            Matrix with overlapping windows. Each line will correspond to a
+            window with N columns.
+
+        """
+        sh   = (v.size - N + 1, N)
+        st   = v.strides * 2
+        view = np.lib.stride_tricks.as_strided(v,
+                                               strides = st,
+                                               shape = sh)[0::shift]
+        if copy:
+            return view.copy()
+        else:
+            return view
+
     def _sample_avg_normal(self, x_obs):
         """Calculate the average of a given time offset vector
 
@@ -45,6 +77,20 @@ class PktSelection():
         """
 
         return np.mean(x_obs)
+
+    def _sample_avg_normal_vec(self, x_obs):
+        """Calculate the sample-average of time offset observation windows
+
+        Args:
+            x_obs   : Matrix with time offset observations windows
+
+        Returns:
+            Vector with the average of each individual time offset observation
+            window
+
+        """
+
+        return np.mean(x_obs, axis=1)
 
     def _sample_avg_recursive(self, x_obs):
         """Calculate the average of a given time offset vector recursively
@@ -93,18 +139,38 @@ class PktSelection():
         return corr_avg
 
     def _sample_median(self, t2_minus_t1_w, t4_minus_t3_w):
-        """Calculate the median of a given time offset vector
+        """Calculate the sample-median estimate of a given observation window
 
         Args:
             t2_minus_t1_w : Vector of (t2 - t1) differences
             t4_minus_t3_w : Vector of (t4 - t3) differences
 
         Returns:
-            The moving average
+            The time offset estimate based on sample-median
         """
 
         t2_minus_t1 = np.median(t2_minus_t1_w)
         t4_minus_t3 = np.median(t4_minus_t3_w)
+        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        return x_est
+
+    def _sample_median_vec(self, t2_minus_t1_mtx, t4_minus_t3_mtx):
+        """Calculate the sample-median estimates of given observation windows
+
+        Args:
+            t2_minus_t1_mtx : Matrix with windows (as lines) containing
+                              (t2 - t1) differences
+            t4_minus_t3_mtx : Matrix with windows (as lines) containing
+                              (t4 - t3) differences
+
+        Returns:
+            The individual time offset estimates of each observation window
+            based on sample-median
+
+        """
+
+        t2_minus_t1 = np.median(t2_minus_t1_mtx, axis=1)
+        t4_minus_t3 = np.median(t4_minus_t3_mtx, axis=1)
         x_est       = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
@@ -136,9 +202,29 @@ class PktSelection():
         """
         t2_minus_t1 = np.amin(t2_minus_t1_w)
         t4_minus_t3 = np.amin(t4_minus_t3_w)
+        x_est       = (t2_minus_t1 - t4_minus_t3)/2
 
-        # Final estimate
-        x_est = (t2_minus_t1 - t4_minus_t3)/2
+        return x_est
+
+    def _eapf_vec(self, t2_minus_t1_mtx, t4_minus_t3_mtx):
+        """Compute the time offset based on earliest arrivals
+
+        Vectorized version of the above (`_eapf`). Instead of processing a
+        single observation window, this function processes a matrix with many
+        (or all) observation windows.
+
+        Args:
+            t2_minus_t1_mtx : Matrix of (t2 - t1) differences
+            t4_minus_t3_mtx : Matrix of (t4 - t3) differences
+
+        Returns:
+           Vector with the time offset estimates corresponding to each
+           observation window
+
+        """
+        t2_minus_t1 = np.amin(t2_minus_t1_mtx, axis=1)
+        t4_minus_t3 = np.amin(t4_minus_t3_mtx, axis=1)
+        x_est       = (t2_minus_t1 - t4_minus_t3)/2
 
         return x_est
 
@@ -158,6 +244,27 @@ class PktSelection():
         """
         t2_minus_t1 = np.amax(t2_minus_t1_w)
         t4_minus_t3 = np.amax(t4_minus_t3_w)
+        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        return x_est
+
+    def _sample_maximum_vec(self, t2_minus_t1_mtx, t4_minus_t3_mtx):
+        """Compute the time offset based on latest arrivals
+
+        Vectorized version of the above (`_sample_maximum`). Instead of
+        processing a single observation window, this function processes a matrix
+        with many (or all) observation windows.
+
+        Args:
+            t2_minus_t1_mtx : Matrix of (t2 - t1) differences
+            t4_minus_t3_mtx : Matrix of (t4 - t3) differences
+
+        Returns:
+           Vector with the time offset estimates corresponding to each
+           observation window
+
+        """
+        t2_minus_t1 = np.amax(t2_minus_t1_mtx, axis=1)
+        t4_minus_t3 = np.amax(t4_minus_t3_mtx, axis=1)
         x_est       = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
@@ -226,6 +333,73 @@ class PktSelection():
         x_est = (t2_minus_t1 - t4_minus_t3)/2
         return x_est
 
+    def _sample_mode_vec(self, t2_minus_t1_mtx, t4_minus_t3_mtx,
+                         cnt_threshold=3):
+        """Compute the time offset based on sample-mode
+
+        Vectorized sample-mode implementation. Its result differs from the
+        non-vectorized sample-mode implementation due to how the bin adjustment
+        is implemented.
+
+        Args:
+            t2_minus_t1_mtx : Matrix of (t2 - t1) differences
+            t4_minus_t3_mtx : Matrix of (t4 - t3) differences
+            cnt_threshold   : Minimum number of ocurrences on the mode bin
+
+        Returns:
+           Vector with the time offset estimates corresponding to each
+           observation window
+
+        """
+
+        # Bin widths for t2-t1 and t4-t3 are independent in this implementation
+        bin_width_fw = SAMPLE_MODE_BIN_0
+        bin_width_bw = SAMPLE_MODE_BIN_0
+
+        # Tune the bin width based on the first 100 observation windows
+        done = False
+        while (not done):
+            # Quantize timestamp difference matrices
+            t2_minus_t1_q = np.round(t2_minus_t1_mtx[:100,:] / bin_width_fw)
+            t4_minus_t3_q = np.round(t4_minus_t3_mtx[:100,:] / bin_width_bw)
+
+            # Find the mode
+            t2_minus_t1_mode, mode_cnt_fw = stats.mode(t2_minus_t1_q, axis=1)
+            t4_minus_t3_mode, mode_cnt_bw = stats.mode(t4_minus_t3_q, axis=1)
+
+            # Adjust the mode bin such that less than 10% of the realizations
+            # have a maximum mode count below threshold.
+            done = True
+            if ((mode_cnt_fw < cnt_threshold).sum() > 10):
+                bin_width_fw += 10
+                done = False
+
+            if ((mode_cnt_bw < cnt_threshold).sum() > 10):
+                bin_width_bw += 10
+                done = False
+
+        logger.info("t2-t1 bin was adjusted to %d" %(bin_width_fw))
+        logger.info("t4-t3 bin was adjusted to %d" %(bin_width_bw))
+        half_bin_width_fw = 0.5 * bin_width_fw
+        half_bin_width_bw = 0.5 * bin_width_bw
+
+        # Quantize timestamp difference matrices
+        t2_minus_t1_q = np.round(t2_minus_t1_mtx / bin_width_fw)
+        t4_minus_t3_q = np.round(t4_minus_t3_mtx / bin_width_bw)
+
+        # Find the mode
+        t2_minus_t1_mode, mode_cnt_fw = stats.mode(t2_minus_t1_q, axis=1)
+        t4_minus_t3_mode, mode_cnt_bw = stats.mode(t4_minus_t3_q, axis=1)
+
+        # Descale to revert quantization
+        t2_minus_t1 = t2_minus_t1_mode * bin_width_fw + half_bin_width_fw
+        t4_minus_t3 = t4_minus_t3_mode * bin_width_bw + half_bin_width_bw
+
+        # Final estimates
+        x_est = (t2_minus_t1 - t4_minus_t3)/2
+
+        return x_est.reshape(x_est.size)
+
     def set_window_len(self, N):
         """Change the window length
 
@@ -244,7 +418,8 @@ class PktSelection():
         self._sample_mode_bin = SAMPLE_MODE_BIN_0
         self._mode_stall_cnt  = 0
 
-    def process(self, strategy, avg_impl="recursive", drift_comp=True):
+    def process(self, strategy, avg_impl="recursive", drift_comp=True,
+                vectorize=True):
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
@@ -307,6 +482,11 @@ class PktSelection():
             drift_comp : Whether to compensate drift of timestamp differences or
                          time offset measuremrents prior to computing packet
                          selection operators.
+            vectorize  : Whether to use vectorized implementation of selection
+                         operators. When enabled, all observation windows will
+                         be stacked as lines of a matrix and the full matrix
+                         will be processed at once. Otherwise, each observation
+                         window is processed independently.
 
         """
 
@@ -362,8 +542,71 @@ class PktSelection():
                 for i in range(0, n_data):
                     x_est = self._sample_avg_ewma(x_obs[i])
                     self.data[i]["x_pkts_ewma"] = x_est
+        elif (vectorize):
+            # Vectorized processing - all observation windows are stacked as
+            # lines of a matrix
+
+            # Operator that processes time offset measurement windows
+            if (strategy == 'average' and avg_impl == 'normal'):
+                x_obs_mtx = self._window(x_obs, self.N, copy=True)
+
+                # Remove drift
+                if (drift_comp):
+                    drift_cum_mtx  = self._window(drift_est,
+                                                  self.N).cumsum(axis=1)
+                    x_obs_mtx     -= drift_cum_mtx
+                    drift_offsets  = drift_cum_mtx[:,-1]
+
+                # Sample-average operator
+                x_est = self._sample_avg_normal_vec(x_obs_mtx)
+
+            # Operators that process timestamp difference windows
+            else:
+                # Timestamp differences
+                t2_minus_t1 = np.array([float(r["t2"] - r["t1"])
+                                        for r in self.data])
+                t4_minus_t3 = np.array([float(r["t4"] - r["t3"])
+                                        for r in self.data])
+
+                # Form observation windows with timestamp differences
+                t2_minus_t1_mtx = self._window(t2_minus_t1, self.N, copy=True)
+                t4_minus_t3_mtx = self._window(t4_minus_t3, self.N, copy=True)
+
+                # Remove drift
+                if (drift_comp):
+                    drift_cum_mtx    = self._window(drift_est,
+                                                    self.N).cumsum(axis=1)
+                    t2_minus_t1_mtx -= drift_cum_mtx
+                    t4_minus_t3_mtx += drift_cum_mtx
+                    drift_offsets    = drift_cum_mtx[:,-1]
+
+                # Apply Selection operator
+                if (strategy == 'median'):
+                    x_est = self._sample_median_vec(t2_minus_t1_mtx,
+                                                    t4_minus_t3_mtx)
+                elif (strategy == 'min'):
+                    x_est = self._eapf_vec(t2_minus_t1_mtx,
+                                           t4_minus_t3_mtx)
+                elif (strategy == 'max'):
+                    x_est = self._sample_maximum_vec(t2_minus_t1_mtx,
+                                                     t4_minus_t3_mtx)
+                elif (strategy == 'mode'):
+                    x_est = self._sample_mode_vec(t2_minus_t1_mtx,
+                                                  t4_minus_t3_mtx)
+                else:
+                    raise ValueError("Strategy choice %s unknown" %(strategy))
+
+            assert(len(x_est) == (n_data - self.N) + 1)
+
+            # Re-add "quasi-deterministic" drift to estimates
+            if (drift_comp):
+                x_est += drift_offsets
+
+            # Save results on global data records
+            for i in range(0, (n_data - self.N) + 1):
+                self.data[i + self.N - 1]["x_pkts_{}".format(strategy)] = x_est[i]
         else:
-            # Window-based processing
+            # Window-by-window processing
             for i in range(0, (n_data - self.N) + 1):
                 # Window start and end indexes
                 i_s = i
