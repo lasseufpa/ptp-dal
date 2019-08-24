@@ -161,7 +161,8 @@ class Analyser():
 
         for suffix, value in est_keys.items():
             key   = "y_est" if (suffix == "raw") else "y_" + suffix
-            y_err = [1e9*(r[key] - r["rtc_y"]) for r in self.data if key in r]
+            y_err = [1e9*(r[key] - r["rtc_y"]) for r in self.data
+                     if (key in r) and ("rtc_y" in r)]
 
             if (len(y_err) > 0):
                 print("[%14s] Mean: % 7.4f ppb\tSdev: % 7.4f ppb" %(
