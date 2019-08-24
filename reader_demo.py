@@ -74,10 +74,9 @@ def main():
         N_movavg  = est_op["sample-average"]["N_best"] # Moving average
         N_median  = est_op["sample-median"]["N_best"]  # Sample-median
         N_min     = est_op["sample-min"]["N_best"]     # Sample-minimum
-        N_min_ls  = est_op["sample-min-ls"]["N_best"]  # Sample-minimum with LS
-        N_mode    = est_op["sample-mode"]["N_best"]    # Sample-minimum
-        N_mode_ls = est_op["sample-mode-ls"]["N_best"] # Sample-mode with LS
-        N_ewma    = est_op["ls"]["N_best"]             # EWMA window
+        N_max     = est_op["sample-max"]["N_best"]     # Sample-maximum
+        N_mode    = est_op["sample-mode"]["N_best"]    # Sample-mode
+        N_ewma    = est_op["sample-ewma"]["N_best"]    # EWMA
 
         print("Tuned window lengths:")
         for i in est_op:
