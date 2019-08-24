@@ -10,42 +10,36 @@ logger = logging.getLogger(__name__)
 
 
 class Optimizer():
-    est_op = {"ls"            : {"name"   : "Least Squares",
-                                 "impl"   : "eff",
-                                 "est_key": "ls_eff",
-                                 "N_best" : None},
-              "sample-average": {"name"   : "Sample Average",
-                                 "impl"   : "average",
-                                 "est_key": "pkts_average",
-                                 "N_best" : None},
-              "sample-ewma"   : {"name"   : "EWMA",
-                                 "impl"   : "ewma",
-                                 "est_key": "pkts_ewma",
-                                 "N_best" : None},
-              "sample-median" : {"name"   : "Sample Median",
-                                 "impl"   : "median",
-                                 "est_key": "pkts_median",
-                                 "N_best" : None},
-              "sample-min"    : {"name"   : "Sample Minimum",
-                                 "impl"   : "min",
-                                 "est_key": "pkts_min",
-                                 "N_best" : None},
-              "sample-min-ls" : {"name"   : "Sample Minimum with LS",
-                                 "impl"   : "min",
-                                 "est_key": "pkts_min_ls",
-                                 "N_best" : None},
-              "sample-max"    : {"name"   : "Sample Maximum",
-                                 "impl"   : "max",
-                                 "est_key": "pkts_max",
-                                 "N_best" : None},
-              "sample-mode"   : {"name"   : "Sample Mode",
-                                 "impl"   : "mode",
-                                 "est_key": "pkts_mode",
-                                 "N_best" : None},
-              "sample-mode-ls": {"name"   : "Sample Mode with LS",
-                                 "impl"   : "mode",
-                                 "est_key": "pkts_mode_ls",
-                                 "N_best" : None}}
+    est_op = {
+        "ls"            : {"name"   : "Least Squares",
+                           "impl"   : "eff",
+                           "est_key": "ls_eff",
+                           "N_best" : None},
+        "sample-average": {"name"   : "Sample Average",
+                           "impl"   : "average",
+                           "est_key": "pkts_average",
+                           "N_best" : None},
+        "sample-ewma"   : {"name"   : "EWMA",
+                           "impl"   : "ewma",
+                           "est_key": "pkts_ewma",
+                           "N_best" : None},
+        "sample-median" : {"name"   : "Sample Median",
+                           "impl"   : "median",
+                           "est_key": "pkts_median",
+                           "N_best" : None},
+        "sample-min"    : {"name"   : "Sample Minimum",
+                           "impl"   : "min",
+                           "est_key": "pkts_min",
+                           "N_best" : None},
+        "sample-max"    : {"name"   : "Sample Maximum",
+                           "impl"   : "max",
+                           "est_key": "pkts_max",
+                           "N_best" : None},
+        "sample-mode"   : {"name"   : "Sample Mode",
+                           "impl"   : "mode",
+                           "est_key": "pkts_mode",
+                           "N_best" : None}
+    }
 
     def __init__(self, data, T_ns):
         """Optimizes processing window lengths
@@ -60,6 +54,9 @@ class Optimizer():
 
         # Window configuration
         self._sample_skip = None
+
+        self.cfg_filename = None
+        self.plot_path    = None
 
     def _eval_max_te(self, window_vec, estimator, early_stopping=True,
                      patience=5):
@@ -251,7 +248,9 @@ class Optimizer():
                          transform=plt.gca().transAxes, va='top', ha='right')
 
             if (save):
-                plt.savefig(f"plots/{est_key}_max_te_vs_window")
+                assert(self.plot_path is not None), "Plot path not defined"
+                plt.savefig(os.path.join(self.plot_path,
+                                         f"{est_key}_max_te_vs_window"))
             else:
                 plt.show()
 
@@ -260,42 +259,44 @@ class Optimizer():
 
         logger.info(f"Best evaluated window length for {est_name}: {N_best:d}")
 
-    def _filename(self, file):
-        """Define the filename used to save window configurations
+    def _set_paths(self, file):
+        """Define paths to save plots and configuration file
 
-        Set the filename based on the name of the file passed as argument or
-        create a new name if no file was used.
+        Create a folder with the name of the file used to generate the metrics
+        and save all the plots inside it, or if no file is used just save
+        the metrics within the folder 'plots/'.
+
+        Set the config filename based on the name of the file passed as argument
+        or create a new name if no file was used.
 
         Args:
-            file: Path of the file
-
-        Returns:
-            The filename
+            file : Path of the file
 
         """
-        path = "config/"
-
-        if (file is None):
-            filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S") + \
-                       "-config" + ".json"
+        if (file):
+            basename  = os.path.splitext(os.path.basename(file))[0]
+            self.plot_path    = 'plots/' + basename + '/'
+            self.cfg_filename = "config/" + basename + "-config" + ".json"
         else:
-            filename = path + (re.search(r'([^//]*).(json|npz)$', file).group(1)) \
-                       + "-config" + ".json"
+            self.plot_path    = 'plots/'
+            self.cfg_filename = "config/runner-" + \
+                                time.strftime("%Y%m%d-%H%M%S") + "-config" + ".json"
 
-        return filename
+        # Create the folder if it doesn't exist
+        if not os.path.isdir(self.plot_path):
+            os.makedirs(self.plot_path)
 
-    def save(self, file):
+    def save(self):
         """Save est_op dictionary on JSON file
 
-        Args:
-            file : Path of the JSON file to save
-
         """
-        filename = self._filename(file)
-        with open(filename, 'w') as fd:
+        assert(self.cfg_filename is not None), \
+            "Configuration filename not defined"
+
+        with open(self.cfg_filename, 'w') as fd:
             json.dump(self.est_op, fd)
 
-        logging.info("Saved window configurations on %s" %(filename))
+        logging.info("Saved window configurations on %s" %(self.cfg_filename))
 
     def load(self, file):
         """Load est_op from JSON file
@@ -311,20 +312,18 @@ class Optimizer():
             raise ValueError("Need to pass the filename to load the \
                              configuration data")
 
-    def _check_cfg_file(self, window_cfg_file):
+    def _is_cfg_file_complete(self):
         """Check if configuration file is complete, i.e. if it contains the
-        best window for all estimators.
-
-        Args:
-            file  : Path of the configuration file
+        best window for all possible estimators.
 
         Return:
-            bool  : Returns 'True' if file is incomplete and the user want to
-                    find the missing windows. 'False' otherwise.
+            bool  : Returns 'True' if file is complete.
 
         """
-        logger.info("Loading configurations from %s." %(window_cfg_file))
-        self.load(window_cfg_file)
+        assert(self.cfg_filename is not None)
+        cfg_file = self.cfg_filename
+        logger.info("Loading configurations from %s." %(cfg_file))
+        self.load(cfg_file)
 
         # Check if the file is complete, i.e. have window configuration
         # of all estimators
@@ -360,16 +359,19 @@ class Optimizer():
         """
         self._sample_skip = sample_skip
 
-        # Has the given file been processed already?
-        window_cfg_file = self._filename(file)
-        if (os.path.isfile(window_cfg_file)):
-            logger.info("Window tuning file %s exists." %(window_cfg_file))
+        # Define paths used for saving plots and config file
+        self._set_paths(file)
+
+        # Is there a configuration file already? Is it complete (with all
+        # information)?
+        if (os.path.isfile(self.cfg_filename)):
+            logger.info("Window tuning file %s exists." %(self.cfg_filename))
             if (force):
-                logger.info("Cleaning configurations from %s." %(window_cfg_file))
-                # Save a clean structure on file
-                self.save(file)
+                logger.info("Cleaning configurations from %s." %(
+                    self.cfg_filename))
+                self.save()
             else:
-                if (not self._check_cfg_file(window_cfg_file)):
+                if (self._is_cfg_file_complete()):
                     return
 
         # Iterate over the estimators
@@ -377,17 +379,6 @@ class Optimizer():
                      else [estimator]
 
         for estimator in estimators:
-            # For the sample filters estimators that require the drift
-            # compensation provided by LS, first we need to find the best window
-            # length for LS and then run it.
-            if (re.search("-ls$", estimator)):
-                if (self.est_op["ls"]["N_best"] is None):
-                    self._search_min_max_te("ls", early_stopping=early_stopping)
-
-                # Do we need to re-run?
-                ls = ptp.ls.Ls(self.est_op["ls"]["N_best"], self.data, self.T_ns)
-                ls.process()
-
             # Search the window length that minimizes the max|TE|
             if (not self.est_op[estimator]["N_best"]):
                 self._search_min_max_te(estimator, plot=plot, save=save_plot,

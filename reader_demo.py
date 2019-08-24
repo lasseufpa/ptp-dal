@@ -17,6 +17,10 @@ def main():
                         default=False,
                         action='store_true',
                         help='Whether or not to optimize window length')
+    parser.add_argument('--no-optimizer-plots',
+                        default=False,
+                        action='store_true',
+                        help='Whether to disable window optimizer plots')
     parser.add_argument('--use-secs',
                         default=False,
                         action='store_true',
@@ -47,8 +51,9 @@ def main():
     # Optimize window length configuration
     if (not args.no_optimizer):
         window_optimizer = ptp.window.Optimizer(reader.data, T_ns)
-        window_optimizer.process('all', file=args.file)
-        window_optimizer.save(args.file)
+        window_optimizer.process('all', file=args.file,
+                                 plot=(not args.no_optimizer_plots))
+        window_optimizer.save()
         est_op    = window_optimizer.est_op
         N_ls      = est_op["ls"]["N_best"]             # LS
         N_movavg  = est_op["sample-average"]["N_best"] # Moving average
