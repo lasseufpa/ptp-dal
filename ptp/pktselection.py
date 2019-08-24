@@ -514,6 +514,8 @@ class PktSelection():
                 if ("drift" in self.data[i]):
                     drift_est[i] = self.data[i]["drift"]
 
+            assert(drift_est.any()), "Drift estimations not available"
+
         if (strategy == 'average' and avg_impl == 'recursive'):
             # Sample-by-sample processing
             if (drift_comp):
