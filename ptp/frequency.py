@@ -40,27 +40,14 @@ class Estimator():
         for r in self.data:
             r.pop("y_est", None)
 
-        for i,r in enumerate(self.data):
-            idx = r["idx"]
+        t1           = np.array([float(r["t1"]) for r in self.data])
+        t2           = np.array([float(r["t2"]) for r in self.data])
+        delta_slave  = t2[self.delta:] - t2[:-self.delta]
+        delta_master = t1[self.delta:] - t1[:-self.delta]
+        y_est        = (delta_slave - delta_master) / delta_master
 
-            # Start estimating after accumulating enough history
-            if (i < self.delta):
-                continue
-
-            # Estimate
-            t1           = r["t1"]
-            t2           = r["t2"]
-            i_past       = i - self.delta
-            t1_past      = self.data[i_past]["t1"]
-            t2_past      = self.data[i_past]["t2"]
-            delta_slave  = float(t2 - t2_past)
-            delta_master = float(t1 - t1_past)
-            y_est        = (delta_slave - delta_master) / delta_master
-
-            logger.debug("Delta t2: %f ns\tDelta t1: %f ns\tFreq Offset: %f ppb" %(
-                delta_slave, delta_master, y_est*1e9))
-
-            r["y_est"] = y_est
+        for i,r in enumerate(self.data[self.delta:]):
+            r["y_est"] = y_est[i]
 
     def optimize(self):
         """Optimize observation interval for minimum MSE
@@ -109,28 +96,15 @@ class Estimator():
                     'i-2', and so on (default: 4)
         """
 
-        for i,r in enumerate(self.data):
-            idx = r["idx"]
+        t1  = np.array([float(r["t1"]) for r in self.data])
+        x   = np.array([r["x"] for r in self.data])
+        dx  = x[self.delta:] - x[:-self.delta]
+        dt1 = t1[self.delta:] - t1[:-self.delta]
+        y   = dx / dt1
 
-            # Start estimating after accumulating enough history
-            if (i < delta):
-                continue
-
-            # Estimate
-            t1           = r["t1"]
-            x            = r["x"]
-            i_past       = i - delta
-            t1_past      = self.data[i_past]["t1"]
-            x_past       = self.data[i_past]["x"]
-            delta_x      = (x - x_past)
-            delta_master = float(t1 - t1_past)
-            y            = delta_x / delta_master
-
-            logger.debug("True Freq. Offset: Delta x: %f ns\tDelta t1: %f ns\tFreq Offset: %f ppb" %(
-                delta_x, delta_master, y*1e9))
-
+        for i,r in enumerate(self.data[self.delta:]):
             # Add to dataset
-            r["rtc_y"] = y
+            r["rtc_y"] = y[i]
 
     def estimate_drift(self):
         """Estimate the incremental drifts due to frequency offset
