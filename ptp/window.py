@@ -147,7 +147,8 @@ class Optimizer():
         return N_best, max_te, i_iter
 
     def _search_min_max_te(self, estimator, early_stopping=True, save=True,
-                           plot=False, global_plot=False, plot_info=True):
+                           plot=False, global_plot=False, plot_info=True,
+                           fine_pass=False):
         """Search the window length that minimizes Max|TE|
 
         Calculate the max|TE| for differents sizes of window length. Runs two
@@ -162,6 +163,7 @@ class Optimizer():
             plot           : Plot Max|TE| vs window
             global_plot    : Plot global curve (not only the fine region)
             plot_info      : Add window information in the plot
+            fine_pass      : Enable fine pass
 
         """
 
@@ -191,40 +193,41 @@ class Optimizer():
         # Second best window length
         N_scnd_best = window_len[i_max_te[1]]
 
-        # Fine pass
-        #
-        # Evaluate window lengths between the two best power-of-2 window lengths
-        # of the coarse pass. If using early stopping, use a relative high
-        # patience for the fine pass, as this region of the curve can be noisy.
-
-        # Sanity check
-        if (np.abs(i_scnd_best - i_best) != 1):
-            logging.warning("Best (%d) and second-best (%d) windows are not \
-            consecutive" %(N_best, N_scnd_best))
-
-        # Before running, prepare to concatenate previous max_te values with the
-        # ones computed during the fine pass
+        # Before running the fine pass, prepare to concatenate previous max_te
+        # values with the ones to be computed during the fine pass
         global_max_te  = max_te
         global_win_len = window_len
 
-        # Define the fine range of window lengths and run
-        if (N_best > N_scnd_best):
-            window_len = np.arange(N_scnd_best, N_best, 1)
-        else:
-            window_len = np.arange(N_best, N_scnd_best, 1)
+        if (fine_pass):
+            # Fine pass
+            #
+            # Evaluate window lengths between the two best power-of-2 window lengths
+            # of the coarse pass. If using early stopping, use a relative high
+            # patience for the fine pass, as this region of the curve can be noisy.
 
-        N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
-                                                   early_stopping=early_stopping,
-                                                   patience=100)
+            # Sanity check
+            if (np.abs(i_scnd_best - i_best) != 1):
+                logging.warning("Best (%d) and second-best (%d) windows are not \
+                consecutive" %(N_best, N_scnd_best))
 
-        # Truncate results again by considering the early stopping index
-        i_max_te   = np.argsort(max_te[:i_stop])
-        max_te     = max_te[:i_stop]
-        window_len = window_len[:i_stop]
+            # Define the fine range of window lengths and run
+            if (N_best > N_scnd_best):
+                window_len = np.arange(N_scnd_best, N_best, 1)
+            else:
+                window_len = np.arange(N_best, N_scnd_best, 1)
 
-        # Concatenate fine pass results within global vectors
-        global_max_te  = np.concatenate((global_max_te, max_te))
-        global_win_len = np.concatenate((global_win_len, window_len))
+            N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
+                                                       early_stopping=early_stopping,
+                                                       patience=100)
+
+            # Truncate results again by considering the early stopping index
+            i_max_te   = np.argsort(max_te[:i_stop])
+            max_te     = max_te[:i_stop]
+            window_len = window_len[:i_stop]
+
+            # Concatenate fine pass results within global vectors
+            global_max_te  = np.concatenate((global_max_te, max_te))
+            global_win_len = np.concatenate((global_win_len, window_len))
 
         # Save the best window length
         self.est_op[estimator]["N_best"] = int(N_best)
@@ -340,7 +343,7 @@ class Optimizer():
 
     def process(self, estimator, file=None, save=False, sample_skip=0,
                 early_stopping=True, force=False, plot=False, save_plot=True,
-                global_plot=False, plot_info=False):
+                global_plot=False, plot_info=False, fine_pass=False):
         """Process the observations
 
         Args:
@@ -355,6 +358,7 @@ class Optimizer():
             save_plot       : Save plot if plotting
             global_plot     : Plot global curve (not only the fine region)
             plot_info       : Add window information in the plot
+            fine_pass       : Enable fine pass
 
         """
         self._sample_skip = sample_skip
@@ -384,7 +388,8 @@ class Optimizer():
                 self._search_min_max_te(estimator, plot=plot, save=save_plot,
                                         early_stopping=early_stopping,
                                         global_plot=global_plot,
-                                        plot_info=plot_info)
+                                        plot_info=plot_info,
+                                        fine_pass=fine_pass)
 
             # Save results on JSON file
             if (save):

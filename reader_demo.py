@@ -21,6 +21,10 @@ def main():
                         default=False,
                         action='store_true',
                         help='Whether to disable window optimizer plots')
+    parser.add_argument('--optimizer-fine',
+                        default=False,
+                        action='store_true',
+                        help='Whether to enable window optimizer fine pass')
     parser.add_argument('--use-secs',
                         default=False,
                         action='store_true',
@@ -52,7 +56,8 @@ def main():
     if (not args.no_optimizer):
         window_optimizer = ptp.window.Optimizer(reader.data, T_ns)
         window_optimizer.process('all', file=args.file,
-                                 plot=(not args.no_optimizer_plots))
+                                 plot=(not args.no_optimizer_plots),
+                                 fine_pass=args.optimizer_fine)
         window_optimizer.save()
         est_op    = window_optimizer.est_op
         N_ls      = est_op["ls"]["N_best"]             # LS

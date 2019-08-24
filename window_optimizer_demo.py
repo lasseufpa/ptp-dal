@@ -54,6 +54,10 @@ def main():
                         default=False,
                         action='store_true',
                         help='Force processing even if already done previously')
+    parser.add_argument('--fine',
+                        default=False,
+                        action='store_true',
+                        help='Whether to enable window optimizer fine pass')
     parser.add_argument('--verbose', '-v', action='count', default=1,
                         help="Verbosity (logging) level")
     args = parser.parse_args()
@@ -93,7 +97,8 @@ def main():
                              plot=args.plot, early_stopping=(not args.no_stop),
                              save_plot=args.save_plot, force=args.force,
                              plot_info=(not args.no_plot_info),
-                             global_plot=args.global_plot)
+                             global_plot=args.global_plot,
+                             fine_pass=args.fine)
 
 if __name__ == "__main__":
     main()
