@@ -12,7 +12,7 @@ class TestPktSelection(unittest.TestCase):
     def test_sample_mean(self):
         N    = 2
         pkts = PktSelection(N, data)
-        pkts.process('average', avg_impl="normal")
+        pkts.process('average', avg_impl="normal", drift_comp=False)
         x_est_avg = [r["x_pkts_average"] for r in data if "x_pkts_average" in r]
 
         # Check values
@@ -26,7 +26,7 @@ class TestPktSelection(unittest.TestCase):
             r.pop("x_pkts_average", None)
         N    = 3
         pkts = PktSelection(N, data)
-        pkts.process('average', avg_impl="recursive")
+        pkts.process('average', avg_impl="recursive", drift_comp=False)
         x_est_avg = [r["x_pkts_average"] for r in data if "x_pkts_average" in r]
 
         # Check values
@@ -39,7 +39,7 @@ class TestPktSelection(unittest.TestCase):
     def test_sample_median(self):
         N    = 3
         pkts = PktSelection(N, data)
-        pkts.process('median')
+        pkts.process('median', drift_comp=False)
         x_est_median = [r["x_pkts_median"] for r in data if "x_pkts_median" in r]
 
         # Check values
@@ -50,7 +50,7 @@ class TestPktSelection(unittest.TestCase):
     def test_sample_min(self):
         N    = 3
         pkts = PktSelection(N, data)
-        pkts.process('min')
+        pkts.process('min', drift_comp=False)
         x_est_min = [r["x_pkts_min"] for r in data if "x_pkts_min" in r]
 
         # Check values
