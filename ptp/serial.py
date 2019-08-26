@@ -2,7 +2,7 @@
 
 """Acquisition of timestamps via UART
 """
-import serial, time, json, logging, signal
+import serial, time, json, logging, signal, os
 from pprint import pprint, pformat
 from ptp.reader import Reader
 
@@ -97,9 +97,20 @@ class Serial():
                 fd.write(',\n')
             json.dump(data, fd)
 
+    def move(self, file):
+        """Move JSON file"""
+
+        dst = "/opt/ptp_datasets/" + os.path.basename(file)
+        raw_resp = input(f"Move {file} to {dst}? [Y/n] ") or "Y"
+        response = raw_resp.lower()
+
+        if (response == 'y'):
+            os.rename(file, dst)
+
     def catch(self, signum, frame):
         self.end_json_file()
         logger.info("Terminating acquisition of %s" %(self.filename))
+        self.move()
         exit()
 
     def run(self, print_en, capture_occ=True):
@@ -209,3 +220,4 @@ class Serial():
                 print(line, end='')
 
         self.end_json_file()
+        self.move()
