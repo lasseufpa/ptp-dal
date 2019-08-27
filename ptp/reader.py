@@ -224,9 +224,14 @@ class Reader():
         # Put info in dictionary and append to self.data
         for i in range (0, n_data):
             results = self.process(data[i])
-            # Append temperature to results if exists
+            # Append temperature to results if it exists
             if (data[i].get("temp")):
                 results["temp"] = data[i]["temp"]
+
+            # Append occupancy to results if it exists
+            if (data[i].get("occupancy")):
+                results["occ"] = data[i]["occupancy"]
+
             self.data.append(results)
             self.check_progress(i, n_data)
 

@@ -1290,3 +1290,43 @@ class Analyser():
         else:
             plt.show()
         plt.close()
+
+    def plot_occupancy(self, x_unit='time', save=True, save_format='png'):
+        """Plot RRU DAC interface buffer occupancy vs time
+
+        Args:
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot occupancy")
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            time_vec     = np.array([float(r["t1"] - t_start) for r in \
+                                    self.data]) / NS_PER_MIN
+            x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
+                            if "occ" in r]
+            x_axis_label = 'Time (min)'
+
+        elif (x_unit == "samples"):
+            x_axis_vec   = [r["idx"] for r in self.data if "occ" in r]
+            x_axis_label = 'Realization'
+
+        occ = np.array([int(r["occ"]) for r in self.data if "occ" in r])
+
+        plt.figure()
+        plt.scatter(x_axis_vec, occ, s = 1.0)
+        plt.xlabel(x_axis_label)
+        plt.ylim((0, 8191))
+        plt.ylabel('Occupancy')
+
+        if (save):
+            plt.savefig(self.path + "occupancy_vs_time", format=save_format, dpi=300)
+        else:
+            plt.show()
+        plt.close()
+
+
