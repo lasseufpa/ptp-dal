@@ -11,6 +11,38 @@ import ptp.serial
 
 DEFAULT_CONFIG = "config/capture.cfg"
 
+def calc_rate(n_spf, l_iq, fs, n_rru_cfg, n_rru_active):
+    """Compute theoretical DL/UL bitrates
+
+    Args:
+        n_spf        : Number of IQ samples per Ethernet frame
+        l_iq         : IQ sample size (in bits)
+        n_rru_cfg    : Number of RRUs configured at the BBU (determines DL rate)
+        n_rru_active : Number of RRUs that are actually active (determines UL
+                       rate)
+
+    Returns:
+        Tuple with DL and UL bitrates
+
+    """
+    # Constants
+    eth_hdr_len    = 14*8
+    fh_hdr_len     = 12*8
+    n_axc_per_rru  = 2
+
+    # Fronthaul frame length in bits
+    fh_payload_len = n_spf * l_iq
+    fh_frame_len   = eth_hdr_len + fh_hdr_len + fh_payload_len
+    # Fronthaul frame transmission period
+    i_bg           = n_spf / (n_axc_per_rru * fs);
+    # Bitrate per RRU
+    rate_per_rru   = fh_frame_len / i_bg
+    # Total DL/UL bitrates
+    bitrate_dl     = rate_per_rru * n_rru_cfg
+    bitrate_ul     = rate_per_rru * n_rru_active
+
+    return bitrate_dl, bitrate_ul
+
 
 def main():
     cfg_parser = configparser.ConfigParser()
@@ -100,15 +132,8 @@ def main():
     # information to save as metadata
     if (args.fh_traffic) :
         # Compute theoretical DL/UL bitrates
-        eth_hdr_len    = 14*8
-        fh_hdr_len     = 12*8
-        n_axc_per_rru  = 2
-        fh_payload_len = args.n_spf * args.iq_size
-        fh_frame_len   = eth_hdr_len + fh_hdr_len + fh_payload_len
-        i_bg           = args.n_spf / (n_axc_per_rru * args.fs);
-        rate_per_rru   = fh_frame_len / i_bg
-        bitrate_dl     = rate_per_rru * args.n_rru_cfg
-        bitrate_ul     = rate_per_rru * args.n_rru_active
+        bitrate_dl, bitrate_ul = calc_rate(args.n_spf, args.iq_size, args.fs,
+                                           args.n_rru_cfg, args.n_rru_active)
 
         fh_traffic = {
             "type" : args.type,
