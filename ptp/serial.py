@@ -5,6 +5,7 @@
 import serial, time, json, logging, signal, os
 from pprint import pprint, pformat
 from ptp.reader import Reader
+from ptp.docs import Docs
 
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,9 @@ class Serial():
 
         if (response == 'y'):
             os.rename(file, dst)
+
+            # Add metadata to '/opt/ptp_datasets/README.md'
+            Docs.add_value(self.filename)
 
     def catch(self, signum, frame):
         self.end_json_file()
