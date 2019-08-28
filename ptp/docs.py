@@ -26,7 +26,8 @@ class Docs():
                           'Sync Period': 'sync_period', \
                           'Number of hops': 'hops', \
                           'FH Traffic DL': 'dl', \
-                          'FH Traffic UL': 'ul'}
+                          'FH Traffic UL': 'ul', \
+                          'Experiment': 'experiment'}
 
         header        = [k for k,v in self.header.items()]
 
@@ -46,6 +47,8 @@ class Docs():
             metadata:
 
         """
+        assert(os.path.exists(self.cfg_file)), "README.md file not exist"
+
         value      = list()
         value_line = ''
         header     = [v for k,v in self.header.items()]
@@ -53,7 +56,13 @@ class Docs():
 
         for h in header:
             if (h == 'file'):
-                value += [filename]
+                value += [os.path.basename(filename)]
+            elif (h == 'experiment'):
+                experiment = os.path.dirname(filename).replace(self.cfg_path, '')
+                if (experiment == os.path.dirname(self.cfg_path)):
+                    value += ['None']
+                else:
+                    value += [experiment]
             else:
                 value += [self._find_value(metadata, h)]
 
@@ -82,11 +91,32 @@ class Docs():
             else:
                 return ''
 
+    def _find_datasets(self, dirpath):
+        """Find all datasets in subdirectories
+
+        Args:
+            dirpath: Path of the directory to search
+        """
+
+        list_of_datasets = os.listdir(dirpath)
+        all_datasets     = list()
+
+        for entry in list_of_datasets:
+            full_path = os.path.join(dirpath, entry)
+
+            if (os.path.isdir(full_path)):
+                all_datasets = all_datasets + self._find_datasets(full_path)
+            else:
+                if (full_path.endswith('.json')):
+                    all_datasets.append(full_path)
+
+        return all_datasets
+
     def read_metadata(self, filename):
         """Read metadata inside file passed as argument
 
         Args:
-            filename:
+            filename: Path of the file
 
         Returns:
             Dictionary containing the metadata
@@ -119,11 +149,11 @@ class Docs():
         self.set_header()
 
         # Add row for each file
-        basepath = os.path.dirname(self.cfg_path)
-        for entry in os.listdir(basepath):
-            filename = os.path.join(basepath, entry)
-            if os.path.isfile(filename):
-                metadata = self.read_metadata(filename)
-                if (metadata is not None):
-                    self.add_value(filename, metadata)
+        basepath     = os.path.dirname(self.cfg_path)
+        all_datasets = self._find_datasets(basepath)
+
+        for dataset in all_datasets:
+            print(dataset)
+            self.add_value(dataset)
+
 
