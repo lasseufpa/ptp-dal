@@ -174,7 +174,10 @@ class Optimizer():
         # Evaluate power-of-2 window lengths. If using early stopping, use the
         # default patience.
         log_max_window = np.floor(np.log2(len(self.data)/2))
-        log_min_window = 1
+        if (est_key == "pkts_mode"):
+            log_min_window = 2 # sample-mode needs window length > 2
+        else:
+            log_min_window = 1
         log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
         window_len     = 2**log_window_len
 
