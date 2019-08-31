@@ -22,7 +22,7 @@ From the root folder:
 python -m unittest discover
 ```
 
-## Test/demo scripts
+## Test/demo/helper scripts
 
 * `ptp_plots.py`: Demonstrates several plots that can be generated using the
   `ptp.metrics` module.
@@ -33,6 +33,8 @@ python -m unittest discover
 * `kalman_demo.py`: Demonstrates how to evaluate Kalman filtering.
 * `reader_demo.py`: Demonstrates how pre-acquired data can be loaded into the
   simulator.
+* `capture.py` : Acquire timestamp data from testbed
+* `catalog.py` : Catalogs datasets acquired from testbed
 
 ## Acquire Data from the Testbed
 
@@ -60,3 +62,13 @@ To process it fully without log, run:
 ```
 python reader_demo.py -f data/example_log.json
 ```
+
+## Catalog datasets
+
+Assuming for instance that the datasets are located at the `data/` folder
+(default), run the following to catalog them based on their metadata:
+
+```
+./catalog.py -d data/
+```
+
