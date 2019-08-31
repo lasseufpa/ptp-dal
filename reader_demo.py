@@ -148,10 +148,10 @@ def main():
     analyser.plot_toffset_diff_hist()
     analyser.plot_mtie(show_raw = False)
     analyser.plot_max_te(show_raw=False, window_len = 1000)
-    analyser.ptp_exchanges_per_sec()
-    analyser.delay_asymmetry()
-    analyser.toffset_err_stats()
-    analyser.foffset_err_stats()
+    analyser.ptp_exchanges_per_sec(save=True)
+    analyser.delay_asymmetry(save=True)
+    analyser.toffset_err_stats(save=True)
+    analyser.foffset_err_stats(save=True)
 
 if __name__ == "__main__":
     main()

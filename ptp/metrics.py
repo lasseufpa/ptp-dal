@@ -82,13 +82,20 @@ class Analyser():
 
     def save_metadata(self, metadata):
         """Save metadata info on the path where plots are saved
+
+        Note this method will overwrite the info.txt file. Hence, it should be
+        called before all other methods that print to info.txt.
+
         """
 
         with open(os.path.join(self.path, 'info.txt'), 'w') as outfile:
             json.dump(metadata, outfile)
 
-    def ptp_exchanges_per_sec(self):
+    def ptp_exchanges_per_sec(self, save=False):
         """Compute average number of PTP exchanges per second
+
+        Args:
+            save    : whether to write results into info.txt
 
         Returns:
             The computed average
@@ -100,14 +107,25 @@ class Analyser():
         duration   = float(end_time - start_time)
         n_per_sec  = 1e9 * len(self.data) / duration
 
-        print("Average no. of PTP exchanges per second: %f" %(n_per_sec))
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+
+        for f in files:
+            print("Average no. of PTP exchanges per second: %f" %(n_per_sec),
+                  file=f)
 
         return n_per_sec
 
-    def delay_asymmetry(self, verbose=True):
+    def delay_asymmetry(self, verbose=True, save=False):
         """Analyze the delay asymmetry
 
         Compute and print some relevant asymmetry metrics.
+
+        Args:
+            verbose : whether to print results (otherwise just return it)
+            save    : whether to write results into info.txt
 
         Returns:
             Average delay asymmetry
@@ -118,46 +136,80 @@ class Analyser():
         d_ms   = np.array([r["d"] for r in self.data])
         d_sm   = np.array([r["d_bw"] for r in self.data])
 
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+
         if (verbose):
-            print("Delay asymmetry analysis:\n")
-            print("Metric \t%12s\t%12s\t%12s" %("m-to-s", "s-to-m", "asymmetry"))
-            print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)))
-            print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                np.amin(d_ms), np.amin(d_sm), (np.amin(d_ms) - np.amin(d_sm))/2))
-            print("Maximum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                np.amax(d_ms), np.amax(d_sm), (np.amax(d_ms) - np.amax(d_sm))/2))
-            print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                np.median(d_ms), np.median(d_sm),
-                (np.median(d_ms) - np.median(d_sm))/2))
+            for f in files:
+                print("\nDelay asymmetry analysis:\n", file=f)
+                print("Metric \t%12s\t%12s\t%12s" %("m-to-s", "s-to-m",
+                                                    "asymmetry"))
+                print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                    np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)), file=f)
+                print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                    np.amin(d_ms), np.amin(d_sm),
+                    (np.amin(d_ms) - np.amin(d_sm))/2), file=f)
+                print("Maximum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                    np.amax(d_ms), np.amax(d_sm),
+                    (np.amax(d_ms) - np.amax(d_sm))/2), file=f)
+                print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                    np.median(d_ms), np.median(d_sm),
+                    (np.median(d_ms) - np.median(d_sm))/2), file=f)
 
         return np.mean(d_asym)
 
-    def toffset_err_stats(self):
+    def toffset_err_stats(self, save=False):
         """Print the time offset estimation error statistics
 
+        Args:
+            save    : whether to write results into info.txt
+
         """
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+
         # Skip the transitory (e.g. due to Kalman)
         logger.info("Eval time offset estimation error statistics")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
+
+        for f in files:
+            print("\nTime offset estimation error statistics:\n", file=f)
 
         for suffix, value in est_keys.items():
             key   = "x_est" if (suffix == "raw") else "x_" + suffix
             x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
 
             if (len(x_err) > 0):
-                print("[%14s] Mean: % 7.2f ns\tSdev: % 7.2f ns" %(
-                    key, np.mean(x_err), np.std(x_err)))
+                for f in files:
+                    print("[%14s] Mean: % 7.2f ns\tSdev: % 7.2f ns" %(
+                        key, np.mean(x_err), np.std(x_err)), file=f)
 
             del x_err
 
-    def foffset_err_stats(self):
+    def foffset_err_stats(self, save=False):
         """Print the frequency offset estimation error statistics
 
+        Args:
+            save    : whether to write results into info.txt
+
         """
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+
         # Skip the transitory (e.g. due to Kalman)
         logger.info("Eval frequency offset estimation error statistics")
+
+        for f in files:
+            print("\nFrequency offset estimation error statistics:\n", file=f)
 
         for suffix, value in est_keys.items():
             key   = "y_est" if (suffix == "raw") else "y_" + suffix
@@ -165,8 +217,9 @@ class Analyser():
                      if (key in r) and ("rtc_y" in r)]
 
             if (len(y_err) > 0):
-                print("[%14s] Mean: % 7.4f ppb\tSdev: % 7.4f ppb" %(
-                    key, np.mean(y_err), np.std(y_err)))
+                for f in files:
+                    print("[%14s] Mean: % 7.4f ppb\tSdev: % 7.4f ppb" %(
+                        key, np.mean(y_err), np.std(y_err)), file=f)
 
             del y_err
 
