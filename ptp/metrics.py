@@ -1,6 +1,7 @@
 """PTP metrics
 """
 import math, logging, re, os, json
+from datetime import timedelta
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -88,8 +89,18 @@ class Analyser():
 
         """
 
+        # Augment the metadata
+        duration_ns     = float(self.data[-1]["t1"] - self.data[0]["t1"])
+        duration_tdelta = timedelta(microseconds = (duration_ns / 1e3))
+
+        metadata["n_exchanges"] = len(self.data)
+        metadata["sync_rate"]   = int(1 / metadata["sync_period"])
+        metadata["duration"]    = str(duration_tdelta)
+
         with open(os.path.join(self.path, 'info.txt'), 'w') as outfile:
-            json.dump(metadata, outfile)
+            print("Setup:", file=outfile)
+            json.dump(metadata, outfile, indent=4, sort_keys=True)
+            print("\n", file=outfile)
 
     def ptp_exchanges_per_sec(self, save=False):
         """Compute average number of PTP exchanges per second
