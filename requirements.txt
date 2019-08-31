@@ -18,6 +18,7 @@ jupyter-client==5.2.4
 jupyter-console==6.0.0
 jupyter-core==4.5.0
 kiwisolver==1.1.0
+markdown2==2.3.8
 MarkupSafe==1.1.1
 matplotlib==3.0.3
 mistune==0.8.4

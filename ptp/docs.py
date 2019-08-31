@@ -1,6 +1,7 @@
 """Generate documentation for testbed dataset
 """
 import logging, os, json, glob
+import markdown2
 
 logger = logging.getLogger(__name__)
 
@@ -8,10 +9,11 @@ logger = logging.getLogger(__name__)
 class Docs():
     def __init__(self, cfg_path='/opt/ptp_datasets/'):
 
-        self.header   = None
-        self.cfg_path = os.path.abspath(cfg_path)
-        self.cfg_file = os.path.join(cfg_path, 'README.md')
-        self.values   = list()
+        self.header    = None
+        self.cfg_path  = os.path.abspath(cfg_path)
+        self.cfg_file  = os.path.join(cfg_path, 'README.md')
+        self.html_file = os.path.join(cfg_path, 'README.html')
+        self.values    = list()
 
     def set_header(self):
         """Generate header of the markdown table"""
@@ -140,8 +142,14 @@ class Docs():
         all_datasets = glob.glob(os.path.join(self.cfg_path, "**/*.json"),
                                  recursive=True)
 
+        # Generate .md file
         for dataset in all_datasets:
             print(dataset)
             self.add_value(dataset)
 
+        # Compile .md file to HTML
+        html = markdown2.markdown_path(self.cfg_file,
+                                       extras=["tables", "code-friendly"])
+        with open(self.html_file, 'w') as fd:
+            fd.write(html)
 
