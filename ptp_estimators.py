@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import ptp.runner
 import ptp.ls
 import ptp.metrics

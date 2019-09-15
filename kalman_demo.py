@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """Experiment with Kalman Filter
 
 Compare Kalman to LS

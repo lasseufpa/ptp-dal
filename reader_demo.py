@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse, logging, sys
 import ptp.reader
 import ptp.ls

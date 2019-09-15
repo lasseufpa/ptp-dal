@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """Analyse the estimators performance as a function of window length
 """
 import argparse, logging, sys
