@@ -98,15 +98,14 @@ class Serial():
                 fd.write(',\n')
             json.dump(data, fd)
 
-    def move(self, file):
+    def move(self):
         """Move JSON file"""
-
-        dst = "/opt/ptp_datasets/" + os.path.basename(file)
-        raw_resp = input(f"Move {file} to {dst}? [Y/n] ") or "Y"
+        dst      = "/opt/ptp_datasets/" + os.path.basename(self.filename)
+        raw_resp = input(f"Move {self.filename} to {dst}? [Y/n] ") or "Y"
         response = raw_resp.lower()
 
         if (response == 'y'):
-            os.rename(file, dst)
+            os.rename(self.filename, dst)
 
             # Add metadata to '/opt/ptp_datasets/README.md'
             Docs.add_value(self.filename)
