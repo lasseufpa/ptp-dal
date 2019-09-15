@@ -256,7 +256,8 @@ class Optimizer():
             if (save):
                 assert(self.plot_path is not None), "Plot path not defined"
                 plt.savefig(os.path.join(self.plot_path,
-                                         f"{est_key}_max_te_vs_window"))
+                                         f"win_opt_{est_key}_max_te_vs_window"),
+                            dpi=300)
             else:
                 plt.show()
 

@@ -713,7 +713,7 @@ class Analyser():
             plt.ylabel('m-to-s delay (ns)')
 
             if (save):
-                plt.savefig(self.path + "m2s_delay_vs_time", format=save_format,
+                plt.savefig(self.path + "delay_m2s_vs_time", format=save_format,
                             dpi=300)
             else:
                 plt.show()
@@ -725,7 +725,7 @@ class Analyser():
             plt.ylabel('s-to-m delay (ns)')
 
             if (save):
-                plt.savefig(self.path + "s2m_delay_vs_time", format=save_format,
+                plt.savefig(self.path + "delay_s2m_vs_time", format=save_format,
                             dpi=300)
             else:
                 plt.show()
