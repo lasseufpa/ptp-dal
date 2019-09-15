@@ -148,13 +148,18 @@ class Optimizer():
 
     def _search_min_max_te(self, estimator, early_stopping=True, save=True,
                            plot=False, global_plot=False, plot_info=True,
-                           fine_pass=False):
+                           fine_pass=False, eval_all=False):
         """Search the window length that minimizes Max|TE|
 
         Calculate the max|TE| for differents sizes of window length. Runs two
         passes through the data. The first (coarse pass) evaluates power-of-2
         window lengths. The second (fine pass) evaluates intermediate values
         between the two best power-of-2 lengths.
+
+        If option "eval_all" is defined, disable coarse-fine passes and instead
+        run a normal pass over a range with unitary increments. Say this range
+        will be 2:2048. In this case, evaluate all values in this range.
+
 
         Args:
             estimator      : Select the estimator
@@ -164,25 +169,34 @@ class Optimizer():
             global_plot    : Plot global curve (not only the fine region)
             plot_info      : Add window information in the plot
             fine_pass      : Enable fine pass
+            eval_all       : Disable coarse/fine pass and instead evaluate all
+                             window length values of a linear range
 
         """
 
         est_key   = self.est_op[estimator]["est_key"]
 
-        # Coarse pass
-        #
-        # Evaluate power-of-2 window lengths. If using early stopping, use the
-        # default patience.
-        log_max_window = np.floor(np.log2(len(self.data)/2))
-        if (est_key == "pkts_mode"):
-            log_min_window = 2 # sample-mode needs window length > 2
+        if (eval_all):
+            max_window = 2**np.minimum(np.floor(np.log2(len(self.data)/2)), 13)
+            window_len = np.arange(2, max_window)
+            N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
+                                                       early_stopping=False)
         else:
-            log_min_window = 1
-        log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
-        window_len     = 2**log_window_len
+            # Coarse pass
+            #
+            # Evaluate power-of-2 window lengths. If using early stopping, use
+            # the default patience.
+            log_max_window = np.minimum(np.floor(np.log2(len(self.data)/2)), 13)
+            # limit to 8192
+            if (est_key == "pkts_mode"):
+                log_min_window = 2 # sample-mode needs window length > 2
+            else:
+                log_min_window = 1
+            log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
+            window_len     = 2**log_window_len
 
-        N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
-                                                   early_stopping=early_stopping)
+            N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
+                                                       early_stopping=early_stopping)
 
         # Truncate results by considering the early stopping index
         max_te     = max_te[:i_stop]
@@ -201,7 +215,7 @@ class Optimizer():
         global_max_te  = max_te
         global_win_len = window_len
 
-        if (fine_pass):
+        if (fine_pass and (not eval_all)):
             # Fine pass
             #
             # Evaluate window lengths between the two best power-of-2 window lengths
