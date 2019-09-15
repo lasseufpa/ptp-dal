@@ -295,9 +295,15 @@ class Optimizer():
 
         """
         if (file):
+            # Aim at saving plots at "rootdir/plots/" and window configurations
+            # at "rootdir/config". The current module lies within
+            # "rootdir/ptp/", so we use its path in order to find rootdir.
             basename  = os.path.splitext(os.path.basename(file))[0]
-            self.plot_path    = 'plots/' + basename + '/'
-            self.cfg_filename = "config/" + basename + "-config" + ".json"
+            this_file = os.path.realpath(__file__)
+            rootdir   = os.path.dirname(os.path.dirname(this_file))
+            self.plot_path    = os.path.join(rootdir, 'plots', basename)
+            self.cfg_filename = os.path.join(rootdir, 'config',
+                                             basename + "-config" + ".json")
         else:
             self.plot_path    = 'plots/'
             self.cfg_filename = "config/runner-" + \
