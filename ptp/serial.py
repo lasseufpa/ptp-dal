@@ -130,7 +130,8 @@ class Serial():
 
         format_str = ('i:{:>4d} t1:{:>5d},{:>9d} t2:{:>5d},{:>9d} '
                       't3:{:>5d},{:>9d} t4:{:>5d},{:>9d} '
-                      't1_pps:{:>5d},{:>9d} t4_pps:{:>5d},{:>9d}')
+                      't1_pps:{:>5d},{:>9d} t4_pps:{:>5d},{:>9d} '
+                      'temp:{:>4.1f} occ:{:>4d}')
 
         # Use the reader class to post-process each set of timestamp in
         # real-time and to print the associated PTP metrics
@@ -163,7 +164,7 @@ class Serial():
                 split_line = line.split("\t")
                 if (len(split_line) > 1):
                     try:
-                        occupancy = split_line[1]
+                        occupancy = int(split_line[1])
                     except ValueError:
                         occupancy = None
 
@@ -215,7 +216,9 @@ class Serial():
                 logger.debug(format_str.format(self.idx, t1_sec, t1_ns, t2_sec,
                                                t2_ns, t3_sec, t3_ns, t4_sec,
                                                t4_ns, t1_pps_sec, t1_pps_ns,
-                                               t4_pps_sec, t4_pps_ns))
+                                               t4_pps_sec, t4_pps_ns,
+                                               temperature or -1,
+                                               occupancy or -1))
 
                 # Append to output file
                 self.save(run_data)
