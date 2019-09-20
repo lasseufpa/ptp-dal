@@ -1356,7 +1356,7 @@ class Analyser():
         plt.close()
 
     def plot_occupancy(self, x_unit='time', save=True, save_format='png'):
-        """Plot RRU DAC interface buffer occupancy vs time
+        """Plot BBU/RRU DAC interface buffer occupancy vs time
 
         Args:
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
@@ -1366,27 +1366,30 @@ class Analyser():
         """
         logger.info("Plot occupancy")
 
-        # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
             t_start      = self.data[0]["t1"]
-            time_vec     = np.array([float(r["t1"] - t_start) for r in \
-                                    self.data]) / NS_PER_MIN
-            x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
-                            if "occ" in r]
             x_axis_label = 'Time (min)'
-
+            time_vec     = np.array([float(r["t1"] - t_start) for r in \
+                                     self.data]) / NS_PER_MIN
         elif (x_unit == "samples"):
-            x_axis_vec   = [r["idx"] for r in self.data if "occ" in r]
             x_axis_label = 'Realization'
 
-        occ = np.array([int(r["occ"]) for r in self.data if "occ" in r])
-
+        # Plot BBU and RRU occupancies
         plt.figure()
-        plt.scatter(x_axis_vec, occ, s = 1.0)
+        for key, label in [("rru_occ", "RRU"), ("bbu_occ", "BBU")]:
+            if (x_unit == "time"):
+                x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
+                                if key in r]
+            elif (x_unit == "samples"):
+                x_axis_vec   = [r["idx"] for r in self.data if key in r]
+
+            occ = np.array([int(r[key]) for r in self.data if key in r])
+            plt.scatter(x_axis_vec, occ, s = 1.0, label=label)
+
         plt.xlabel(x_axis_label)
         plt.ylim((0, 8191))
         plt.ylabel('Occupancy')
-
+        plt.legend()
         if (save):
             plt.savefig(self.path + "occupancy_vs_time", format=save_format, dpi=300)
         else:

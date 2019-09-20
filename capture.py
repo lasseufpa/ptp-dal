@@ -49,11 +49,15 @@ def main():
     cfg_parser.read(DEFAULT_CONFIG)
 
     parser = argparse.ArgumentParser(description="Capture timestamps from FPGA")
-    parser.add_argument('-t', '--target',
+    parser.add_argument('--rru',
                         default="rru_uart",
-                        choices=["bbu_uart", "rru_uart", "rru2_uart"],
+                        choices=["rru_uart", "rru2_uart"],
                         help='Target char device for UART communication with \
-                        FPGA (default: rru_uart).')
+                        an RRU FPGA (default: rru_uart).')
+    parser.add_argument('--bbu',
+                        default="bbu_uart",
+                        help='Target char device for UART communication \
+                        with the BBU FPGA (default: bbu_uart).')
     parser.add_argument('--sensor',
                         default="roe_sensor",
                         help='Target char device for UART communication \
@@ -165,8 +169,8 @@ def main():
     response = raw_resp.lower()
 
     if (response.lower() == "y"):
-        serial = ptp.serial.Serial(args.target, args.sensor, args.num_iter,
-                                   metadata)
+        serial = ptp.serial.Serial(args.rru, args.bbu, args.sensor,
+                                   args.num_iter, metadata)
         serial.run(args.print_all)
 
 if __name__ == "__main__":

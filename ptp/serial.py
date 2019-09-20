@@ -6,17 +6,19 @@ import serial, time, json, logging, signal, os
 from pprint import pprint, pformat
 from ptp.reader import Reader
 from ptp.docs import Docs
+import threading
 
 
 logger = logging.getLogger(__name__)
 
 
 class Serial():
-    def __init__(self, fpga_dev, sensor_dev, n_samples, metadata):
+    def __init__(self, rru_dev, bbu_dev, sensor_dev, n_samples, metadata):
         """Serial capture of timestamps from testbed
 
         Args:
-            fpga_dev   : FPGA device ('bbu_uart', 'rru_uart' or 'rru2_uart')
+            rru_dev    : RRU FPGA device ('rru_uart' or 'rru2_uart')
+            bbu_dev    : BBU FPGA device ('bbu_uart')
             sensor_dev : Sensor device ('roe_sensor')
             n_samples  : Target number of samples (0 for infinity)
             metadata   : Information about the testbed configuration
@@ -25,21 +27,69 @@ class Serial():
         self.n_samples = n_samples
         self.metadata  = metadata
 
-        # Initializing serial connection
-        self.fpga = self.connect(fpga_dev)
-
+        # Serial connections
+        self.rru = self.connect(rru_dev)
+        if (bbu_dev is not None):
+            self.bbu  = self.connect(bbu_dev)
+        else:
+            self.bbu  = None
         if (sensor_dev is not None):
             self.sensor = self.connect(sensor_dev)
         else:
             self.sensor = None
 
-        # Enable
-        self.en_capture = True
-        self.idx        = 0
-
         # Filename
         path = "data/"
         self.filename = path + "serial-" + time.strftime("%Y%m%d-%H%M%S") + ".json"
+
+        # Initialize some vars
+        self.idx          = 0
+        self.last_temp    = None
+        self.last_bbu_occ = None
+
+        # Enable
+        self.en_capture = True
+
+        # Threads for reading the BBU and sensor (the RRU will be read by the
+        # main thread)
+        if (self.sensor is not None):
+            sensor_thread = threading.Thread(target=self.read_sensor,
+                                             daemon=True)
+            sensor_thread.start()
+
+        if (self.bbu is not None):
+            bbu_thread = threading.Thread(target=self.read_bbu, daemon=True)
+            bbu_thread.start()
+
+    def read_sensor(self):
+        """Loop for reading the sensor device"""
+        while (self.en_capture):
+            assert(self.sensor.in_waiting < 2048), \
+                "Sensor serial buffer is getting full"
+
+            temperature_str = self.sensor.readline()
+
+            if (len(temperature_str) > 0):
+                try:
+                    self.last_temp = float(temperature_str)
+                except ValueError:
+                        pass
+
+    def read_bbu(self):
+        """Loop for reading the BBU device"""
+        while (self.en_capture):
+            assert(self.bbu.in_waiting < 2048), \
+                "BBU serial buffer is getting full"
+
+            bbu_str = self.bbu.readline().decode()
+
+            if "Occupancy" in bbu_str:
+                bbu_str_split = bbu_str.split("\t")
+                if (len(bbu_str_split) > 1):
+                    try:
+                        self.last_bbu_occ = int(bbu_str_split[1])
+                    except ValueError:
+                        pass
 
     def connect(self, device, baudrate=115200):
         """Establish a serial connection to a given device.
@@ -111,6 +161,7 @@ class Serial():
             Docs.add_value(self.filename)
 
     def catch(self, signum, frame):
+        self.en_capture = False
         self.end_json_file()
         logger.info("Terminating acquisition of %s" %(self.filename))
         self.move()
@@ -130,7 +181,8 @@ class Serial():
         format_str = ('i:{:>4d} t1:{:>5d},{:>9d} t2:{:>5d},{:>9d} '
                       't3:{:>5d},{:>9d} t4:{:>5d},{:>9d} '
                       't1_pps:{:>5d},{:>9d} t4_pps:{:>5d},{:>9d} '
-                      'temp:{:>4.1f} occ:{:>4d}')
+                      'temp:{:>4.1f} rru_occ:{:>4d} bbu_occ:{:>4d} '
+                      'pps_err:{:>4.1f}')
 
         # Use the reader class to post-process each set of timestamp in
         # real-time and to print the associated PTP metrics
@@ -139,34 +191,35 @@ class Serial():
         self.start_json_file()
 
         logger.info("Starting capture")
-        temperature = None
-        occupancy   = None
+        rru_occ     = None
+        pps_err     = None
         while self.en_capture == True and \
               ((self.idx < self.n_samples) or self.n_samples == 0):
 
-            # Read the temperature every time there is some spare time
-            # from reading the FPGA (when its serial input buffer is empty)
-            if (self.sensor is not None and (self.fpga.in_waiting == 0)):
-                temperature_str = self.sensor.readline()
-                if (len(temperature_str) > 0):
-                    temperature = float(temperature_str)
-                    # Reset input buffer so that measurements don't accumulate
-                    # and we read the up-to-date temperature.
-                self.sensor.reset_input_buffer()
+            assert(self.rru.in_waiting < 2048), \
+                "RRU serial buffer is getting full"
 
-            # Read timestamps from FPGA
-            line     = self.fpga.readline().decode()
+            line     = self.rru.readline().decode()
             line_key = line.split(" ")[0]
             line_val = line.split(" ")
 
+            # RRU occupancy
             if capture_occ and "Occupancy" in line:
                 split_line = line.split("\t")
                 if (len(split_line) > 1):
                     try:
-                        occupancy = int(split_line[1])
+                        rru_occ = int(split_line[1])
                     except ValueError:
-                        occupancy = None
+                        rru_occ = None
 
+            ## PPS time alignment error
+            if line_key == '[pps-rtc][':
+                line_2 = ' '.join(line.split()).split(" ")
+
+                if (line_2[1] == "Sync" and line_2[2] == "Error]"):
+                    pps_err = int(line_2[3]) + float(line_2[5])/(2**32)
+
+            # PTP Timestamps
             if line_key == "Timestamps":
                 # Normal PTP Timestamps
                 t1_ns  = int(line_val[2],16)
@@ -205,19 +258,27 @@ class Serial():
                 reader.process(run_data)
 
                 # Append the temperature
-                if (temperature is not None):
-                    run_data["temp"] = temperature
+                if (self.last_temp is not None):
+                    run_data["temp"] = self.last_temp
 
-                # Append the occupancy
-                if (occupancy is not None):
-                    run_data["occupancy"] = occupancy
+                # Append the occupancies
+                if (rru_occ is not None):
+                    run_data["rru_occ"] = rru_occ
+                if (self.last_bbu_occ is not None):
+                    run_data["bbu_occ"] = self.last_bbu_occ
+
+                # Append PPS error
+                if (pps_err is not None):
+                    run_data["pps_err"] = pps_err
 
                 logger.debug(format_str.format(self.idx, t1_sec, t1_ns, t2_sec,
                                                t2_ns, t3_sec, t3_ns, t4_sec,
                                                t4_ns, t1_pps_sec, t1_pps_ns,
                                                t4_pps_sec, t4_pps_ns,
-                                               temperature or -1,
-                                               occupancy or -1))
+                                               self.last_temp or -1,
+                                               rru_occ or -1,
+                                               self.last_bbu_occ or -1,
+                                               pps_err or 1e9))
 
                 # Append to output file
                 self.save(run_data)
@@ -227,3 +288,5 @@ class Serial():
 
         self.end_json_file()
         self.move()
+
+

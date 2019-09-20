@@ -230,7 +230,13 @@ class Reader():
 
             # Append occupancy to results if it exists
             if (data[i].get("occupancy")):
-                results["occ"] = data[i]["occupancy"]
+                results["rru_occ"] = data[i]["occupancy"]
+
+            if (data[i].get("rru_occ")):
+                results["rru_occ"] = data[i]["rru_occ"]
+
+            if (data[i].get("bbu_occ")):
+                results["bbu_occ"] = data[i]["bbu_occ"]
 
             self.data.append(results)
             self.check_progress(i, n_data)
