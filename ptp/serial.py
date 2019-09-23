@@ -2,7 +2,7 @@
 
 """Acquisition of timestamps via UART
 """
-import serial, time, json, logging, signal, os
+import serial, time, json, logging, signal, os, shutil
 from pprint import pprint, pformat
 from ptp.reader import Reader
 from ptp.docs import Docs
@@ -155,7 +155,7 @@ class Serial():
         response = raw_resp.lower()
 
         if (response == 'y'):
-            os.rename(self.filename, dst)
+            shutil.move(self.filename, dst)
 
             # Add metadata to '/opt/ptp_datasets/README.md'
             Docs.add_value(self.filename)
