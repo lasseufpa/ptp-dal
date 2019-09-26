@@ -6,6 +6,14 @@ import markdown2
 logger = logging.getLogger(__name__)
 
 
+def sizeof_fmt(num, suffix='B'):
+    for unit in ['','K','M','G','T','P','E','Z']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
+
+
 class Docs():
     def __init__(self, cfg_path='/opt/ptp_datasets/'):
 
@@ -27,7 +35,8 @@ class Docs():
                           'Number of hops': 'hops', \
                           'FH Traffic DL': 'dl', \
                           'FH Traffic UL': 'ul', \
-                          'Experiment': 'experiment'}
+                          'Experiment': 'experiment',
+                          'Size' : 'size'}
 
         for h in self.header.keys():
             header_line    += '|' + h
@@ -68,6 +77,9 @@ class Docs():
                     values.append('None')
                 else:
                     values.append(experiment[1:]) # skip the first slash
+            elif (h == 'size'):
+                size = os.path.getsize(filename)
+                values.append(sizeof_fmt(size))
             else:
                 v = self._find_value(metadata, h)
                 if (v):
@@ -143,7 +155,7 @@ class Docs():
                                  recursive=True)
 
         # Generate .md file
-        for dataset in all_datasets:
+        for dataset in sorted(all_datasets, reverse=True):
             print(dataset)
             self.add_value(dataset)
 
