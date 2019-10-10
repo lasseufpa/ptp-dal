@@ -58,33 +58,33 @@ class Optimizer():
         self.cfg_filename = None
         self.plot_path    = None
 
-    def _eval_max_te(self, window_vec, estimator, early_stopping=True,
-                     patience=5):
-        """Evaluate the max|TE| for a given estimator and given window lengths
+    def _eval_error(self, window_vec, estimator, error_metric,
+                    early_stopping=True, patience=5):
+        """Evaluate the error for a given estimator and given window lengths
 
         Args:
             window_vec     : Vector of window lengths to evaluate
             estimator      : Select the estimator
-            early_stopping : Whether to stop search when min{max|TE|} stalls
+            error_metric   : Chosen error metric (Max|TE| or MSE)
+            early_stopping : Whether to stop search when min{error} stalls
             patience       : Number of consecutive iterations without
                              improvement to wait before signaling an early stop.
 
         Returns:
             N_best : Best evaluated window length
-            max_te : vector with max|TE| computed for all given window lengths
+            error  : vector with the error computed for all given window lengths
             i_stop : Index where evaluation halted (if early stopping is active)
 
         """
-
         data      = self.data
         est_impl  = self.est_op[estimator]["impl"]
         est_key   = self.est_op[estimator]["est_key"]
         n_windows = len(window_vec)
-        max_te    = np.zeros(n_windows)
+        error     = np.zeros(n_windows)
 
         # Control variables
         last_print     = 0
-        min_max_te     = np.inf
+        min_err        = np.inf
         i_iter         = 0
         patience_count = 0
 
@@ -119,21 +119,27 @@ class Optimizer():
             for r in data:
                 r.pop(f"x_{est_key}", None)
 
-            # Compute max|TE| based on the entire "x_err" time series
-            max_te[i] = np.amax(np.abs(x_err))
+            # Compute error based on different metrics. Note that the entire
+            # "x_err" time series are used to compute the final error.
+            if (error_metric == "max-te"):
+                error[i] = np.amax(np.abs(x_err))
+            elif (error_metric == "mse"):
+                error[i] = np.square(x_err).mean()
+            else:
+                raise ValueError("Error metric %s is invalid" %(error_metric))
 
-            # Keep track of minimum max|TE| with "early stopping"
+            # Keep track of minimum error with "early stopping"
             #
-            # Stop search if the window length with minimum Max|TE| remains the
+            # Stop search if the window length with minimum error remains the
             # same for a number of consecutive windows.
             #
             # NOTE: patience count tracks the number of iterations with no
-            # reduction (or improvement) of max|TE|
+            # error reduction (or improvement).
 
-            # Update min{max|TE|}
-            if (max_te[i] < min_max_te):
-                min_max_te = max_te[i] # min max|TE| so far
-                N_best     = N         # best window length so far
+            # Update min{error}
+            if (error[i] < min_err):
+                min_err = error[i] # min error so far
+                N_best  = N        # best window length so far
                 patience_count = 0
             else:
                 patience_count += 1
@@ -144,14 +150,14 @@ class Optimizer():
             # Save the index of the last iteration
             i_iter = i
 
-        return N_best, max_te, i_iter
+        return N_best, error, i_iter
 
-    def _search_min_max_te(self, estimator, early_stopping=True, save=True,
-                           plot=False, global_plot=False, plot_info=True,
-                           fine_pass=False, eval_all=False):
-        """Search the window length that minimizes Max|TE|
+    def _search_best_window(self, estimator, error_metric, early_stopping=True,
+                            save=True, plot=False, global_plot=False,
+                            plot_info=True, fine_pass=False, eval_all=False):
+        """Search the best window length that minimizes error
 
-        Calculate the max|TE| for differents sizes of window length. Runs two
+        Calculate the error for differents sizes of window length. Runs two
         passes through the data. The first (coarse pass) evaluates power-of-2
         window lengths. The second (fine pass) evaluates intermediate values
         between the two best power-of-2 lengths.
@@ -163,9 +169,10 @@ class Optimizer():
 
         Args:
             estimator      : Select the estimator
-            early_stopping : Whether to stop search when min{max|TE|} stalls
+            error_metric   : The error metric (max-te or mse)
+            early_stopping : Whether to stop search when min{error} stalls
             save           : Save plot
-            plot           : Plot Max|TE| vs window
+            plot           : Plot error vs window
             global_plot    : Plot global curve (not only the fine region)
             plot_info      : Add window information in the plot
             fine_pass      : Enable fine pass
@@ -173,14 +180,14 @@ class Optimizer():
                              window length values of a linear range
 
         """
-
         est_key   = self.est_op[estimator]["est_key"]
 
         if (eval_all):
             max_window = 2**np.minimum(np.floor(np.log2(len(self.data)/2)), 13)
             window_len = np.arange(2, max_window)
-            N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
-                                                       early_stopping=False)
+            N_best, error , i_stop = self._eval_error(window_len, estimator,
+                                                      error_metric=error_metric,
+                                                      early_stopping=False)
         else:
             # Coarse pass
             #
@@ -195,24 +202,25 @@ class Optimizer():
             log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
             window_len     = 2**log_window_len
 
-            N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
-                                                       early_stopping=early_stopping)
+            N_best, error, i_stop = self._eval_error(window_len, estimator,
+                                                     error_metric=error_metric,
+                                                     early_stopping=early_stopping)
 
         # Truncate results by considering the early stopping index
-        max_te     = max_te[:i_stop]
-        i_max_te   = np.argsort(max_te[:i_stop])
+        error      = error[:i_stop]
+        i_error    = np.argsort(error[:i_stop])
         window_len = window_len[:i_stop]
 
         # Best and second best indexes
-        i_best      = i_max_te[0]
-        i_scnd_best = i_max_te[1]
+        i_best      = i_error[0]
+        i_scnd_best = i_error[1]
 
         # Second best window length
-        N_scnd_best = window_len[i_max_te[1]]
+        N_scnd_best = window_len[i_error[1]]
 
-        # Before running the fine pass, prepare to concatenate previous max_te
+        # Before running the fine pass, prepare to concatenate previous error
         # values with the ones to be computed during the fine pass
-        global_max_te  = max_te
+        global_error   = error
         global_win_len = window_len
 
         if (fine_pass and (not eval_all)):
@@ -233,17 +241,18 @@ class Optimizer():
             else:
                 window_len = np.arange(N_best, N_scnd_best, 1)
 
-            N_best, max_te, i_stop = self._eval_max_te(window_len, estimator,
-                                                       early_stopping=early_stopping,
-                                                       patience=100)
+            N_best, error, i_stop = self._eval_error(window_len, estimator,
+                                                     error_metric=error_metric,
+                                                     early_stopping=early_stopping,
+                                                     patience=100)
 
             # Truncate results again by considering the early stopping index
-            i_max_te   = np.argsort(max_te[:i_stop])
-            max_te     = max_te[:i_stop]
+            i_error    = np.argsort(error[:i_stop])
+            error      = error[:i_stop]
             window_len = window_len[:i_stop]
 
             # Concatenate fine pass results within global vectors
-            global_max_te  = np.concatenate((global_max_te, max_te))
+            global_error   = np.concatenate((global_error, error))
             global_win_len = np.concatenate((global_win_len, window_len))
 
         # Save the best window length
@@ -255,13 +264,13 @@ class Optimizer():
         if (plot):
             plt.figure()
             if (global_plot):
-                plt.scatter(global_win_len, global_max_te)
+                plt.scatter(global_win_len, global_error)
             else:
-                plt.scatter(window_len[:i_stop], max_te[:i_stop])
+                plt.scatter(window_len[:i_stop], error[:i_stop])
 
             plt.title(est_name)
             plt.xlabel("window length (samples)")
-            plt.ylabel("max|TE| (ns)")
+            plt.ylabel(f"{error_metric} (ns)")
 
             if (plot_info):
                 plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
@@ -270,13 +279,13 @@ class Optimizer():
             if (save):
                 assert(self.plot_path is not None), "Plot path not defined"
                 plt.savefig(os.path.join(self.plot_path,
-                                         f"win_opt_{est_key}_max_te_vs_window"),
+                                         f"win_opt_{est_key}_{error_metric}_error_vs_window"),
                             dpi=300)
+                logging.info("Saved figure at %s" %(
+                    f"{self.plot_path}/{est_key}_{error_metric}_vs_window"))
             else:
                 plt.show()
 
-            logging.info("Saved figure at %s" %(
-                f"plots/{est_key}_max_te_vs_window"))
 
         logger.info(f"Best evaluated window length for {est_name}: {N_best:d}")
 
@@ -365,20 +374,22 @@ class Optimizer():
                     break
         return False
 
-    def process(self, estimator, file=None, save=False, sample_skip=0,
-                early_stopping=True, force=False, plot=False, save_plot=True,
-                global_plot=False, plot_info=False, fine_pass=False):
+    def process(self, estimator, error_metric="max-te", file=None, save=False,
+                sample_skip=0, early_stopping=True, force=False, plot=False,
+                save_plot=True, global_plot=False, plot_info=False,
+                fine_pass=False):
         """Process the observations
 
         Args:
             estimator       : Select the estimator
+            error_metric    : Estimation errror metric (Max|TE| or MSE)
             file            : Path of the JSON file to save
             save            : Save the best window length in a json file
             sample_skip     : Number of initial samples to skip
             starting_window : Starting window size
-            early_stopping  : Whether to stop search when min{max|TE|} stalls
+            early_stopping  : Whether to stop search when min{error} stalls
             force           : Force processing even if already done previously
-            plot            : Plot Max|TE| vs window
+            plot            : Plot error vs window
             save_plot       : Save plot if plotting
             global_plot     : Plot global curve (not only the fine region)
             plot_info       : Add window information in the plot
@@ -407,14 +418,15 @@ class Optimizer():
                      else [estimator]
 
         for estimator in estimators:
-            # Search the window length that minimizes the max|TE|
-            if (not self.est_op[estimator]["N_best"]):
-                self._search_min_max_te(estimator, plot=plot, save=save_plot,
-                                        early_stopping=early_stopping,
-                                        global_plot=global_plot,
-                                        plot_info=plot_info,
-                                        fine_pass=fine_pass)
+            # Search the window length that minimizes the calculated error
+            if (not self.est_op[estimator]["N_best"] or force):
+                self._search_best_window(estimator, error_metric=error_metric,
+                                         plot=plot, save=save_plot,
+                                         early_stopping=early_stopping,
+                                         global_plot=global_plot,
+                                         plot_info=plot_info,
+                                         fine_pass=fine_pass)
 
             # Save results on JSON file
             if (save):
-                self.save(file)
+                self.save()

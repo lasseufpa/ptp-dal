@@ -15,11 +15,15 @@ def main():
     est_op = ptp.window.Optimizer.est_op
     est_choices = [k for k in est_op] + ['all']
 
-    parser = argparse.ArgumentParser(description="Max|TE| vs window")
+    parser = argparse.ArgumentParser(description="Window length optimizer")
     parser.add_argument('-e', '--estimator',
                         default='all',
                         help='Window-based estimator',
                         choices=est_choices)
+    parser.add_argument('-m', '--metric',
+                        default='max-te',
+                        help='Estimation error metric for performance assessment',
+                        choices=['max-te', 'mse'])
     parser.add_argument('-p', '--plot',
                         default=False,
                         action='store_true',
@@ -101,14 +105,14 @@ def main():
     freq_estimator.process()
     freq_estimator.estimate_drift()
 
-    # Optimize window lengths (based on Max|TE|)
+    # Optimize window lengths
     window_optimizer = ptp.window.Optimizer(ptp_src.data, T_ns)
-    window_optimizer.process(args.estimator, file=args.file, save=args.save,
-                             plot=args.plot, early_stopping=(not args.no_stop),
+    window_optimizer.process(args.estimator, error_metric=args.metric,
+                             file=args.file, save=args.save, plot=args.plot,
+                             early_stopping=(not args.no_stop),
                              save_plot=args.save_plot, force=args.force,
                              plot_info=(not args.no_plot_info),
-                             global_plot=args.global_plot,
-                             fine_pass=args.fine)
+                             global_plot=args.global_plot, fine_pass=args.fine)
 
 if __name__ == "__main__":
     main()

@@ -33,6 +33,10 @@ def main():
                         action='store_true',
                         help='Force window optimizer processing even if \
                         already done previously')
+    parser.add_argument('--optimizer-metric',
+                        default='max-te',
+                        help='Estimation error metric for window tuning',
+                        choices=['max-te', 'mse'])
     parser.add_argument('--use-secs',
                         default=False,
                         action='store_true',
@@ -77,7 +81,9 @@ def main():
     # Optimize window length configuration
     if (not args.no_optimizer):
         window_optimizer = ptp.window.Optimizer(reader.data, T_ns)
-        window_optimizer.process('all', file=args.file,
+        window_optimizer.process('all',
+                                 error_metric=args.optimizer_metric,
+                                 file=args.file,
                                  plot=(not args.no_optimizer_plots),
                                  fine_pass=args.optimizer_fine,
                                  force=args.optimizer_force)
