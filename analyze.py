@@ -122,7 +122,7 @@ def main():
 
     # Moving average
     pkts = ptp.pktselection.PktSelection(N_movavg, reader.data)
-    pkts.process("average", avg_impl="recursive")
+    pkts.process("avg-recursive")
 
     # Sample-median
     pkts.set_window_len(N_median)

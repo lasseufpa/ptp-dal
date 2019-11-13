@@ -10,42 +10,45 @@ logger = logging.getLogger(__name__)
 
 
 NS_PER_MIN = (60 * 1e9)
-est_keys = {"raw"         : {"label": "Raw Measurements",
-                             "marker": None,
-                             "show": True},
-            "true"        : {"label": "True Values",
-                             "marker": None,
-                             "show": True},
-            "pkts_average": {"label": "Sample-average",
-                             "marker": "v",
-                             "show": True},
-            "pkts_ewma"   : {"label": "EWMA",
-                             "marker": "v",
-                             "show": True},
-            "pkts_median" : {"label": "Sample-median",
-                             "marker": "v",
-                             "show": True},
-            "pkts_min"    : {"label": "Sample-min",
-                             "marker": "v",
-                             "show": True},
-            "pkts_max"    : {"label": "Sample-max",
-                             "marker": "v",
-                             "show": True},
-            "pkts_mode"   : {"label": "Sample-mode",
-                             "marker": "v",
-                             "show": True},
-            "ls_t2"       : {"label": "LSE (t2)",
-                             "marker": "x",
-                             "show": True},
-            "ls_t1"       : {"label": "LSE (t1)",
-                             "marker": "x",
-                             "show": True},
-            "ls_eff"      : {"label": "LSE",
-                             "marker": "x",
-                             "show": True},
-            "kf"          : {"label": "Kalman",
-                             "marker": "d",
-                             "show": True}}
+est_keys = {"raw"                : {"label": "Raw Measurements",
+                                    "marker": None,
+                                    "show": True},
+            "true"               : {"label": "True Values",
+                                    "marker": None,
+                                    "show": True},
+            "pkts_avg_recursive" : {"label": "Sample-average (recursive)",
+                                    "marker": "v",
+                                    "show": True},
+            "pkts_avg_normal"    : {"label": "Sample-average (normal)",
+                                    "marker": "v",
+                                    "show": True},
+            "pkts_ewma"          : {"label": "EWMA",
+                                    "marker": "v",
+                                    "show": True},
+            "pkts_median"        : {"label": "Sample-median",
+                                    "marker": "v",
+                                    "show": True},
+            "pkts_min"           : {"label": "Sample-min",
+                                    "marker": "v",
+                                    "show": True},
+            "pkts_max"           : {"label": "Sample-max",
+                                    "marker": "v",
+                                    "show": True},
+            "pkts_mode"          : {"label": "Sample-mode",
+                                    "marker": "v",
+                                    "show": True},
+            "ls_t2"              : {"label": "LSE (t2)",
+                                    "marker": "x",
+                                    "show": True},
+            "ls_t1"              : {"label": "LSE (t1)",
+                                    "marker": "x",
+                                    "show": True},
+            "ls_eff"             : {"label": "LSE",
+                                    "marker": "x",
+                                    "show": True},
+            "kf"                 : {"label": "Kalman",
+                                    "marker": "d",
+                                    "show": True}}
 
 class Analyser():
     def __init__(self, data, file=None):
@@ -198,7 +201,7 @@ class Analyser():
 
             if (len(x_err) > 0):
                 for f in files:
-                    print("[%14s] Mean: % 7.2f ns\tSdev: % 7.2f ns" %(
+                    print("[%20s] Mean: % 7.2f ns\tSdev: % 7.2f ns" %(
                         key, np.mean(x_err), np.std(x_err)), file=f)
 
             del x_err
