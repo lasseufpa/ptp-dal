@@ -179,6 +179,8 @@ class Serial():
         self.end_json_file()
         logger.info("Terminating acquisition of %s" %(self.filename))
         self.move()
+        logging.info("Run:\n./download.py %s" %(
+            os.path.basename(self.filename)))
         exit()
 
     def run(self, print_en, capture_occ=True):
