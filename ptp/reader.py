@@ -60,14 +60,15 @@ class Reader():
         # Progress
         self.last_progress_print = 0
 
-    def process(self, data):
+    def process(self, data, pr_level=logging.DEBUG):
         """Process a set of timestamps
 
         Apply the timestamps into a delay request-response mechanism object and
         use the latter to obtain PTP metrics.
 
         Args:
-            data : dicitionary containing timestamp data
+            data     : dicitionary containing timestamp data
+            pr_level : logging level to be used when logging timestamps
 
         Returns:
             results dictionary containing PTP sync metrics
@@ -78,7 +79,7 @@ class Reader():
 
         # Print header periodically
         if (self.idx % 20 == 0):
-            DelayReqResp.log_header()
+            DelayReqResp.log_header(level=pr_level)
 
         if (self.infer_secs):
             # Ns values
@@ -172,7 +173,7 @@ class Reader():
 
         # Process
         results = dreqresp.process()
-        dreqresp.log(results)
+        dreqresp.log(results, level=pr_level)
         return results
 
     def check_progress(self, i_iter, n_iter):

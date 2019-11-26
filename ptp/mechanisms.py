@@ -24,18 +24,28 @@ class DelayReqResp():
         self.asymmetry = None
 
     @staticmethod
-    def log_header():
-        """Print logging header"""
+    def log_header(level=logging.DEBUG):
+        """Print logging header
 
-        logger.debug(("-----------------------------------------------"
-                     "---------------------------------"))
+        Args:
+            level : Logging level to use when printing
+
+        """
+
+        if (level == logging.INFO):
+            print_fn = logger.info
+        else:
+            print_fn = logger.debug
+
+        print_fn(("-----------------------------------------------"
+                  "---------------------------------"))
         header = '{:>4} {:^12} {:^12} {:^9} {:^9} {:^9} {:^9} {:^9}'.format(
             "idx", "x_est", "x", "x_est_err", "delay_est", "d_m2s", "d_s2m",
             "asym"
         )
-        logger.debug(header)
-        logger.debug(("-----------------------------------------------"
-                     "---------------------------------"))
+        print_fn(header)
+        print_fn(("-----------------------------------------------"
+                  "---------------------------------"))
 
     def set_t2(self, seq_num, t2):
         """Set Sync arrival timestamp
@@ -176,24 +186,29 @@ class DelayReqResp():
         return results
 
     @staticmethod
-    def log(r):
+    def log(r, level=logging.DEBUG):
         """Print results
 
         Args:
-            r : Dictionary with results
+            r     : Dictionary with results
+            level : Logging level to use when printing
 
         """
 
-        # Print metrics
-        logger.debug(('{:^4d} {:^ 12.1f} {:^ 12.1f} '
-                     '{:^ 9.1f} {:^9.1f} '
-                     '{:^9.1f} {:^9.1f} '
-                     '{:^ 9.1f}').format(r['idx'], r['x_est'],
-                                         float(r['x'] or 0),
-                                         float(r['x_est_err'] or 0),
-                                         r['d_est'],
-                                         float(r['d'] or 0),
-                                         float(r['d_bw'] or 0),
-                                         float(r['asym'] or 0)))
+        if (level == logging.INFO):
+            print_fn = logger.info
+        else:
+            print_fn = logger.debug
+
+        print_fn(('{:^4d} {:^ 12.1f} {:^ 12.1f} '
+                  '{:^ 9.1f} {:^9.1f} '
+                  '{:^9.1f} {:^9.1f} '
+                  '{:^ 9.1f}').format(r['idx'], r['x_est'],
+                                      float(r['x'] or 0),
+                                      float(r['x_est_err'] or 0),
+                                      r['d_est'],
+                                      float(r['d'] or 0),
+                                      float(r['d_bw'] or 0),
+                                      float(r['asym'] or 0)))
 
 

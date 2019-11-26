@@ -269,7 +269,7 @@ class Serial():
                 }
 
                 # Process PTP metrics for debugging
-                reader.process(run_data)
+                reader.process(run_data, pr_level=logging.INFO)
 
                 # Append the temperature
                 if (self.last_temp is not None):
