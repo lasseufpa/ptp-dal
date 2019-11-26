@@ -2,7 +2,7 @@
 
 """Acquisition of timestamps via UART
 """
-import serial, time, json, logging, signal, os, shutil
+import serial, time, json, logging, signal, os, shutil, subprocess
 from pprint import pprint, pformat
 from ptp.reader import Reader
 from ptp.docs import Docs
@@ -110,6 +110,20 @@ class Serial():
         assert(device in devices_list), "Unknown UART device"
 
         dev_path = '/dev/' + device
+
+        # Check whether device is busy and ask to kill process
+        try:
+            fuser_res = subprocess.check_output(["fuser", "-n", "file",
+                                                 dev_path])
+            resp = input("Process %d is reading from this device \
+            - kill it? [Y/n] " %(int(fuser_res))) or "Y"
+            if (resp.lower() == "y"):
+                subprocess.run(["kill", fuser_res])
+        except subprocess.CalledProcessError:
+            # non-zero return code is when there is no process reading
+            # from device
+            pass
+
         serial_conn = serial.Serial(dev_path,
                                     baudrate = baudrate,
                                     bytesize = serial.EIGHTBITS,
