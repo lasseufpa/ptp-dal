@@ -44,7 +44,7 @@ class Serial():
 
         # Initialize some vars
         self.idx          = 0
-        self.last_temp    = None
+        self.last_temp    = (None, None)
         self.last_bbu_occ = None
 
         # Enable
@@ -67,11 +67,13 @@ class Serial():
             assert(self.sensor.in_waiting < 2048), \
                 "Sensor serial buffer is getting full"
 
-            temperature_str = self.sensor.readline()
+            temperature_str = self.sensor.readline().strip().decode("utf-8")
 
             if (len(temperature_str) > 0):
                 try:
-                    self.last_temp = float(temperature_str)
+                    temp_measurements = temperature_str.split(",")
+                    self.last_temp = (float(temp_measurements[0]),
+                                      float(temp_measurements[1]))
                 except ValueError:
                         pass
 
@@ -197,8 +199,8 @@ class Serial():
         format_str = ('i:{:>4d} t1:{:>5d},{:>9d} t2:{:>5d},{:>9d} '
                       't3:{:>5d},{:>9d} t4:{:>5d},{:>9d} '
                       't1_pps:{:>5d},{:>9d} t4_pps:{:>5d},{:>9d} '
-                      'temp:{:>4.1f} rru_occ:{:>4d} bbu_occ:{:>4d} '
-                      'pps_err:{:>4.1f}')
+                      'temp1:{:>4.1f} temp2:{:>4.1f} rru_occ:{:>4d} '
+                      'bbu_occ:{:>4d} pps_err:{:>4.1f}')
 
         # Use the reader class to post-process each set of timestamp in
         # real-time and to print the associated PTP metrics
@@ -274,7 +276,8 @@ class Serial():
                 reader.process(run_data, pr_level=logging.INFO)
 
                 # Append the temperature
-                if (self.last_temp is not None):
+                if (self.last_temp[0] is not None or
+                    self.last_temp[1] is not None):
                     run_data["temp"] = self.last_temp
 
                 # Append the occupancies
@@ -291,7 +294,8 @@ class Serial():
                                                t2_ns, t3_sec, t3_ns, t4_sec,
                                                t4_ns, t1_pps_sec, t1_pps_ns,
                                                t4_pps_sec, t4_pps_ns,
-                                               self.last_temp or -1,
+                                               self.last_temp[0] or -1,
+                                               self.last_temp[1] or -1,
                                                rru_occ or -1,
                                                self.last_bbu_occ or -1,
                                                pps_err or 1e9))
