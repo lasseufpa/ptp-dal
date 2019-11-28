@@ -7,6 +7,8 @@ from pprint import pprint, pformat
 from ptp.reader import Reader
 from ptp.docs import Docs
 import threading
+from tabulate import tabulate
+import pandas as pd
 
 
 logger = logging.getLogger(__name__)
@@ -196,12 +198,6 @@ class Serial():
         signal.signal(signal.SIGINT, self.catch)
         signal.siginterrupt(signal.SIGINT, False)
 
-        format_str = ('i:{:>4d} t1:{:>5d},{:>9d} t2:{:>5d},{:>9d} '
-                      't3:{:>5d},{:>9d} t4:{:>5d},{:>9d} '
-                      't1_pps:{:>5d},{:>9d} t4_pps:{:>5d},{:>9d} '
-                      'temp1:{:>4.1f} temp2:{:>4.1f} rru_occ:{:>4d} '
-                      'bbu_occ:{:>4d} pps_err:{:>4.1f}')
-
         # Use the reader class to post-process each set of timestamp in
         # real-time and to print the associated PTP metrics
         reader = Reader()
@@ -209,8 +205,10 @@ class Serial():
         self.start_json_file()
 
         logger.info("Starting capture")
-        rru_occ     = None
-        pps_err     = None
+        rru_occ      = None
+        pps_err      = None
+        debug_buffer = list()
+
         while self.en_capture == True and \
               ((self.idx < self.n_samples) or self.n_samples == 0):
 
@@ -223,10 +221,10 @@ class Serial():
 
             # RRU occupancy
             if capture_occ and "Occupancy" in line:
-                split_line = line.split("\t")
+                split_line = line.split()
                 if (len(split_line) > 1):
                     try:
-                        rru_occ = int(split_line[1])
+                        rru_occ = int(split_line[3])
                     except ValueError:
                         rru_occ = None
 
@@ -290,15 +288,13 @@ class Serial():
                 if (pps_err is not None):
                     run_data["pps_err"] = pps_err
 
-                logger.debug(format_str.format(self.idx, t1_sec, t1_ns, t2_sec,
-                                               t2_ns, t3_sec, t3_ns, t4_sec,
-                                               t4_ns, t1_pps_sec, t1_pps_ns,
-                                               t4_pps_sec, t4_pps_ns,
-                                               self.last_temp[0] or -1,
-                                               self.last_temp[1] or -1,
-                                               rru_occ or -1,
-                                               self.last_bbu_occ or -1,
-                                               pps_err or 1e9))
+                if (logger.root.level == logging.DEBUG):
+                    debug_buffer.append(run_data)
+
+                    if (self.idx % 20 == 19):
+                        df = pd.DataFrame(debug_buffer)
+                        print(tabulate(df, headers='keys', tablefmt='psql'))
+                        debug_buffer.clear()
 
                 # Append to output file
                 self.save(run_data)
