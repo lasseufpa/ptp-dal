@@ -1342,11 +1342,14 @@ class Analyser():
             x_axis_vec   = [r["idx"] for r in self.data if "temp" in r]
             x_axis_label = 'Realization'
 
-        temp = [r["temp"] for r in self.data if "temp" in r]
+        temp1 = [r["temp"][0] for r in self.data if "temp" in r]
+        temp2 = [r["temp"][1] for r in self.data if "temp" in r]
 
         plt.figure()
-        plt.scatter(x_axis_vec, temp, s = 1.0)
+        plt.scatter(x_axis_vec, temp1, s = 1.0, label="LM35")
+        plt.scatter(x_axis_vec, temp2, s = 1.0, label="MCP9808")
         plt.xlabel(x_axis_label)
+        plt.legend()
         plt.ylabel('Temperature (C)')
 
         if (save):
