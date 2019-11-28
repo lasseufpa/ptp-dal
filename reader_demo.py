@@ -8,6 +8,7 @@ import ptp.pktselection
 import ptp.kalman
 import ptp.frequency
 import ptp.window
+import ptp.outlier
 
 
 def main():
@@ -52,6 +53,10 @@ def main():
     reader = ptp.reader.Reader(args.file, infer_secs=(not args.use_secs),
                                reverse_ms=True)
     reader.run(args.num_iter)
+
+    # Outlier detection
+    outlier = ptp.outlier.Outlier(reader.data)
+    outlier.process(c=2)
 
     # Nominal message in nanoseconds
     if (reader.metadata is not None and "sync_period" in reader.metadata):
