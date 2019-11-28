@@ -15,7 +15,7 @@ class Outlier():
         """
         self.data = data
 
-    def _iqr(self, d_asym, c=1.5):
+    def _iqr(self, x, c=1.5):
         """Interquartile Range (IQR) method
 
         The Interqurtile Range (IQR) is a measure of statistical dispersion,
@@ -27,18 +27,18 @@ class Outlier():
         are extreme outliers.
 
         Args:
-            d_asym : Vector of delay asymmetries
-            c      : Scalar value that define the limits on the sample values
+            x : Vector of samples whose outliers are to be detected
+            c : Scalar value that define the limits on the sample values
 
         Returns:
             Vector with sample values defined as outliers
 
         """
-        Q1, Q3      = np.percentile(d_asym, [25, 75])
+        Q1, Q3      = np.percentile(x, [25, 75])
         iqr         = Q3 - Q1
         lower_bound = Q1 - (iqr * c)
         upper_bound = Q3 + (iqr * c)
-        outliers    = np.where((d_asym > upper_bound) | (d_asym < lower_bound))
+        outliers    = np.where((x > upper_bound) | (x < lower_bound))
 
         return np.squeeze(outliers)
 
@@ -55,6 +55,9 @@ class Outlier():
         # Identify outliers
         outliers = self._iqr(d_asym)
 
+        logger.info("Found %d outliers" %(len(outliers)))
+
         # Save results on global data records
         for out in outliers:
             self.data[out]['outlier'] = True
+
