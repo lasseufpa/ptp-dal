@@ -20,72 +20,57 @@ class Ls():
                    used for plotting the frequency offset.
 
         """
-        self.N    = N
-        self.data = data
+        self.N       = N
+        self.data    = data
+        self.i_batch = 0
+
+        # Learn the measurement period in case it is not provided
         self.T_ns = T_ns
+        if (np.isinf(self.T_ns)):
+            t1        = np.array([res["t1"] for res in data])
+            self.T_ns = float(np.mean(np.diff(t1)))
+            logger.warning("Automatically setting T_ns to %f ns", self.T_ns)
 
-        if (np.isinf(T_ns)):
-            logger.warning("Measurement period was not defined")
+        # Matrix used by the efficient implementation
+        self.P = (2 / (N*(N+1))) * np.array([[(2*N - 1), -3], [-3, 6/(N-1)]]);
 
-    def process(self, impl="eff"):
-        """Process the observations
-
-        Using the raw time offset offset measurements and the Sync arrival
-        timestamps, estimate the time and frequency offset of windows of
-        samples.
-
-        There are three distinct implementations for least-squares: "t2", "t1"
-        and "eff", which are described next:
-
-        - "t2" (default) : Uses timestamp "t2" when forming the observation
-          matrix H.
-        - "t1"           : Uses timestamp "t1" when forming the observation
-          matrix H.
-        - "eff"          : Computational-efficient implementation
-
-        NOTE: The ideal time samples to be used in this matrix would be the true
-        values of timestamps "t2", according to the reference time, not the
-        slave time. Hence, the problem with using timestamps "t2" directly is
-        that they are subject to slave impairments. When observing a long
-        window, the last timestamp "t2" in the window may have drifted
-        substantially with respect to the true "t2". In contrast, timestamps
-        "t1" are taken at the master side, so they are directly from the
-        reference time. However, the disadvantage of using "t1" is that they do
-        not reflect the actual Sync arrival time due to PDV. Finally, the
-        "efficient" choice ignores PDV and any timescale innacuracies to favour
-        implementation simplicity.
+    def _compute(self, x_obs, t=None, impl="eff"):
+        """Compute least squares based on the observation vector
 
         Args:
-            t_choice : Timestamp choice when assemblign obervation matrix
+            x_obs : Vector of time offset observations
+            t     : Vector of Sync departure or arrival timestamps. Departure
+                    when impl=="t1" and arrival when impl=="t2". It can be empty
+                    (None) when impl=="eff".
+            impl  : Least-squares implementation ("eff", "t2" or "t1")
+
+        NOTE: The ideal Sync timestamps to be used in the observation matrix H
+        (see implementation below) would be the true values of timestamps "t2",
+        according to the reference time, not the slave time. However, the
+        problem with using timestamps "t2" directly is that they are subject to
+        slave impairments. When observing a long window, the last timestamp "t2"
+        in the window may have drifted substantially with respect to the true
+        "t2". In contrast, timestamps "t1" are taken at the master side, so they
+        are directly from the reference time. However, the disadvantage of using
+        "t1" is that they do not reflect the actual Sync arrival time after the
+        message's PDV. The "efficient" choice ignores PDV and any timescale
+        innacuracies in order to favour implementation simplicity.
+
+        Args:
+            t_choice : Timestamp choice when assembling obervation matrix
 
         """
 
-        logger.info("Processing with N=%d" %(self.N))
+        if (impl != "eff"):
+            assert(t is not None)
 
-        n_data = len(self.data)
-        N      = self.N
+        n_data    = len(x_obs)
+        N         = self.N
+        n_windows = n_data - N + 1 # fully overlapping windows
 
-        # Vector of noisy time offset observations
-        x_obs   = np.array([res["x_est"] for res in self.data])
-
-        # Vector of master timestamps
-        t1 = np.array([res["t1"] for res in self.data])
-
-        # Learn the measurement period
-        if (np.isinf(self.T_ns)):
-            self.T_ns = float(np.mean(np.diff(t1)))
-            logger.info("Automatically setting T_ns to %f ns", self.T_ns)
-
-        # For "t1" and "t2", initialize vector of timestamps. For "eff",
-        # initialize the matrix that is used for LS computations
-        if (impl == "t1"):
-            t = t1
-        elif (impl == "t2"):
-            t = [res["t2"] for res in self.data]
-        elif (impl == "eff"):
-            P = (2 / (N*(N+1))) * np.array([[(2*N - 1), -3], [-3, 6/(N-1)]]);
-        else:
-            raise ValueError("Unsupported LS timestamp mode")
+        logger.debug("Compute batch %d with %d windows" %(
+            self.i_batch, n_windows))
+        self.i_batch += 1
 
         # Vectorized and efficient implementation
         #
@@ -95,7 +80,6 @@ class Ls():
         # is much faster.
         if (impl == "eff"):
             # Stack overlapping windows into columns of a matrix
-            n_windows = n_data - N + 1
             X_obs     = np.zeros(shape=(N, n_windows))
             for i in range(N):
                 X_obs[i, :] = x_obs[i:n_windows+i]
@@ -106,25 +90,20 @@ class Ls():
             Q[1,:] = np.dot(np.arange(N), X_obs)
 
             # LS estimations
-            Theta        = np.dot(P,Q)
+            Theta        = np.dot(self.P,Q)
             X0           = Theta[0,:]
             Y_times_T_ns = Theta[1,:]
             Xf           = X0 + (Y_times_T_ns * (N-1))
             Y            = Y_times_T_ns / self.T_ns
 
-            # Indices where results will be placed
-            idx = np.arange(N-1, n_data)
+            return Xf, Y
 
-            for i_x, i_res in enumerate(idx):
-                self.data[i_res]["x_ls_" + impl] = Xf[i_x]
-                self.data[i_res]["y_ls_" + impl] = Y[i_x]
-                logger.debug("LS estimates\tx_f: %f ns y: %f ppb" %(
-                    Xf[i_x], Y[i_x]*1e9))
-
-            return
+        # Preallocate results (one for each window)
+        Xf = np.zeros(n_windows)
+        Y  = np.zeros(n_windows)
 
         # Iterate over sliding windows of observations
-        for i in range(0, n_data - N + 1):
+        for i in range(0, n_windows):
             # Window start and end indexes
             i_s = i
             i_e = i + N
@@ -174,9 +153,81 @@ class Ls():
                 x_f   = x0 + y * T_obs
 
             # Include LS estimations within the simulation data
-            self.data[i_e - 1]["x_ls_" + impl] = x_f
-            self.data[i_e - 1]["y_ls_" + impl] = y
+            Xf[i] = x_f
+            Y[i]  = y
 
-            logger.debug("LS estimates\tx_f: %f ns y: %f" %(
-                x_f, y*1e9))
+        return Xf, Y
+
+    def process(self, impl="eff", batch_mode=True, batch_size=4096):
+        """Process the observations
+
+        Using the raw time offset offset measurements and potentially also the
+        Sync arrival/departure timestamps, estimate the time and frequency
+        offset of windows of samples.
+
+        Args:
+
+            impl       : Least-squares implementation. There are three distinct
+                         implementations for least-squares: "t2", "t1" and
+                         "eff", which are described next:
+
+                           "t2" (default) : Uses timestamp "t2" when forming the
+                                            observation matrix H.
+                           "t1"           : Uses timestamp "t1" when forming the
+                                            observation matrix H.
+                           "eff"          : Computationally-efficient
+                                            implementation.
+
+            batch_mode : Whether to process observation windows in batches,
+                         rather than trying to process all windows at once.
+
+            batch_size : Number of observation windows that compose a batch.
+
+        """
+
+        assert(impl in ["t1", "t2", "eff"]), "Unsupported LS timestamp mode"
+
+        logger.info("Processing with N=%d" %(self.N))
+
+        n_data      = len(self.data)
+        win_overlap = self.N - 1 # samples repeated on a window from past window
+        new_per_win = self.N - win_overlap # new samples per window
+        # NOTE: assume each window of size N has N-1 entries from the previous
+        # window (i.e. fully overlapping windows)
+
+        # Corresponding number of windows and batches
+        n_windows  = int((n_data - win_overlap)/new_per_win)
+        n_batches  = np.ceil(n_windows/batch_size) if batch_mode else 1
+        batch_size = batch_size if batch_mode else n_windows
+
+        # Iterate over batches
+        for i_w_s in range(0, n_windows, batch_size):
+            i_w_e = i_w_s + batch_size # last window of this batch
+
+            # Sample range covered by the windows
+            i_s = i_w_s * new_per_win                       # 1st of the 1st window
+            i_e = i_s + (batch_size-1)*new_per_win + self.N # last of the last
+
+            # Vector of noisy time offset observations
+            x_obs = np.array([res["x_est"] for res in self.data[i_s:i_e]])
+
+            # For impl="t1" or impl="t2", vector of timestamps:
+            if (impl == "t1"):
+                t = np.array([res["t1"] for res in self.data[i_s:i_e]])
+            elif (impl == "t2"):
+                t =  np.array([res["t2"] for res in self.data[i_s:i_e]])
+            elif (impl == "eff"):
+                t = None
+
+            # Compute LS for each window of this batch:
+            Xf, Y = self._compute(x_obs, t, impl)
+
+            assert(len(Xf) == batch_size or i_w_e > n_windows)
+            assert(len(Xf) == len(Y))
+
+            for i in range(0, len(Xf)):
+                first_idx_in_window = i_s + i*new_per_win
+                last_idx_in_window  = first_idx_in_window + self.N - 1
+                self.data[last_idx_in_window]["x_ls_" + impl] = Xf[i]
+                self.data[last_idx_in_window]["y_ls_" + impl] = Y[i]
 

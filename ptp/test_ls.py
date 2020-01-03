@@ -10,11 +10,11 @@ data = [{"x_est": 6 , "t1": 0,     "t2": 0},
 
 class TestLs(unittest.TestCase):
 
-    def run_ls(self, impl):
+    def run_ls(self, impl, batch_mode=True, batch_size=4096):
         N    = 4
         T_ns = 250e3
         ls   = Ls(N, data)
-        ls.process(impl=impl)
+        ls.process(impl=impl, batch_mode=batch_mode, batch_size=batch_size)
 
         # Results
         x_key    = "x_ls_" + impl
@@ -31,6 +31,10 @@ class TestLs(unittest.TestCase):
     def test_ls_t2(self):
         self.run_ls(impl="t2")
 
-    def test_ls_eff(self):
-        self.run_ls(impl="eff")
+    def test_ls_eff_no_batch(self):
+        self.run_ls(impl="eff", batch_mode=False)
+
+    def test_ls_eff_batch(self):
+        for batch_size in [1,2,3,4]:
+            self.run_ls(impl="eff", batch_mode=True, batch_size=batch_size)
 
