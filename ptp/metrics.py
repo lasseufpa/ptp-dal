@@ -475,8 +475,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "toffset_vs_time", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "toffset_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -540,8 +540,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "toffset_err_vs_time", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "toffset_err_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -584,8 +584,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "toffset_err_hist", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "toffset_err_hist." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -645,8 +645,9 @@ class Analyser():
 
             for p in plots:
                 if (save):
-                    p["plt"].savefig(self.path + "delay_hist_" + p["label"],
-                                     format=save_format, dpi=300)
+                    p["plt"].savefig(self.path + "delay_hist_" + p["label"] +
+                                     "." + save_format, format=save_format,
+                                     dpi=300)
                 else:
                     p["plt"].show()
         else:
@@ -671,8 +672,8 @@ class Analyser():
             plt.legend()
 
             if (save):
-                plt.savefig(self.path + "delay_hist", format=save_format,
-                            dpi=300)
+                plt.savefig(self.path + "delay_hist." + save_format,
+                            format=save_format, dpi=300)
             else:
                 plt.show()
             plt.close()
@@ -713,8 +714,8 @@ class Analyser():
             plt.ylabel('m-to-s delay (ns)')
 
             if (save):
-                plt.savefig(self.path + "delay_m2s_vs_time", format=save_format,
-                            dpi=300)
+                plt.savefig(self.path + "delay_m2s_vs_time." + save_format,
+                            format=save_format, dpi=300)
             else:
                 plt.show()
             plt.close()
@@ -725,8 +726,8 @@ class Analyser():
             plt.ylabel('s-to-m delay (ns)')
 
             if (save):
-                plt.savefig(self.path + "delay_s2m_vs_time", format=save_format,
-                            dpi=300)
+                plt.savefig(self.path + "delay_s2m_vs_time." + save_format,
+                            format=save_format, dpi=300)
             else:
                 plt.show()
             plt.close()
@@ -739,8 +740,8 @@ class Analyser():
             plt.legend()
 
             if (save):
-                plt.savefig(self.path + "delay_vs_time", format=save_format,
-                            dpi=300)
+                plt.savefig(self.path + "delay_vs_time." + save_format,
+                            format=save_format, dpi=300)
             else:
                 plt.show()
             plt.close()
@@ -776,8 +777,8 @@ class Analyser():
         plt.ylabel('Delay Estimation Error (ns)')
 
         if (save):
-            plt.savefig(self.path + "delay_est_err_vs_time", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "delay_est_err_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -800,8 +801,8 @@ class Analyser():
         plt.ylabel('Probability Density')
 
         if (save):
-            plt.savefig(self.path + "delay_asym_hist", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "delay_asym_hist." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -837,8 +838,8 @@ class Analyser():
         plt.ylabel('Delay asymmetry (us)')
 
         if (save):
-            plt.savefig(self.path + "delay_asym_vs_time", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "delay_asym_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -909,8 +910,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "foffset_vs_time", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "foffset_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -979,8 +980,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "foffset_err_vs_time", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "foffset_err_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1021,8 +1022,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "foffset_err_hist", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "foffset_err_hist." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1088,7 +1089,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "pdv_vs_time", format=save_format, dpi=300)
+            plt.savefig(self.path + "pdv_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1124,7 +1126,8 @@ class Analyser():
         plt.legend()
 
         if (save):
-            plt.savefig(self.path + "pdv_hist", format=save_format, dpi=300)
+            plt.savefig(self.path + "pdv_hist." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1166,8 +1169,8 @@ class Analyser():
         plt.title('Time offset diff')
 
         if (save):
-            plt.savefig(self.path + "toffset_diff_vs_time", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "toffset_diff_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1193,8 +1196,8 @@ class Analyser():
         plt.title('Time offset diff')
 
         if (save):
-            plt.savefig(self.path + "toffset_diff_hist", format=save_format,
-                        dpi=300)
+            plt.savefig(self.path + "toffset_diff_hist." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1250,7 +1253,8 @@ class Analyser():
         plt.legend(loc=0)
 
         if (save):
-            plt.savefig(self.path + "mtie_vs_tau", format=save_format, dpi=300)
+            plt.savefig(self.path + "mtie_vs_tau." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1313,7 +1317,8 @@ class Analyser():
         plt.legend(loc=0)
 
         if (save):
-            plt.savefig(self.path + "max_te_vs_time", format=save_format, dpi=300)
+            plt.savefig(self.path + "max_te_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1353,7 +1358,8 @@ class Analyser():
         plt.ylabel('Temperature (C)')
 
         if (save):
-            plt.savefig(self.path + "temperature_vs_time", format=save_format, dpi=300)
+            plt.savefig(self.path + "temperature_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
@@ -1394,7 +1400,8 @@ class Analyser():
         plt.ylabel('Occupancy')
         plt.legend()
         if (save):
-            plt.savefig(self.path + "occupancy_vs_time", format=save_format, dpi=300)
+            plt.savefig(self.path + "occupancy_vs_time." + save_format,
+                        format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
