@@ -34,7 +34,7 @@ class Ls():
         # Matrix used by the efficient implementation
         self.P = (2 / (N*(N+1))) * np.array([[(2*N - 1), -3], [-3, 6/(N-1)]]);
 
-    def _compute(self, x_obs, t=None, impl="eff"):
+    def _compute(self, x_obs, t=None, impl="eff", shift=1):
         """Compute least squares based on the observation vector
 
         Args:
@@ -43,6 +43,10 @@ class Ls():
                     when impl=="t1" and arrival when impl=="t2". It can be empty
                     (None) when impl=="eff".
             impl  : Least-squares implementation ("eff", "t2" or "t1")
+            shift : Determines the shift (in samples) between consecutive
+                    windows or, equivalently, the window overlap. A shift 1
+                    means that a window of N samples contains N-1 samples from
+                    the previous window (i.e. is fully overlapping).
 
         NOTE: The ideal Sync timestamps to be used in the observation matrix H
         (see implementation below) would be the true values of timestamps "t2",
@@ -64,9 +68,11 @@ class Ls():
         if (impl != "eff"):
             assert(t is not None)
 
-        n_data    = len(x_obs)
-        N         = self.N
-        n_windows = n_data - N + 1 # fully overlapping windows
+        n_data      = len(x_obs)
+        N           = self.N
+        win_overlap = N - shift  # Window overlap
+        new_per_win = shift      # new samples per window
+        n_windows   = int((n_data - win_overlap)/new_per_win)
 
         logger.debug("Compute batch %d with %d windows" %(
             self.i_batch, n_windows))
@@ -82,7 +88,7 @@ class Ls():
             # Stack overlapping windows into columns of a matrix
             X_obs     = np.zeros(shape=(N, n_windows))
             for i in range(N):
-                X_obs[i, :] = x_obs[i:n_windows+i]
+                X_obs[i, :] = x_obs[i:(i+n_windows):new_per_win]
 
             # Q1 and Q2 accumulator values for each window
             Q      = np.zeros(shape=(2, n_windows))
@@ -105,13 +111,16 @@ class Ls():
         # Iterate over sliding windows of observations
         for i in range(0, n_windows):
             # Window start and end indexes
-            i_s = i
-            i_e = i + N
+            i_s = i * new_per_win
+            i_e = i_s + N
+
             # Observation window
             x_obs_w = x_obs[i_s:i_e]
 
             # LS estimation
             if (impl == "eff"):
+                assert(new_per_win == 1),\
+                    "This LS implementation only works with overlapping windows"
                 # Accumulator 1
                 if (i == 0):
                     Q_1   = np.sum(x_obs_w)
@@ -138,7 +147,7 @@ class Ls():
                 y            = y_times_T_ns / self.T_ns
             else:
                 # Timestamps over observation window
-                t_w     = t[i_s:i_e]
+                t_w = t[i_s:i_e]
                 tau = np.asarray([float(tt - t_w[0]) for tt in t_w])
                 # Observation matrix
                 H   = np.hstack((np.ones((N, 1)), tau.reshape(N, 1)))
