@@ -168,15 +168,22 @@ class Serial():
 
     def move(self):
         """Move JSON file"""
-        dst      = "/opt/ptp_datasets/" + os.path.basename(self.filename)
+        dst_dir  = "/opt/ptp_datasets/"
+        dst      = dst_dir + os.path.basename(self.filename)
         raw_resp = input(f"Move {self.filename} to {dst}? [Y/n] ") or "Y"
         response = raw_resp.lower()
 
+        # Move dataset to '/opt/ptp_datasets/' and add entry on the dataset
+        # catalog at '/opt/ptp_datasets/README.md'
         if (response == 'y'):
+            # Move
             shutil.move(self.filename, dst)
-
-            # Add metadata to '/opt/ptp_datasets/README.md'
-            Docs.add_value(self.filename)
+            # Add to catalog
+            docs = Docs(cfg_path=dst_dir)
+            docs.add_value(os.path.join("..", self.filename))
+            # NOTE: shutil path is based on the parent process, whereas
+            # add_value will process the path relative to where the docs.py
+            # module is. So "../" is only required for the latter.
 
     def catch(self, signum, frame):
         self.en_capture = False
