@@ -55,16 +55,20 @@ class Estimator():
         """
 
         log_min_window = 1
-        log_max_window = 16
+        log_max_window = int(np.log2(len(self.data) / 2))
         log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
         window_len     = 2**log_window_len
+        max_window_len = window_len[-1]
+        n_samples      = len(self.data) - max_window_len
+        # NOTE: n_samples is a number of samples that is guaranteed to be
+        # available for all window lengths to be evaluated
 
         logger.info("Optimize observation window" %())
         logger.info("Try from N = %d to N = %d" %(
             2**log_min_window, 2**log_max_window))
 
-        min_y_mse  = 1e9
-        N_opt      = 0
+        mmse  = np.inf
+        N_opt = 0
 
         for N in window_len:
             for r in self.data:
@@ -73,15 +77,18 @@ class Estimator():
             self.delta = N
             self.process()
 
-            y_err = np.array([1e9*(r["y_est"] - r["rtc_y"]) for r in self.data
-                              if ("y_est" in r and "rtc_y" in r)])
-            y_mse = np.square(y_err).mean()
+            y_err = np.array([ 1e9*(r["y_est"] - r["rtc_y"])
+                               for r in self.data[self.delta:]
+                               if ("y_est" in r and "rtc_y" in r) ])
+            y_mse = np.square(y_err[:n_samples]).mean()
+            # Only use `n_samples` out of y_err. This way, all window lengths
+            # are compared based on the same number of samples.
 
-            if (y_mse < min_y_mse):
-                N_opt     = N
-                min_y_mse = y_mse
+            if (y_mse < mmse):
+                N_opt = N
+                mmse  = y_mse
 
-        logger.info("Minimum MSE: %f ppb" %(min_y_mse))
+        logger.info("Minimum MSE: %f ppb" %(mmse))
         logger.info("Optimum N:   %d" %(N_opt))
         self.delta = N_opt
 
