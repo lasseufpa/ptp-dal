@@ -47,21 +47,31 @@ where `-vvvvv` controls the verbosity level.
 
 ## Running with acquired data
 
-The script named `reader_demo.py` can load data acquired with real hardware and
-post-process it using the simulator's algorithms. An example log file is
-available at `data/example_log.json`. To process it, run:
+First download a dataset that was acquired with the testbed. They are kept at
+`Lasse100` machine. Provided that you have SSH access to this machine, you can
+download a JSON dataset (such as `serial-20200107-111932.json`) as follows:
+
+```
+./download.py serial-20200107-111932.json
+```
+
+Then run `reader_demo.py` with the downloaded dataset. This script will
+post-process the timestamps using all implemented algorithms.
+
+```
+./reader_demo.py -vvvv -f data/serial-20200107-111932.json
+```
+
+After that, a set of results will be available within the `plots/` directory.
+
+An example log file is also available locally within the `data/` folder. You can
+test it with:
 
 ```
 python reader_demo.py -vvvvvv -f data/example_log.json -N 10
 ```
 
 This will run 10 iterations only, and with debugging prints enabled.
-
-To process it fully without log, run:
-
-```
-python reader_demo.py -f data/example_log.json
-```
 
 ## Catalog datasets
 
