@@ -206,10 +206,7 @@ class Serial():
             shutil.move(self.filename, dst)
             # Add to catalog
             docs = Docs(cfg_path=dst_dir)
-            docs.add_value(os.path.join("..", self.filename))
-            # NOTE: shutil path is based on the parent process, whereas
-            # add_value will process the path relative to where the docs.py
-            # module is. So "../" is only required for the latter.
+            docs.add_dataset(dst) # assume file has already moved to dst
 
     def catch(self, signum, frame):
         self.en_capture = False
