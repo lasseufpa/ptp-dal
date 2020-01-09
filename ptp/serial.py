@@ -49,6 +49,12 @@ class Serial():
         self.last_temp    = (None, None)
         self.last_bbu_occ = None
 
+        # Continuously check that the devices are alive
+        self.sensor_alive  = True
+        self.bbu_alive     = True
+        self.rru_alive     = True
+        self.alive_timeout = 5 # in secs
+
         # Enable
         self.en_capture = True
 
@@ -65,6 +71,8 @@ class Serial():
 
     def read_sensor(self):
         """Loop for reading the sensor device"""
+        last_read   = time.time()
+
         while (self.en_capture):
             assert(self.sensor.in_waiting < 2048), \
                 "Sensor serial buffer is getting full"
@@ -78,9 +86,16 @@ class Serial():
                                       float(temp_measurements[1]))
                 except ValueError:
                         pass
+                last_read = time.time()
+            elif (time.time() - last_read > self.alive_timeout):
+                self.sensor_alive = False
+                logging.warning("Sensor device is unresponsive")
+                break
 
     def read_bbu(self):
         """Loop for reading the BBU device"""
+        last_read   = time.time()
+
         while (self.en_capture):
             assert(self.bbu.in_waiting < 2048), \
                 "BBU serial buffer is getting full"
@@ -94,6 +109,12 @@ class Serial():
                         self.last_bbu_occ = int(bbu_str_split[1])
                     except ValueError:
                         pass
+
+                last_read = time.time()
+            elif (time.time() - last_read > self.alive_timeout):
+                self.bbu_alive = False
+                logging.warning("BBU is unresponsive")
+                break
 
     def connect(self, device, baudrate=115200):
         """Establish a serial connection to a given device.
@@ -195,7 +216,7 @@ class Serial():
         exit()
 
     def run(self, print_en, capture_occ=True):
-        """Continuously read the serial input and collect timestamps
+        """Continuously read from the RRU and collect timestamps
 
         Args:
             print_en    : Whether to print non-timestamp logs to stdout
@@ -216,6 +237,8 @@ class Serial():
         pps_err      = None
         debug_buffer = list()
 
+        last_read = time.time()
+
         while self.en_capture == True and \
               ((self.idx < self.n_samples) or self.n_samples == 0):
 
@@ -225,6 +248,19 @@ class Serial():
             line     = self.rru.readline().decode()
             line_key = line.split(" ")[0]
             line_val = line.split(" ")
+
+            if (len(line) > 0):
+                last_read = time.time()
+            elif (time.time() - last_read > self.alive_timeout):
+                logging.warning("RRU is unresponsive")
+                self.rru_alive = False
+
+            # If a device becomes unresponsive, stop
+            if ((not self.rru_alive) or
+                (not self.bbu_alive) or
+                (not self.sensor_alive)):
+                logging.info("Unresponsive devices - stopping");
+                break
 
             # RRU occupancy
             if capture_occ and "Occupancy" in line:
