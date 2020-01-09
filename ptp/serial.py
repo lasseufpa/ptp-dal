@@ -286,24 +286,26 @@ class Serial():
             # PTP Timestamps
             if line_key == "Timestamps":
                 # Normal PTP Timestamps
-                t1_ns  = int(line_val[2],16)
-                t2_ns  = int(line_val[4],16)
-                t3_ns  = int(line_val[6],16)
-                t4_ns  = int(line_val[8],16)
-                t1_sec = int(line_val[10],16)
-                t2_sec = int(line_val[12],16)
-                t3_sec = int(line_val[14],16)
-                t4_sec = int(line_val[16],16)
+                seq_id = int(line_val[2])
+                t1_ns  = int(line_val[4],16)
+                t2_ns  = int(line_val[6],16)
+                t3_ns  = int(line_val[8],16)
+                t4_ns  = int(line_val[10],16)
+                t1_sec = int(line_val[12],16)
+                t2_sec = int(line_val[14],16)
+                t3_sec = int(line_val[16],16)
+                t4_sec = int(line_val[18],16)
 
                 # PPS Timestamps
-                t1_pps_ns  = int(line_val[18],16)
-                t1_pps_sec = int(line_val[20],16)
-                t4_pps_ns  = int(line_val[22],16)
-                t4_pps_sec = int(line_val[24],16)
+                t1_pps_ns  = int(line_val[20],16)
+                t1_pps_sec = int(line_val[22],16)
+                t4_pps_ns  = int(line_val[24],16)
+                t4_pps_sec = int(line_val[26],16)
 
                 # Append to results
                 run_data = {
                     "idx"        : self.idx,
+                    "seq_id"     : seq_id,
                     't1'         : t1_ns,
                     't2'         : t2_ns,
                     't3'         : t3_ns,
