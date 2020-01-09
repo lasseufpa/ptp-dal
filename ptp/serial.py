@@ -332,6 +332,7 @@ class Serial():
         logger.info("Starting capture")
         rru_occ      = None
         pps_err      = None
+        last_seq_id  = None
         debug_buffer = list()
 
         last_read = time.time()
@@ -360,6 +361,14 @@ class Serial():
 
                 if (self.last_bbu_occ is not None):
                     run_data["bbu_occ"] = self.last_bbu_occ
+
+                if ((last_seq_id is not None) and
+                    (run_data['seq_id'] != ((last_seq_id + 1) % 2**16))):
+                    logging.warning("PTP sequence id gap: {:d} to {:d}".format(
+                        last_seq_id,
+                        run_data['seq_id']
+                    ))
+                last_seq_id = run_data['seq_id']
 
                 if (logger.root.level == logging.DEBUG):
                     debug_buffer.append(run_data)
