@@ -25,7 +25,7 @@ def download_dataset(path, remote_repo):
 
     if (found):
         print("Downloaded")
-        print("Run:\n./reader_demo.py -vvvv -f data/%s" %(path))
+        print("Run:\n./analyze.py -vvvv -f data/%s" %(path))
     else:
         print("Couldn't find dataset in %s" %(remote_repo))
 
