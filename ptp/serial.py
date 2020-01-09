@@ -69,6 +69,11 @@ class Serial():
             bbu_thread = threading.Thread(target=self.read_bbu, daemon=True)
             bbu_thread.start()
 
+    def _readline(self, dev):
+        """Readline and clean whitespaces"""
+        line = dev.readline().strip().decode("utf-8", "ignore")
+        return " ".join(line.split())
+
     def read_sensor(self):
         """Loop for reading the sensor device"""
         last_read   = time.time()
@@ -77,7 +82,7 @@ class Serial():
             assert(self.sensor.in_waiting < 2048), \
                 "Sensor serial buffer is getting full"
 
-            temperature_str = self.sensor.readline().strip().decode("utf-8")
+            temperature_str = self._readline(self.sensor)
 
             if (len(temperature_str) > 0):
                 try:
@@ -100,7 +105,7 @@ class Serial():
             assert(self.bbu.in_waiting < 2048), \
                 "BBU serial buffer is getting full"
 
-            bbu_str = self.bbu.readline().decode()
+            bbu_str = self._readline(self.bbu)
 
             if "Occupancy" in bbu_str:
                 bbu_str_split = bbu_str.split("\t")
@@ -245,7 +250,7 @@ class Serial():
             assert(self.rru.in_waiting < 2048), \
                 "RRU serial buffer is getting full"
 
-            line     = self.rru.readline().decode()
+            line     = self._readline(self.rru)
             line_key = line.split(" ")[0]
             line_val = line.split(" ")
 
