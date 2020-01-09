@@ -68,8 +68,6 @@ def main():
                         type=int,
                         help='Restrict number of iterations. If set to 0, the \
                         acquisition will run indefinitely (default: 0).')
-    parser.add_argument('-p', '--print-all', default=False, action='store_true',
-                        help='Print out all non-timestamp logs from the FPGA')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,
@@ -171,7 +169,7 @@ def main():
     if (response.lower() == "y"):
         serial = ptp.serial.Serial(args.rru, args.bbu, args.sensor,
                                    args.num_iter, metadata)
-        serial.run(args.print_all)
+        serial.run()
 
 if __name__ == "__main__":
     main()

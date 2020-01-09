@@ -9,6 +9,7 @@ from ptp.docs import Docs
 import threading
 from tabulate import tabulate
 import pandas as pd
+from collections import deque
 
 
 logger = logging.getLogger(__name__)
@@ -45,9 +46,9 @@ class Serial():
         self.filename = path + "serial-" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
         # Initialize some vars
-        self.idx          = 0
         self.last_temp    = (None, None)
         self.last_bbu_occ = None
+        self.rru_data     = deque()
 
         # Continuously check that the devices are alive
         self.sensor_alive  = True
@@ -69,6 +70,9 @@ class Serial():
             bbu_thread = threading.Thread(target=self.read_bbu, daemon=True)
             bbu_thread.start()
 
+        rru_thread = threading.Thread(target=self.read_rru, daemon=True)
+        rru_thread.start()
+
     def _readline(self, dev):
         """Readline and clean whitespaces"""
         line = dev.readline().strip().decode("utf-8", "ignore")
@@ -76,7 +80,7 @@ class Serial():
 
     def read_sensor(self):
         """Loop for reading the sensor device"""
-        last_read   = time.time()
+        last_read = time.time()
 
         while (self.en_capture):
             assert(self.sensor.in_waiting < 2048), \
@@ -99,7 +103,7 @@ class Serial():
 
     def read_bbu(self):
         """Loop for reading the BBU device"""
-        last_read   = time.time()
+        last_read = time.time()
 
         while (self.en_capture):
             assert(self.bbu.in_waiting < 2048), \
@@ -120,6 +124,97 @@ class Serial():
                 self.bbu_alive = False
                 logging.warning("BBU is unresponsive")
                 break
+
+    def read_rru(self):
+        """Loop for reading the RRU device"""
+        last_read = time.time()
+
+        rru_occ = None
+        pps_err = None
+        idx     = 0
+
+        while (self.en_capture):
+            assert(self.rru.in_waiting < 2048), \
+                "RRU serial buffer is getting full"
+
+            line     = self._readline(self.rru)
+            line_key = line.split(" ")[0]
+            line_val = line.split(" ")
+
+            if (len(line) > 0):
+                last_read = time.time()
+            elif (time.time() - last_read > self.alive_timeout):
+                self.rru_alive = False
+                logging.warning("RRU is unresponsive")
+                break
+
+            # PPS time alignment error
+            if line_key == '[pps-rtc][':
+                line_2 = ' '.join(line.split()).split(" ")
+                if (line_2[1] == "Sync" and line_2[2] == "Error]"):
+                    pps_err = int(line_2[3]) + float(line_2[5])/(2**32)
+
+            # RRU occupancy
+            if "Occupancy" in line:
+                split_line = line.split()
+                if (len(split_line) >= 4):
+                    try:
+                        rru_occ = int(split_line[3])
+                    except ValueError:
+                        pass
+
+            # PTP Timestamps
+            if "Timestamps" in line:
+                # Normal PTP Timestamps
+                seq_id = int(line_val[2])
+                t1_ns  = int(line_val[4],16)
+                t2_ns  = int(line_val[6],16)
+                t3_ns  = int(line_val[8],16)
+                t4_ns  = int(line_val[10],16)
+                t1_sec = int(line_val[12],16)
+                t2_sec = int(line_val[14],16)
+                t3_sec = int(line_val[16],16)
+                t4_sec = int(line_val[18],16)
+
+                # PPS Timestamps
+                t1_pps_ns  = int(line_val[20],16)
+                t1_pps_sec = int(line_val[22],16)
+                t4_pps_ns  = int(line_val[24],16)
+                t4_pps_sec = int(line_val[26],16)
+
+                # Append to results
+                run_data = {
+                    "idx"        : idx,
+                    "seq_id"     : seq_id,
+                    't1'         : t1_ns,
+                    't2'         : t2_ns,
+                    't3'         : t3_ns,
+                    't4'         : t4_ns,
+                    't1_sec'     : t1_sec,
+                    't2_sec'     : t2_sec,
+                    't3_sec'     : t3_sec,
+                    't4_sec'     : t4_sec,
+                    't1_pps'     : t1_pps_ns,
+                    't1_pps_sec' : t1_pps_sec,
+                    't4_pps'     : t4_pps_ns,
+                    't4_pps_sec' : t4_pps_sec
+                }
+            else:
+                continue
+
+            # Append the last occupancy when available
+            if (rru_occ is not None):
+                run_data["rru_occ"] = rru_occ
+                rru_occ = None
+
+            # Append the last PPS error when available
+            if (pps_err is not None):
+                run_data["pps_err"] = pps_err
+                pps_err = None
+
+            self.rru_data.append(run_data)
+
+            idx += 1
 
     def connect(self, device, baudrate=115200):
         """Establish a serial connection to a given device.
@@ -188,7 +283,7 @@ class Serial():
         """Save runner data on JSON file"""
 
         with open(self.filename, 'a') as fd:
-            if (self.idx > 0):
+            if (data['idx'] > 0):
                 fd.write(',\n')
             json.dump(data, fd)
 
@@ -217,20 +312,15 @@ class Serial():
             os.path.basename(self.filename)))
         exit()
 
-    def run(self, print_en, capture_occ=True):
+    def run(self):
         """Continuously read from the RRU and collect timestamps
-
-        Args:
-            print_en    : Whether to print non-timestamp logs to stdout
-            capture_occ : Whether to capture the RoE DAC interface occupancy
-
         """
         signal.signal(signal.SIGINT, self.catch)
         signal.siginterrupt(signal.SIGINT, False)
 
         # Use the reader class to post-process each set of timestamp in
         # real-time and to print the associated PTP metrics
-        reader = Reader()
+        reader = Reader(infer_secs=False)
 
         self.start_json_file()
 
@@ -240,22 +330,10 @@ class Serial():
         debug_buffer = list()
 
         last_read = time.time()
+        count     = 0
 
         while self.en_capture == True and \
-              ((self.idx < self.n_samples) or self.n_samples == 0):
-
-            assert(self.rru.in_waiting < 2048), \
-                "RRU serial buffer is getting full"
-
-            line     = self._readline(self.rru)
-            line_key = line.split(" ")[0]
-            line_val = line.split(" ")
-
-            if (len(line) > 0):
-                last_read = time.time()
-            elif (time.time() - last_read > self.alive_timeout):
-                logging.warning("RRU is unresponsive")
-                self.rru_alive = False
+              ((count < self.n_samples) or self.n_samples == 0):
 
             # If a device becomes unresponsive, stop
             if ((not self.rru_alive) or
@@ -264,90 +342,33 @@ class Serial():
                 logging.info("Unresponsive devices - stopping");
                 break
 
-            # RRU occupancy
-            if capture_occ and "Occupancy" in line:
-                split_line = line.split()
-                if (len(split_line) > 1):
-                    try:
-                        rru_occ = int(split_line[3])
-                    except ValueError:
-                        rru_occ = None
-
-            ## PPS time alignment error
-            if line_key == '[pps-rtc][':
-                line_2 = ' '.join(line.split()).split(" ")
-
-                if (line_2[1] == "Sync" and line_2[2] == "Error]"):
-                    pps_err = int(line_2[3]) + float(line_2[5])/(2**32)
-
-            # PTP Timestamps
-            if line_key == "Timestamps":
-                # Normal PTP Timestamps
-                seq_id = int(line_val[2])
-                t1_ns  = int(line_val[4],16)
-                t2_ns  = int(line_val[6],16)
-                t3_ns  = int(line_val[8],16)
-                t4_ns  = int(line_val[10],16)
-                t1_sec = int(line_val[12],16)
-                t2_sec = int(line_val[14],16)
-                t3_sec = int(line_val[16],16)
-                t4_sec = int(line_val[18],16)
-
-                # PPS Timestamps
-                t1_pps_ns  = int(line_val[20],16)
-                t1_pps_sec = int(line_val[22],16)
-                t4_pps_ns  = int(line_val[24],16)
-                t4_pps_sec = int(line_val[26],16)
-
-                # Append to results
-                run_data = {
-                    "idx"        : self.idx,
-                    "seq_id"     : seq_id,
-                    't1'         : t1_ns,
-                    't2'         : t2_ns,
-                    't3'         : t3_ns,
-                    't4'         : t4_ns,
-                    't1_sec'     : t1_sec,
-                    't2_sec'     : t2_sec,
-                    't3_sec'     : t3_sec,
-                    't4_sec'     : t4_sec,
-                    't1_pps'     : t1_pps_ns,
-                    't1_pps_sec' : t1_pps_sec,
-                    't4_pps'     : t4_pps_ns,
-                    't4_pps_sec' : t4_pps_sec
-                }
+            if (len(self.rru_data) > 0):
+                run_data = self.rru_data.popleft()
 
                 # Process PTP metrics for debugging
                 reader.process(run_data, pr_level=logging.INFO)
 
-                # Append the temperature
+                # Append the temperature and BBU occupancy when available
                 if (self.last_temp[0] is not None or
                     self.last_temp[1] is not None):
                     run_data["temp"] = self.last_temp
 
-                # Append the occupancies
-                if (rru_occ is not None):
-                    run_data["rru_occ"] = rru_occ
                 if (self.last_bbu_occ is not None):
                     run_data["bbu_occ"] = self.last_bbu_occ
-
-                # Append PPS error
-                if (pps_err is not None):
-                    run_data["pps_err"] = pps_err
 
                 if (logger.root.level == logging.DEBUG):
                     debug_buffer.append(run_data)
 
-                    if (self.idx % 20 == 19):
+                    if (run_data["idx"] % 20 == 19):
                         df = pd.DataFrame(debug_buffer)
                         print(tabulate(df, headers='keys', tablefmt='psql'))
                         debug_buffer.clear()
 
                 # Append to output file
                 self.save(run_data)
-                self.idx += 1
-            elif (print_en):
-                print(line, end='')
+                count += 1
+            else:
+                time.sleep(0.1)
 
         self.end_json_file()
         self.move()
