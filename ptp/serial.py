@@ -108,10 +108,10 @@ class Serial():
             bbu_str = self._readline(self.bbu)
 
             if "Occupancy" in bbu_str:
-                bbu_str_split = bbu_str.split("\t")
-                if (len(bbu_str_split) > 1):
+                bbu_str_split = bbu_str.split(" ")
+                if (len(bbu_str_split) >= 4):
                     try:
-                        self.last_bbu_occ = int(bbu_str_split[1])
+                        self.last_bbu_occ = int(bbu_str_split[3])
                     except ValueError:
                         pass
 
