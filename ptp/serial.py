@@ -78,6 +78,11 @@ class Serial():
         line = dev.readline().strip().decode("utf-8", "ignore")
         return " ".join(line.split())
 
+    def _split_strip_line(self, line, key):
+        """Strip all elements preceding the key element and split"""
+        strip_line = line[line.find(key):]
+        return strip_line.split()
+
     def read_sensor(self):
         """Loop for reading the sensor device"""
         last_read = time.time()
@@ -137,9 +142,7 @@ class Serial():
             assert(self.rru.in_waiting < 2048), \
                 "RRU serial buffer is getting full"
 
-            line     = self._readline(self.rru)
-            line_key = line.split(" ")[0]
-            line_val = line.split(" ")
+            line = self._readline(self.rru)
 
             if (len(line) > 0):
                 last_read = time.time()
@@ -149,22 +152,24 @@ class Serial():
                 break
 
             # PPS time alignment error
-            if line_key == '[pps-rtc][':
-                line_2 = ' '.join(line.split()).split(" ")
-                if (line_2[1] == "Sync" and line_2[2] == "Error]"):
-                    pps_err = int(line_2[3]) + float(line_2[5])/(2**32)
+            if '[pps-rtc][' in line:
+                line_val = self._split_strip_line(line, "[pps-rtc][")
+                if (line_val[1] == "Sync" and line_val[2] == "Error]"):
+                    pps_err = int(line_val[3]) + float(line_val[5])/(2**32)
 
             # RRU occupancy
             if "Occupancy" in line:
-                split_line = line.split()
-                if (len(split_line) >= 4):
+                line_val = self._split_strip_line(line, "Occupancy:")
+                if (len(line_val) >= 4):
                     try:
-                        rru_occ = int(split_line[3])
+                        rru_occ = int(line_val[3])
                     except ValueError:
                         pass
 
             # PTP Timestamps
             if "Timestamps" in line:
+                line_val = self._split_strip_line(line,  "Timestamps")
+
                 # Normal PTP Timestamps
                 seq_id = int(line_val[2])
                 t1_ns  = int(line_val[4],16)
