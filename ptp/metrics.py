@@ -237,6 +237,41 @@ class Analyser():
 
             del y_err
 
+    def check_seq_id_gaps(self, save=False):
+        """Check whether there are gaps on sequenceIds"""
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+
+        seq_ids = np.array([r["seq_id"] for r in self.data if "seq_id" in r])
+        diff    = np.mod(np.diff(seq_ids), 2**16)
+        gaps    = np.where(diff != 1)[0]
+
+        # Fix rollovers: apparently our HW (maybe by standard behavior) rolls
+        # back to 1, instead of 0.
+        non_rollover_gaps = list()
+        for i, gap in enumerate(gaps):
+            if (not (seq_ids[gap] == 65535 and seq_ids[gap+1] == 1)):
+                non_rollover_gaps.append(gap)
+            else:
+                logging.debug("Gap from {:d} to {:d} due to rollover".format(
+                    seq_ids[gap], seq_ids[gap+1]))
+
+        if (len(seq_ids) == 0):
+            logger.warning("Dataset doesn't contain sequenceIds")
+
+        for f in files:
+            if (len(non_rollover_gaps) > 0):
+                print("Checking sequenceIds: {:d} gaps identified".format(len(gaps)),
+                      file=f)
+                for gap in non_rollover_gaps:
+                    logging.debug("Gap from {:d} to {:d}".format(
+                        seq_ids[gap], seq_ids[gap+1]))
+            else:
+                print("Checking sequenceIDs: OK (no gaps)", file=f)
+
     def rolling_window_mtx(self, x, window_size):
         """Compute all overlapping (rolling) observation windows in a matrix
 

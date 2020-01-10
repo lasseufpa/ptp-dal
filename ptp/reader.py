@@ -239,6 +239,9 @@ class Reader():
             if (data[i].get("bbu_occ")):
                 results["bbu_occ"] = data[i]["bbu_occ"]
 
+            if (data[i].get("seq_id")):
+                results["seq_id"] = data[i]["seq_id"]
+
             self.data.append(results)
             self.check_progress(i, n_data)
 
