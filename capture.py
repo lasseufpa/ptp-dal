@@ -11,15 +11,14 @@ import ptp.serial
 
 DEFAULT_CONFIG = "config/capture.cfg"
 
-def calc_rate(n_spf, l_iq, fs, n_rru_cfg, n_rru_active):
+def calc_rate(n_spf, l_iq, fs, n_rru_dl, n_rru_ul):
     """Compute theoretical DL/UL bitrates
 
     Args:
-        n_spf        : Number of IQ samples per Ethernet frame
-        l_iq         : IQ sample size (in bits)
-        n_rru_cfg    : Number of RRUs configured at the BBU (determines DL rate)
-        n_rru_active : Number of RRUs that are actually active (determines UL
-                       rate)
+        n_spf    : Number of IQ samples per Ethernet frame
+        l_iq     : IQ sample size (in bits)
+        n_rru_dl : Number of RRUs configured at the BBU (determines DL rate)
+        n_rru_ul : Number of RRUs that are actually active (determines UL rate)
 
     Returns:
         Tuple with DL and UL bitrates
@@ -38,8 +37,8 @@ def calc_rate(n_spf, l_iq, fs, n_rru_cfg, n_rru_active):
     # Bitrate per RRU
     rate_per_rru   = fh_frame_len / i_bg
     # Total DL/UL bitrates
-    bitrate_dl     = rate_per_rru * n_rru_cfg
-    bitrate_ul     = rate_per_rru * n_rru_active
+    bitrate_dl     = rate_per_rru * n_rru_dl
+    bitrate_ul     = rate_per_rru * n_rru_ul
 
     return bitrate_dl, bitrate_ul
 
@@ -84,6 +83,11 @@ def main():
                         type=int,
                         default=4,
                         help='Number of hops')
+    parser.add_argument('--n-rru-ptp',
+                        type=int,
+                        default=1,
+                        help='Number of RRUs actively operating as PTP slaves \
+                        in the testbed (not necessarily delivering UL FH data)')
 
     fh_traffic_group = parser.add_argument_group('background traffic')
     fh_traffic_group.add_argument('--fh-traffic',
@@ -112,18 +116,19 @@ def main():
                                   default=cfg_parser.get('FH-TRAFFIC',
                                                          'n_spf'),
                                   help='Number of IQ samples per frame')
-    fh_traffic_group.add_argument('--n-rru-cfg',
+    fh_traffic_group.add_argument('--n-rru-dl',
                                   type=int,
                                   default=cfg_parser.get('FH-TRAFFIC',
-                                                         'n_rru_cfg'),
+                                                         'n_rru_dl'),
                                   help='Number of RRUs that the BBU is \
                                   configured to deliver data to in DL')
-    fh_traffic_group.add_argument('--n-rru-active',
+    fh_traffic_group.add_argument('--n-rru-ul',
                                   type=int,
                                   default=cfg_parser.get('FH-TRAFFIC',
-                                                         'n_rru_active'),
-                                  help='Number of RRUs actually active in the \
-                                  testbed (delivering UL data) ')
+                                                         'n_rru_ul'),
+                                  help=("Number of RRUs delivering UL data, "
+                                        "i.e. that are actually active in the "
+                                        "testbed"))
 
     args     = parser.parse_args()
 
@@ -135,7 +140,7 @@ def main():
     if (args.fh_traffic) :
         # Compute theoretical DL/UL bitrates
         bitrate_dl, bitrate_ul = calc_rate(args.n_spf, args.iq_size, args.fs,
-                                           args.n_rru_cfg, args.n_rru_active)
+                                           args.n_rru_dl, args.n_rru_ul)
 
         fh_traffic = {
             "type" : args.type,
@@ -146,8 +151,8 @@ def main():
             },
             "iq_size" : args.iq_size,
             "n_spf" : args.n_spf,
-            "n_rru_cfg" : args.n_rru_cfg,
-            "n_rru_active" : args.n_rru_active,
+            "n_rru_ul" : args.n_rru_ul,
+            "n_rru_dl" : args.n_rru_dl
         }
     else:
         fh_traffic = None
@@ -158,6 +163,7 @@ def main():
         "sync_period": 1.0/args.sync_rate,
         "fh_traffic" : fh_traffic,
         "hops" : args.hops,
+        "n_rru_ptp" : args.n_rru_ptp,
         "start_time" : datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
 
