@@ -843,6 +843,11 @@ class PktSelection():
         logger.info("Processing sample-%s with N=%d" %(strategy, self.N) +
                     drift_msg)
 
+        # Remove previous entries of this metric
+        key = "x_pkts_{}".format(strategy.replace('-', '_'))
+        for r in self.data:
+            r.pop(key, None)
+
         # Vector of time offset incremental drifts due to freq. offset:
         n_data    = len(self.data)
         drift_est = np.zeros(n_data)
