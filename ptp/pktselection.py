@@ -17,7 +17,8 @@ class PktSelection():
             data    : Array of objects with simulation data
 
         """
-        self.data        = data
+        self.data           = data # this pointer could be changed
+        self._original_data = data # this should be immutable
 
         # Define window length and associated paramters
         self._set_window_len(N)
@@ -29,6 +30,7 @@ class PktSelection():
         """Reset state"""
         N                        = self.N
         self.i_batch             = 0
+        self.data                = self._original_data
         # Recursive moving-average
         self._movavg_accum       = 0
         self._movavg_buffer      = np.zeros(2*N)
@@ -841,6 +843,17 @@ class PktSelection():
         key = "x_pkts_{}".format(strategy.replace('-', '_'))
         for r in self.data:
             r.pop(key, None)
+
+        # If drift compensation is to be used, find where drift estimates start
+        # and restrict the dataset to be processed by packet selection such that
+        # all of its entries contain drift estimates
+        if (drift_comp):
+            for i, r in enumerate(self._original_data):
+                if ("drift" in r):
+                    i_drift_start = i
+                    break
+            self.data = self._original_data[i_drift_start:]
+            assert(all([("drift" in r) for r in self.data]))
 
         # Vector of time offset incremental drifts due to freq. offset:
         n_data    = len(self.data)
