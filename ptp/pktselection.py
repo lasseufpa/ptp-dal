@@ -17,26 +17,36 @@ class PktSelection():
             data    : Array of objects with simulation data
 
         """
-        self.N       = N
-        self.data    = data
-        self.i_batch = 0
+        self.data        = data
 
+        # Define window length and associated paramters
+        self._set_window_len(N)
+
+        # Initialize state state
+        self._reset_state()
+
+    def _reset_state(self):
+        """Reset state"""
+        N                        = self.N
+        self.i_batch             = 0
         # Recursive moving-average
-        self._movavg_accum    = 0              # recursive accumulator
-        self._movavg_buffer   = np.zeros(2*N)  # circular buffer
-        self._movavg_i        = N              # head index of the buffer
-
+        self._movavg_accum       = 0
+        self._movavg_buffer      = np.zeros(2*N)
+        self._movavg_i           = N
         # Exponentially-weight moving average
+        self._ewma_last_avg      = 0
+        self._ewma_n             = 0
+        # Sample-mode params
+        self._sample_mode_bin    = SAMPLE_MODE_BIN_0
+        self._sample_mode_bin_fw = SAMPLE_MODE_BIN_0
+        self._sample_mode_bin_bw = SAMPLE_MODE_BIN_0
+        self._mode_stall_cnt     = 0
+
+    def _set_window_len(self, N):
+        """Set window length and associated paramters"""
+        self.N              = N
         self._ewma_alpha    = 1/N
         self._ewma_beta     = 1 - (1/N)
-        self._ewma_last_avg = 0
-        self._ewma_n        = 0 # sample index for bias correction
-
-        # Sample-mode params
-        self._sample_mode_bin    = SAMPLE_MODE_BIN_0 # used in window-by-window processing
-        self._sample_mode_bin_fw = SAMPLE_MODE_BIN_0 # used in matrix-by-matrix processing
-        self._sample_mode_bin_bw = SAMPLE_MODE_BIN_0 # used in matrix-by-matrix processing
-        self._mode_stall_cnt     = 0
 
     def _window(self, v, N, shift=1, copy = False):
         """Split numpy vector into windows with configurable overlapping
@@ -419,28 +429,6 @@ class PktSelection():
 
         return x_est.reshape(x_est.size)
 
-    def set_window_len(self, N):
-        """Change the window length
-
-        Args:
-            N : new window length N
-
-        """
-        self.N                   = N
-        # Reset internal variables (some depend on N)
-        self.i_batch             = 0
-        self._movavg_accum       = 0
-        self._movavg_buffer      = np.zeros(2*N)
-        self._movavg_i           = N
-        self._ewma_alpha         = 1/N
-        self._ewma_beta          = 1 - (1/N)
-        self._ewma_last_avg      = 0
-        self._ewma_n             = 0
-        self._sample_mode_bin    = SAMPLE_MODE_BIN_0
-        self._sample_mode_bin_fw = SAMPLE_MODE_BIN_0
-        self._sample_mode_bin_bw = SAMPLE_MODE_BIN_0
-        self._mode_stall_cnt     = 0
-
     def _sample_by_sample(self, strategy, drift_comp, drift_est):
         """Sample-by-sample processing
 
@@ -737,6 +725,15 @@ class PktSelection():
 
         return x_est
 
+    def set_window_len(self, N):
+        """Change the window length
+
+        Args:
+            N : new window length N
+
+        """
+        self._set_window_len(N)
+
     def process(self, strategy, drift_comp=True, vectorize=True, batch=True, \
                 batch_size=4096):
         """Process the observations
@@ -842,6 +839,9 @@ class PktSelection():
 
         logger.info("Processing sample-%s with N=%d" %(strategy, self.N) +
                     drift_msg)
+
+        # Reset state
+        self._reset_state()
 
         # Remove previous entries of this metric
         key = "x_pkts_{}".format(strategy.replace('-', '_'))
