@@ -488,9 +488,6 @@ class PktSelection():
             i_s = i
             i_e = i + self.N
 
-            # Observation window
-            x_obs_w = np.array([res["x_est"] for res in self.data[i_s:i_e]])
-
             # Drift vector is the cumulative time offset drift due to
             # frequency offset relative to the beginning of the observation
             # window. Say if first sample of the window has an incremental
@@ -501,6 +498,9 @@ class PktSelection():
 
             # Operator that processes time offset measurement windows
             if (strategy == 'avg-normal'):
+                # Observation window
+                x_obs_w = np.array([res["x_est"] for res in self.data[i_s:i_e]])
+
                 # Remove drift from observed time offset
                 if (drift_comp):
                     x_obs_w = x_obs_w - drift_w
