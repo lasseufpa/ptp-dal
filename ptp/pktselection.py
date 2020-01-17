@@ -444,12 +444,10 @@ class PktSelection():
         """
         # Select vector of noisy time offset observations and delay measurements
         x_obs  = np.array([res["x_est"] for res in self.data])
-        d_obs  = np.array([res["d_est"] for res in self.data])
         n_data = len(x_obs)
 
         # Assume that all elements of self.data contain "x_est" and "d_est"
         assert(len(x_obs) == len(self.data))
-        assert(len(d_obs) == len(self.data))
 
         # Key for save data on global data records
         key = strategy.replace('-', '_')
@@ -490,10 +488,6 @@ class PktSelection():
 
             # Observation window
             x_obs_w = np.array([res["x_est"] for res in self.data[i_s:i_e]])
-            d_obs_w = np.array([res["d_est"] for res in self.data[i_s:i_e]])
-
-            # Assume that all elements of the window contain "x_est" and "d_est"
-            assert(len(x_obs_w) == len(d_obs_w))
 
             # Drift vector is the cumulative time offset drift due to
             # frequency offset relative to the beginning of the observation
