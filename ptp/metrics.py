@@ -162,6 +162,8 @@ class Analyser():
                                                     "asymmetry"))
                 print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
                     np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)), file=f)
+                print("Std Dev\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                    np.std(d_ms), np.std(d_sm), np.std(d_asym)), file=f)
                 print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
                     np.amin(d_ms), np.amin(d_sm),
                     (np.amin(d_ms) - np.amin(d_sm))/2), file=f)
