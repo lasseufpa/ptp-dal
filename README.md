@@ -12,13 +12,18 @@ between the results of the different algorithms. While in practice these
 algorithms could be computed in real-time by a PTP node, most likely only one of
 them would run at a time to discipline the node's real-time clock (RTC).
 
-## Python Virtual Environment
+## Python Environment
 
-If using *virtualenvwrapper*, run the following:
+The project requires Python 3.6 or higher.
+
+If using *virtualenvwrapper*, run the following to create the virtual environment:
 
 ```
-mkvirtualenv -r requirements.txt ptp
+mkvirtualenv -p python3.6 -r requirements.txt ptp
 ```
+
+> NOTE: If your Python version is higher than 3.6, substitute `python3.6` above
+> with the correct version.
 
 ## Unit tests
 
