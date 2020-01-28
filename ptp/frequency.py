@@ -21,8 +21,40 @@ class Estimator():
         """
         assert(delta > 0)
         assert(isinstance(delta, int))
-        self.data   = data
-        self.delta  = delta
+        self.data  = data
+        self.delta = delta
+
+    def _eval_drift_err(self, n_samples=None):
+        """Evaluate RMS error of drift estimates with respect to true drift
+
+        Use drift estimates and true time offset values that are available
+        internally on self.data.
+
+        Args:
+            n_samples : Number of drift samples to consider
+
+        Returns:
+           Tuple with the RMS error of the absolute drift and the RMS error
+           of the cumulative drift.
+
+        """
+
+        # Absolute drift
+        true_drift    = np.array([(r["x"] - self.data[i-1]["x"])
+                               for i,r in enumerate(self.data)
+                               if "drift" in r])[:n_samples]
+        drift_est     = np.array([r["drift"] for r in self.data
+                               if "drift" in r])[:n_samples]
+        drift_err     = drift_est - true_drift
+        rms_drift_err = np.sqrt(np.square(drift_err).mean())
+
+        # Cumulative drift
+        true_cum_drift    = true_drift.cumsum()
+        cum_drif_est      = drift_est.cumsum()
+        cum_drif_err      = cum_drif_est - true_cum_drift
+        rms_cum_drift_err = np.sqrt(np.square(cum_drif_err).mean())
+
+        return rms_drift_err, rms_cum_drift_err
 
     def process(self):
         """Process the data
@@ -49,8 +81,16 @@ class Estimator():
         for i,r in enumerate(self.data[self.delta:]):
             r["y_est"] = y_est[i]
 
-    def optimize(self):
-        """Optimize observation interval for minimum MSE
+    def optimize_to_y(self):
+        """Optimize delta for minimum MSE of y estimation w.r.t true y
+
+        Optimizes the window length used for unbiased frequency offset
+        estimations in order to minimize the MSE relative to the true frequency
+        offset y. The problem with this approach is that the truth in y is
+        questionable. Since the true y values are also computed based on
+        windows, the window length used for the truth computation affects
+        results and may render the optimization below less effective for drift
+        compensation.
 
         """
 
@@ -92,6 +132,70 @@ class Estimator():
         logger.info("Optimum N:   %d" %(N_opt))
         self.delta = N_opt
 
+
+    def optimize_to_drift(self):
+        """Optimize delta for minimum RMSE of cumulative drift estimations
+
+        This can lead to better performance than the other optimization routine
+        because in the end what we really care about is predicting drifts
+        accurately.
+
+        """
+
+        log_min_window = 1
+        log_max_window = int(np.log2(len(self.data) / 2))
+        log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
+        window_len     = 2**log_window_len
+        max_window_len = window_len[-1]
+        n_samples      = len(self.data) - max_window_len
+        # NOTE: n_samples is a number of samples that is guaranteed to be
+        # available for all window lengths to be evaluated
+
+        logger.info("Optimize observation window" %())
+        logger.info("Try from N = %d to N = %d" %(
+            2**log_min_window, 2**log_max_window))
+
+        m_rms     = np.inf
+        m_cum_rms = np.inf
+        N_opt     = 0
+        N_opt_cum = 0
+
+        for N in window_len:
+            for r in self.data:
+                r.pop("y_est", None)
+                r.pop("drift", None)
+
+            self.delta = N
+            self.process()
+            self.estimate_drift()
+
+            rms, cum_rms = self._eval_drift_err(n_samples)
+
+            if (rms < m_rms):
+                m_rms     = rms
+                N_opt     = N
+
+            if (cum_rms < m_cum_rms):
+                m_cum_rms = cum_rms
+                N_opt_cum = N
+
+        if (N_opt != N_opt_cum):
+            logger.info("Window of {} leads to best absolute drift RMSE "
+                        "(of {:.2f}), whereas a window of "
+                        "{} leads to best cumulative drift RMSE "
+                        "(of {:.2f})".format(
+                            N_opt, m_rms, N_opt_cum, m_cum_rms
+                        ))
+
+        logger.info("Minimum RMS: %f ppb" %(m_rms))
+        logger.info("Optimum N:   %d" %(N_opt))
+
+        # NOTE: The window length is being tunned using the cumulative drift
+        # instead of the absolute. This is because the former leads to an window
+        # configuration is very close to the 'optimize_to_y', while the latter
+        # yield the best estimation performance.
+        self.delta = N_opt_cum
+
     def set_truth(self, delta=4):
         """Set "true" frequency offset based on "true" time offset measurements
 
@@ -125,6 +229,9 @@ class Estimator():
         Estimate these incremental changes and save on the dataset.
 
         """
+        # Clean previous estimates
+        for r in self.data:
+            r.pop("drift", None)
 
         # Compute the drift within the observation window
         for i,r in enumerate(self.data[1:]):
