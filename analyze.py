@@ -68,15 +68,16 @@ def main():
     else:
         T_ns = 1e9/4
 
-    # Raw frequency estimations (differentiation of time offset measurements)
-    freq_delta = 64
+    # Raw frequency estimations (mostly for visualization)
+    freq_delta     = 64
     freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
     freq_estimator.set_truth(delta=freq_delta)
     freq_estimator.optimize_to_y()
     freq_estimator.process()
 
-    # Estimate time offset drifts due to frequency offset
-    freq_estimator.estimate_drift()
+    # Time offset drift estimations through the PI control loop
+    damping, loopbw = freq_estimator.optimize_loop()
+    freq_estimator.loop(damping = damping, loopbw = loopbw)
 
     # Optimize window length configuration
     if (not args.no_optimizer):

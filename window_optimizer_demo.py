@@ -97,13 +97,10 @@ def main():
             # FIXME we should use at least a command-line variable
             T_ns = 1e9/4
 
-    # Estimate frequency offset and corresponding drifts
-    freq_delta = 64
-    freq_estimator = ptp.frequency.Estimator(ptp_src.data, delta=freq_delta)
-    freq_estimator.set_truth(delta=freq_delta)
-    freq_estimator.optimize()
-    freq_estimator.process()
-    freq_estimator.estimate_drift()
+    # Time offset drift estimations through the PI control loop
+    freq_estimator  = ptp.frequency.Estimator(ptp_src.data)
+    damping, loopbw = freq_estimator.optimize_loop()
+    freq_estimator.loop(damping = damping, loopbw = loopbw)
 
     # Optimize window lengths
     window_optimizer = ptp.window.Optimizer(ptp_src.data, T_ns)

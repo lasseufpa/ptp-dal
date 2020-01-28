@@ -242,4 +242,129 @@ class Estimator():
                 # 1), "i" lags the actual data index by 1.
                 r["drift"] = r["y_est"] * delta
 
+    def _settling_time(self, damping, loopbw):
+        """Computes the settling time of a PI loop"""
+        return int(4 / (damping * loopbw))
+
+    def loop(self, damping = 1.0, loopbw  = 0.001):
+        """Estimate time offset drifts using PI loop
+
+        The PI loop tries to minimize the error between the input time offset
+        estimate and the time offset that is expected based on not only the
+        previous estimate, but also the loop's notion of frequency offset. In
+        the long term, the loop should converge to learning the average time
+        offset drift (or frequency offset) such that the error is minimized.
+
+        The time offset drift estimates that are produced by the loop are only
+        saved in the main data list after the settling time has elapsed. Other
+        blocks will use this in order to infer when drift estimates are
+        locked. In other words, if the "drift" key is not in a dict of the data
+        list, the loop is not locked yet at this point.
+
+        Args:
+            damping : Damping factor
+            loopbw  : Loop bandwidth
+
+        """
+        logger.debug("Run PI loop with damping {:f} and loop bw {:f}".format(
+            damping, loopbw))
+        theta_n  = loopbw / (damping + (1.0/(4 * damping)));
+        denomin  = (1 + 2*damping*theta_n + (theta_n**2));
+        Kp_K0_K1 = (4 * damping * theta_n) / denomin;
+        Kp_K0_K2 = (4 * (theta_n**2)) / denomin;
+
+        # And since Kp and K0 are assumed unitary
+        Kp = Kp_K0_K1; # proportional gain
+        Ki = Kp_K0_K2; # integrator gain
+
+        # Settling time
+        settling = self._settling_time(damping, loopbw)
+
+        if (settling > 0.5*len(self.data)):
+            raise ValueError("Loop's settling time exceeds half the data length"
+                             "(damping: {:f}, loopbw: {:f})".format(
+                                 damping, loopbw))
+
+        # Clean previous estimates
+        for r in self.data:
+            r.pop("drift", None)
+
+        # Run loop
+        drift = 0
+        f_int = 0
+        dds   = self.data[0]["x_est"]
+
+        for i, r in enumerate(self.data):
+            x_est      = r["x_est"]
+            err        = x_est - dds
+            f_prop     = Kp * err
+            f_int     += Ki * err
+            f_err      = f_prop + f_int
+            dds       += f_err
+
+            if (i > settling):
+                r["drift"] = f_err;
+
+    def optimize_loop(self):
+        """Find loop parameters that minimize RMSE of cumulative drift estimates
+
+        Try some pre-defined damping factor and loop bandwidth values.
+
+        """
+
+        damping_vec  = [0.707, 1.0]
+        loopbw_vec   = np.concatenate((
+            np.arange(0.1, 1.0, 0.1),
+            np.arange(0.01, 0.1, 0.01),
+            np.arange(0.001, 0.01, 0.001),
+            np.arange(0.0001, 0.001, 0.0001)))
+        m_rms        = np.inf
+        m_cum_rms    = np.inf
+        best_damping = None
+        best_loopbw  = None
+
+        # First find the longest settling time in order to determine a fair
+        # amount of drift estimates to be compared among all settings
+        n_data = len(self.data)
+        max_settling = 0
+        for damping in damping_vec:
+            for loopbw in loopbw_vec:
+                settling = self._settling_time(damping, loopbw)
+                if ((settling > max_settling) and (settling < int(0.5*n_data))):
+                    max_settling = settling
+
+        n_samples = n_data - max_settling
+        # This is a number of samples that is guaranteed to be available for all
+        # damping, loopbw configurations
+
+        for damping in damping_vec:
+            for loopbw in loopbw_vec:
+                try:
+                    self.loop(damping = damping, loopbw  = loopbw)
+                except ValueError as e:
+                    logger.warning(e)
+                    logger.warning("Skipping damping: {:f}, "
+                                   "loopbw: {:f}".format(
+                                       damping, loopbw))
+                    continue
+
+                rms, cum_rms = self._eval_drift_err(n_samples)
+
+                # NOTE: The damping factor and loop bandwidth are being tunned
+                # using the cumulative drift instead of the absolute. This is
+                # because the former leads to a time offset drift estimation
+                # that is very close to the 'optimize_to_y', while the latter
+                # yield the best estimation performance.
+                if (cum_rms < m_cum_rms):
+                    m_cum_rms    = cum_rms
+                    best_damping = damping
+                    best_loopbw  = loopbw
+
+        logger.info("PI loop optimization")
+        logger.info("Damping factor: {:f}".format(best_damping))
+        logger.info("Loop bandwidth: {:f}".format(best_loopbw))
+
+        return best_damping, best_loopbw
+
+
 
