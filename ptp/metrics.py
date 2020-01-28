@@ -174,6 +174,17 @@ class Analyser():
 
         return np.mean(d_asym)
 
+    def _print_err_stats(self, f, key, e, unit):
+
+        mean = np.mean(e)
+        sdev = np.std(e)
+        rms  = np.sqrt(np.square(e).mean())
+
+        print("{:20s} ".format(key),
+              "Mean: {: 8.3f} {} ".format(mean, unit),
+              "Sdev: {: 8.3f} {} ".format(sdev, unit),
+              "RMS:  {: 8.3f} {}".format(rms, unit), file=f)
+
     def toffset_err_stats(self, save=False):
         """Print the time offset estimation error statistics
 
@@ -201,10 +212,7 @@ class Analyser():
 
             if (len(x_err) > 0):
                 for f in files:
-                    print("[%20s] Mean: % 7.2f ns\tSdev: % 7.2f ns" %(
-                        key, np.mean(x_err), np.std(x_err)), file=f)
-
-            del x_err
+                    self._print_err_stats(f, key, x_err, "ns")
 
     def foffset_err_stats(self, save=False):
         """Print the frequency offset estimation error statistics
@@ -232,10 +240,42 @@ class Analyser():
 
             if (len(y_err) > 0):
                 for f in files:
-                    print("[%14s] Mean: % 7.4f ppb\tSdev: % 7.4f ppb" %(
-                        key, np.mean(y_err), np.std(y_err)), file=f)
+                    self._print_err_stats(f, key, y_err, "ppb")
 
-            del y_err
+    def toffset_drift_err_stats(self, save=False):
+        """Print the time offset drift estimation error statistics
+
+        Args:
+            save    : whether to write results into info.txt
+
+        """
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+
+        for f in files:
+            print("\nTime offset drift estimation error statistics:\n", file=f)
+
+
+        # Absolute drift
+        true_drift = np.array([(r["x"] - self.data[i-1]["x"])
+                               for i,r in enumerate(self.data)
+                               if "drift" in r])
+        drift_est  = np.array([r["drift"] for r in self.data
+                               if "drift" in r])
+        drift_err  = drift_est - true_drift
+
+        # Cumulative drift
+        true_cum_drift = true_drift.cumsum()
+        cum_drif_est   = drift_est.cumsum()
+        cum_drif_err   = cum_drif_est - true_cum_drift
+
+        if (len(drift_err) > 0):
+            for f in files:
+                self._print_err_stats(f, "Drift", drift_err, "ns")
+                self._print_err_stats(f, "Cumulative Drift", cum_drif_err, "ns")
 
     def check_seq_id_gaps(self, save=False):
         """Check whether there are gaps on sequenceIds"""
@@ -1170,20 +1210,12 @@ class Analyser():
             plt.show()
         plt.close()
 
-    def plot_toffset_diff_vs_time(self, x_unit='time', save=True,
-                                  save_format='png'):
-        """Plot time offset diff vs. time
-
-        It is useful to analyze how x[n] varies between consecutive PTP
-        exchanges. This plot shows (x[n] - x[n-1]) over time.
-
-        Args:
-            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
-            save        : Save the figure
-            save_format : Select image format: 'png' or 'eps'
-
+    def plot_ptp_exchange_interval_vs_time(self, x_unit='time', save=True,
+                                           save_format='png'):
+        """Plot the interval between PTP exchanges
         """
-        logger.info("Plot PDV vs. time")
+
+        logger.info("Plot PTP exchange interval vs. time")
         n_data  = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
@@ -1197,24 +1229,90 @@ class Analyser():
             x_axis_vec   = range(0, n_data)
             x_axis_label = 'Realization'
 
-        # True time offset
-        x = np.array([r["x"] for r in self.data])
+        # Exchange interval
+        t1_diff = np.diff(np.array([r["t1"] for r in self.data]))/1e6
 
         plt.figure()
-        plt.scatter(x_axis_vec[1:], np.diff(x), s = 1.0)
+        plt.scatter(x_axis_vec[1:], t1_diff, s = 1.0)
         plt.xlabel(x_axis_label)
-        plt.ylabel('x[n] - x[n-1] (ns)')
-        plt.title('Time offset diff')
+        plt.ylabel('t1[n] - t1[n-1] (ms)')
+        plt.title('PTP exchange interval')
 
         if (save):
-            plt.savefig(self.path + "toffset_diff_vs_time." + save_format,
+            plt.savefig(self.path + "t1_delta_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
 
-    def plot_toffset_diff_hist(self, n_bins=50, save=True, save_format='png'):
-        """Plot time offset diff histogram
+    def plot_toffset_drift_vs_time(self, x_unit='time', save=True,
+                                   save_format='png'):
+        """Plot time offset drift vs. time
+
+        It is useful to analyze how x[n] varies between consecutive PTP
+        exchanges. This plot shows (x[n] - x[n-1]) over time.
+
+        Args:
+            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            save        : Save the figure
+            save_format : Select image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot time offset drift vs. time")
+        n_data  = len(self.data)
+
+        # TODO: move the definition of x-axis label into the decorator
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
+                                     self.data if "drift" in r]) / NS_PER_MIN
+            x_axis_label = 'Time (min)'
+
+        elif (x_unit == "samples"):
+            x_axis_vec   = range(0, n_data)
+            x_axis_label = 'Realization'
+
+        true_drift = np.array([(r["x"] - self.data[i-1]["x"])
+                               for i,r in enumerate(self.data)
+                               if "drift" in r])
+        drift_est  = np.array([r["drift"] for r in self.data if "drift" in r])
+
+        plt.figure()
+        plt.scatter(x_axis_vec, true_drift, s = 1.0, label="True")
+        plt.scatter(x_axis_vec, drift_est, s = 1.0,
+                    label="Estimate")
+        plt.xlabel(x_axis_label)
+        plt.ylabel('x[n] - x[n-1] (ns)')
+        plt.title('Time offset drift')
+        plt.legend()
+
+        if (save):
+            plt.savefig(self.path + "toffset_drift_vs_time." + save_format,
+                        format=save_format, dpi=300)
+        else:
+            plt.show()
+        plt.close()
+
+        cum_drift_err = drift_est.cumsum() - true_drift.cumsum()
+
+        plt.figure()
+        plt.scatter(x_axis_vec, cum_drift_err, s = 1.0)
+        plt.xlabel(x_axis_label)
+        plt.ylabel('(ns)')
+        plt.title('Cumulative time offset drift error')
+
+        if (save):
+            plt.savefig(self.path + "toffset_drift_cum_err_vs_time." +
+                        save_format,
+                        format=save_format, dpi=300)
+        else:
+            plt.show()
+        plt.close()
+
+    def plot_toffset_drift_hist(self, n_bins=50, save=True, save_format='png'):
+        """Plot time offset drift histogram
+
+        Histogram of the drift (x[n] - x[n-1]).
 
         Args:
             n_bins      : Target number of bins
@@ -1222,7 +1320,7 @@ class Analyser():
             save_format : Select image format: 'png' or 'eps'
 
         """
-        logger.info("Plot PDV vs. time")
+        logger.info("Plot time offset drift histogram")
 
         # True time offset
         x = np.array([r["x"] for r in self.data])
@@ -1231,10 +1329,10 @@ class Analyser():
         plt.hist(np.diff(x), bins=n_bins, density=True)
         plt.xlabel('x[n] - x[n-1] (ns)')
         plt.ylabel('Probability Density')
-        plt.title('Time offset diff')
+        plt.title('Time offset drift histogram')
 
         if (save):
-            plt.savefig(self.path + "toffset_diff_hist." + save_format,
+            plt.savefig(self.path + "toffset_drift_hist." + save_format,
                         format=save_format, dpi=300)
         else:
             plt.show()
