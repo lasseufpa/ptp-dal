@@ -44,11 +44,10 @@ class TestPktSelection(unittest.TestCase):
                      "x_pkts_avg_recursive" in r]
 
         # Check values
-        self.assertEqual(x_est_avg[0], 6/3)
-        self.assertEqual(x_est_avg[1], 12/3)
-        self.assertEqual(x_est_avg[2], 27/3)
-        self.assertEqual(x_est_avg[3], 38/3)
-        self.assertEqual(x_est_avg[4], 88/3)
+        self.assertEqual(x_est_avg[0], 38/3)
+        self.assertEqual(x_est_avg[1], 88/3)
+        # NOTE: after skipping the transient of N=3 samples, only two samples
+        # are expected.
 
     def test_sample_avg_recursive_vec(self):
         # Run vectorized processing with and without batch processing
@@ -60,12 +59,9 @@ class TestPktSelection(unittest.TestCase):
             x_est_avg = [r["x_pkts_avg_recursive"] for r in data if \
                          "x_pkts_avg_recursive" in r]
 
-            # Check values
-            self.assertEqual(x_est_avg[0], 6/3)
-            self.assertEqual(x_est_avg[1], 12/3)
-            self.assertEqual(x_est_avg[2], 27/3)
-            self.assertEqual(x_est_avg[3], 38/3)
-            self.assertEqual(x_est_avg[4], 88/3)
+            # Check values after transient
+            self.assertEqual(x_est_avg[0], 38/3)
+            self.assertEqual(x_est_avg[1], 88/3)
 
     def test_sample_median(self):
         N    = 3

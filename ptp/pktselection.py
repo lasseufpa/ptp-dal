@@ -468,8 +468,10 @@ class PktSelection():
             else:
                 raise ValueError("Strategy choice %s unknown" %(strategy))
 
-            # Re-add cumulative drift and save on global data records
-            self.data[i][f"x_pkts_{key}"] = x_est + drift_accum
+            # Re-add cumulative drift and save on global data records after the
+            # averaging transitory:
+            if (i >= self.N):
+                self.data[i][f"x_pkts_{key}"] = x_est + drift_accum
 
     def _window_by_window(self, strategy, drift_comp, drift_est):
         """Window-by-window processing
