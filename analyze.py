@@ -215,6 +215,8 @@ def main():
     analyser.delay_asymmetry(save=True)
     analyser.toffset_err_stats(save=True)
     analyser.foffset_err_stats(save=True)
+    analyser.toffset_drift_err_stats(save=True)
+
 
 if __name__ == "__main__":
     main()
