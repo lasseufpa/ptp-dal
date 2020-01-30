@@ -142,7 +142,7 @@ def _run_pktselection(data, window_len):
     pkts.process("mode")
 
 
-def _run_analyzer(data, metadata, dataset_file):
+def _run_analyzer(data, metadata, dataset_file, stats=True):
     """Analyze results"""
 
     analyser = ptp.metrics.Analyser(data, dataset_file)
@@ -173,9 +173,11 @@ def _run_analyzer(data, metadata, dataset_file):
     analyser.plot_max_te(show_raw=False, window_len = 1000)
     analyser.ptp_exchanges_per_sec(save=True)
     analyser.delay_asymmetry(save=True)
-    analyser.toffset_err_stats(save=True)
-    analyser.foffset_err_stats(save=True)
-    analyser.toffset_drift_err_stats(save=True)
+
+    if (stats):
+        analyser.toffset_err_stats(save=True)
+        analyser.foffset_err_stats(save=True)
+        analyser.toffset_drift_err_stats(save=True)
 
 
 def main():
@@ -183,6 +185,15 @@ def main():
     parser.add_argument('-f', '--file',
                         default="log.json",
                         help='JSON dataset file.')
+    parser.add_argument('--analyze-only',
+                        default=False,
+                        action='store_true',
+                        help="Run analyzer plots only and don't run any \
+                        post-processing. The analyzer will then process only \
+                        the data that is already available in the dataset and \
+                        the data produced by the dataset reader, such as  \
+                        two-way time offset and delay measurements. Useful \
+                        to inspect results without much wait (default: False).")
     parser.add_argument('--no-optimizer',
                         default=False,
                         action='store_true',
@@ -233,6 +244,10 @@ def main():
     reader = ptp.reader.Reader(args.file, infer_secs=(not args.use_secs),
                                reverse_ms=True)
     reader.run(args.num_iter)
+
+    if (args.analyze_only):
+        _run_analyzer(reader.data, reader.metadata, args.file, stats=False)
+        return
 
     # Nominal message period in nanoseconds
     T_ns = reader.metadata["sync_period"]*1e9
