@@ -12,85 +12,30 @@ import ptp.outlier
 import ptp.bias
 
 
-def main():
-    parser = argparse.ArgumentParser(description="PTP log reader test")
-    parser.add_argument('-f', '--file',
-                        default="log.json",
-                        help='JSON log file.')
-    parser.add_argument('--no-optimizer',
-                        default=False,
-                        action='store_true',
-                        help='Whether or not to optimize window length')
-    parser.add_argument('--no-optimizer-plots',
-                        default=False,
-                        action='store_true',
-                        help='Whether to disable window optimizer plots')
-    parser.add_argument('--optimizer-fine',
-                        default=False,
-                        action='store_true',
-                        help='Whether to enable window optimizer fine pass')
-    parser.add_argument('--optimizer-force',
-                        default=False,
-                        action='store_true',
-                        help='Force window optimizer processing even if \
-                        already done previously')
-    parser.add_argument('--optimizer-metric',
-                        default='max-te',
-                        help='Estimation error metric for window tuning',
-                        choices=['max-te', 'mse'])
-    parser.add_argument('--use-secs',
-                        default=False,
-                        action='store_true',
-                        help="Use secs that were actually captured " +
-                        "(i.e. do not infer secs)")
-    parser.add_argument('--bias',
-                        choices=['pre', 'post', 'both', 'none'],
-                        default='both',
-                        help="Compensate the bias prior to any post-processing \
-                        (pre), after post-processing (post), both pre and \
-                        post post-processing (both) or disable it ('none') \
-                        (default: 'both')")
-    parser.add_argument('-N', '--num-iter',
-                        default=0,
-                        type=int,
-                        help='Restrict number of iterations.')
-    parser.add_argument('--verbose', '-v', action='count', default=1,
-                        help="Verbosity (logging) level")
-    args     = parser.parse_args()
+default_window_lengths = {
+    'ls'      : 105,
+    'movavg'  : 16,
+    'median'  : 16,
+    'min'     : 16,
+    'max'     : 16,
+    'mode'    : 16,
+    'ewma'    : 16
+}
 
-    logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
-    logging.basicConfig(stream=sys.stderr, level=logging_level)
 
-    # Run PTP simulation
-    reader = ptp.reader.Reader(args.file, infer_secs=(not args.use_secs),
-                               reverse_ms=True)
-    reader.run(args.num_iter)
+def _run_outlier_detection(data):
+    """Run Outlier detection"""
 
-    # Outlier detection
-    outlier = ptp.outlier.Outlier(reader.data)
+    outlier = ptp.outlier.Outlier(data)
     outlier.process(c=2)
 
-    # Nominal message in nanoseconds
-    if (reader.metadata is not None and "sync_period" in reader.metadata):
-        T_ns = reader.metadata["sync_period"]*1e9
-    else:
-        T_ns = 1e9/4
 
-    # Compensate the bias of two-way time offset measurements prior to
-    # post-processing
-    #
-    # NOTE the raw time offset measurements are processed directly by some
-    # packet selection operators (sample-average and EWMA), as well as by LS and
-    # Kalman. Thus, with correction of the bias of "x_est" here it is expected
-    # that the referred estimators also produce unbiased results.
-    if (args.bias == 'pre' or args.bias == 'both'):
-        bias = ptp.bias.Bias(reader.data)
-        corr = bias.calc_true_asymmetry(operator="raw")
-        bias.compensate(corr=corr, toffset_key="x_est")
+def _run_drift_estimation(data):
+    """Run frequency offset and time offset drift estimations"""
 
     # Raw frequency estimations (mostly for visualization)
     freq_delta = 64
-    freq_estimator = ptp.frequency.Estimator(reader.data, delta=freq_delta)
+    freq_estimator = ptp.frequency.Estimator(data, delta=freq_delta)
     freq_estimator.set_truth(delta=freq_delta)
     freq_estimator.optimize_to_y()
     freq_estimator.process()
@@ -99,95 +44,109 @@ def main():
     damping, loopbw = freq_estimator.optimize_loop()
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
-    # Optimize window length configuration
-    if (not args.no_optimizer):
-        window_optimizer = ptp.window.Optimizer(reader.data, T_ns)
-        window_optimizer.process('all',
-                                 error_metric=args.optimizer_metric,
-                                 file=args.file,
-                                 plot=(not args.no_optimizer_plots),
-                                 fine_pass=args.optimizer_fine,
-                                 force=args.optimizer_force)
-        window_optimizer.save()
-        est_op    = window_optimizer.est_op
-        N_ls      = est_op["ls"]["N_best"]             # LS
-        N_movavg  = est_op["sample-average"]["N_best"] # Moving average
-        N_median  = est_op["sample-median"]["N_best"]  # Sample-median
-        N_min     = est_op["sample-min"]["N_best"]     # Sample-minimum
-        N_max     = est_op["sample-max"]["N_best"]     # Sample-maximum
-        N_mode    = est_op["sample-mode"]["N_best"]    # Sample-mode
-        N_ewma    = est_op["sample-ewma"]["N_best"]    # EWMA
 
-        print("Tuned window lengths:")
-        for i in est_op:
-            print("%20s: %d" %(i, est_op[i]["N_best"]))
-    else:
-        N_ls      = 105
-        N_movavg  = 16
-        N_median  = 16
-        N_min     = 16
-        N_max     = 16
-        N_mode    = 16
-        N_ewma    = 16
+def _run_window_optimizer(data, dataset_file, T_ns, metric, disable_plot,
+                          en_fine, force):
+    """Run tuner of window lengths"""
 
-    # Least-squares estimator
-    ls = ptp.ls.Ls(N_ls, reader.data, T_ns)
-    ls.process("eff")
+    window_optimizer = ptp.window.Optimizer(data, T_ns)
+    window_optimizer.process('all',
+                             error_metric = metric,
+                             file = dataset_file,
+                             plot = (not disable_plot),
+                             fine_pass = en_fine,
+                             force = force)
+    window_optimizer.save()
+    window_optimizer.print_results()
+    return window_optimizer.get_results()
 
-    # Kalman
-    # kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9)
-    kalman = ptp.kalman.Kalman(reader.data, T_ns/1e9,
+
+def _run_kalman(data, T_ns):
+    """Run Kalman Filtering"""
+
+    kalman = ptp.kalman.Kalman(data, T_ns/1e9,
                                trans_cov = [[1, 0], [0, 1e-2]],
                                obs_cov = [[1e4, 0], [0, 1e2]])
     kalman.process()
 
+
+def _run_ls(data, N_ls, T_ns):
+    """Run Least-squares estimator"""
+
+    ls = ptp.ls.Ls(N_ls, data, T_ns)
+    ls.process("eff")
+
+
+def _run_pre_bias_compensation(data):
+    """Compensate the bias of two-way time offset measurements prior to
+     post-processing
+
+    NOTE: the raw time offset measurements are processed directly by some packet
+    selection operators (sample-average and EWMA), as well as by LS and
+    Kalman. Thus, with correction of the bias of "x_est" here it is expected
+    that the referred estimators also produce unbiased results.
+
+    """
+    bias = ptp.bias.Bias(data)
+    corr = bias.calc_true_asymmetry(operator="raw")
+    bias.compensate(corr=corr, toffset_key="x_est")
+
+
+def _run_post_bias_compensation(data):
+    """Compensate bias of results produced by some packet selection operators"""
+
+    bias = ptp.bias.Bias(data)
+
+    # Sample-median
+    corr_median = bias.calc_true_asymmetry(operator="median")
+    bias.compensate(corr=corr_median, toffset_key="x_pkts_median")
+
+    # Sample-minimum
+    corr_min = bias.calc_true_asymmetry(operator="min")
+    bias.compensate(corr=corr_min, toffset_key="x_pkts_min")
+
+    # Sample-maximum
+    corr_max = bias.calc_true_asymmetry(operator="max")
+    bias.compensate(corr=corr_max, toffset_key="x_pkts_max")
+
+    # Sample-mode
+    corr_mode = bias.calc_true_asymmetry(operator="mode")
+    bias.compensate(corr=corr_mode, toffset_key="x_pkts_mode")
+
+
+def _run_pktselection(data, window_len):
+    """Run packet selection algorithms"""
+
     # Moving average
-    pkts = ptp.pktselection.PktSelection(N_movavg, reader.data)
+    pkts = ptp.pktselection.PktSelection(window_len['movavg'], data)
     pkts.process("avg-recursive")
 
     # Sample-median
-    pkts.set_window_len(N_median)
+    pkts.set_window_len(window_len['median'])
     pkts.process("median")
 
     # Sample-minimum
-    pkts.set_window_len(N_min)
+    pkts.set_window_len(window_len['min'])
     pkts.process("min")
 
     # Sample-maximum
-    pkts.set_window_len(N_max)
+    pkts.set_window_len(window_len['max'])
     pkts.process("max")
 
     # Exponentially weighted moving average
-    pkts.set_window_len(N_ewma)
+    pkts.set_window_len(window_len['ewma'])
     pkts.process("ewma")
 
     # Sample-mode
-    pkts.set_window_len(N_mode)
+    pkts.set_window_len(window_len['mode'])
     pkts.process("mode")
 
-    # Compensate bias of results produced by some packet selection operators
-    if (args.bias == 'post' or args.bias == 'both'):
-        bias = ptp.bias.Bias(reader.data)
 
-        # Sample-median
-        corr_median = bias.calc_true_asymmetry(operator="median")
-        bias.compensate(corr=corr_median, toffset_key="x_pkts_median")
+def _run_analyzer(data, metadata, dataset_file):
+    """Analyze results"""
 
-        # Sample-minimum
-        corr_min = bias.calc_true_asymmetry(operator="min")
-        bias.compensate(corr=corr_min, toffset_key="x_pkts_min")
-
-        # Sample-maximum
-        corr_max = bias.calc_true_asymmetry(operator="max")
-        bias.compensate(corr=corr_max, toffset_key="x_pkts_max")
-
-        # Sample-mode
-        corr_mode = bias.calc_true_asymmetry(operator="mode")
-        bias.compensate(corr=corr_mode, toffset_key="x_pkts_mode")
-
-    # PTP analyser
-    analyser = ptp.metrics.Analyser(reader.data, args.file)
-    analyser.save_metadata(reader.metadata)
+    analyser = ptp.metrics.Analyser(data, dataset_file)
+    analyser.save_metadata(metadata)
     analyser.check_seq_id_gaps()
     analyser.plot_toffset_vs_time()
     analyser.plot_foffset_vs_time()
@@ -217,6 +176,93 @@ def main():
     analyser.toffset_err_stats(save=True)
     analyser.foffset_err_stats(save=True)
     analyser.toffset_drift_err_stats(save=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="PTP log reader test")
+    parser.add_argument('-f', '--file',
+                        default="log.json",
+                        help='JSON dataset file.')
+    parser.add_argument('--no-optimizer',
+                        default=False,
+                        action='store_true',
+                        help='Whether or not to optimize window length')
+    parser.add_argument('--no-optimizer-plots',
+                        default=False,
+                        action='store_true',
+                        help='Whether to disable window optimizer plots')
+    parser.add_argument('--optimizer-fine',
+                        default=False,
+                        action='store_true',
+                        help='Whether to enable window optimizer fine pass')
+    parser.add_argument('--optimizer-force',
+                        default=False,
+                        action='store_true',
+                        help='Force window optimizer processing even if \
+                        already done previously')
+    parser.add_argument('--optimizer-metric',
+                        default='max-te',
+                        help='Estimation error metric for window tuning',
+                        choices=['max-te', 'mse'])
+    parser.add_argument('--use-secs',
+                        default=False,
+                        action='store_true',
+                        help="Use secs that were actually captured \
+                        (i.e. do not infer secs)")
+    parser.add_argument('--bias',
+                        choices=['pre', 'post', 'both', 'none'],
+                        default='both',
+                        help="Compensate the bias prior to any post-processing \
+                        (pre), after post-processing (post), both pre and \
+                        post post-processing (both) or disable it ('none') \
+                        (default: 'both')")
+    parser.add_argument('-N', '--num-iter',
+                        default=0,
+                        type=int,
+                        help='Restrict number of iterations.')
+    parser.add_argument('--verbose', '-v',
+                        action='count',
+                        default=1,
+                        help="Verbosity (logging) level")
+    args     = parser.parse_args()
+
+    logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
+    logging.basicConfig(stream=sys.stderr, level=logging_level)
+
+    # Run PTP simulation
+    reader = ptp.reader.Reader(args.file, infer_secs=(not args.use_secs),
+                               reverse_ms=True)
+    reader.run(args.num_iter)
+
+    # Nominal message period in nanoseconds
+    T_ns = reader.metadata["sync_period"]*1e9
+
+    _run_outlier_detection(reader.data)
+
+    if (args.bias == 'pre' or args.bias == 'both'):
+        _run_pre_bias_compensation(reader.data)
+
+    _run_drift_estimation(reader.data)
+
+    if (args.no_optimizer):
+        window_lengths = default_window_lengths
+    else:
+        window_lengths = _run_window_optimizer(reader.data, args.file, T_ns,
+                                               args.optimizer_metric,
+                                               args.no_optimizer_plots,
+                                               args.optimizer_fine,
+                                               args.optimizer_force)
+
+    _run_ls(reader.data, window_lengths['ls'], T_ns)
+
+    _run_kalman(reader.data, T_ns)
+
+    _run_pktselection(reader.data, window_lengths)
+
+    if (args.bias == 'post' or args.bias == 'both'):
+        _run_post_bias_compensation(reader.data)
+
+    _run_analyzer(reader.data, reader.metadata, args.file)
 
 
 if __name__ == "__main__":

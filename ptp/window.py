@@ -430,3 +430,28 @@ class Optimizer():
             # Save results on JSON file
             if (save):
                 self.save()
+
+    def get_results(self):
+        """Get the best window for each post-processing method
+
+        Returns:
+            Dictionary with best window lengths for each method
+
+        """
+        return {
+            'ls'      : self.est_op["ls"]["N_best"],
+            'movavg'  : self.est_op["sample-average"]["N_best"],
+            'median'  : self.est_op["sample-median"]["N_best"],
+            'min'     : self.est_op["sample-min"]["N_best"],
+            'max'     : self.est_op["sample-max"]["N_best"],
+            'mode'    : self.est_op["sample-mode"]["N_best"],
+            'ewma'    : self.est_op["sample-ewma"]["N_best"]
+        }
+
+    def print_results(self):
+        """Print window length results"""
+
+        print("Tuned window lengths:")
+        for i in self.est_op:
+            print("%20s: %d" %(i, self.est_op[i]["N_best"]))
+
