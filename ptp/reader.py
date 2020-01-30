@@ -239,6 +239,9 @@ class Reader():
             if (data[i].get("bbu_occ")):
                 results["bbu_occ"] = data[i]["bbu_occ"]
 
+            if (data[i].get("pps_err")):
+                results["pps_err"] = data[i]["pps_err"]
+
             if (data[i].get("seq_id")):
                 results["seq_id"] = data[i]["seq_id"]
 

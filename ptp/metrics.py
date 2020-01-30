@@ -1551,4 +1551,57 @@ class Analyser():
             plt.show()
         plt.close()
 
+    def plot_pps_err(self, x_unit='time', n_bins='auto', save=True,
+                     save_format='png'):
+        """Plot RRU's PPS synchronization error vs time and histogram
+
+        Args:
+            x_unit      : Ynit for vs. time plot: 'time' in minutes or 'samples'
+            n_bins      : Target number of bins for histogram plot
+            save        : Save the figures
+            save_format : Image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot PPS sync error")
+        key = "pps_err"
+
+        if (x_unit == "time"):
+            t_start      = self.data[0]["t1"]
+            x_axis_label = 'Time (min)'
+            time_vec     = np.array([float(r["t1"] - t_start) for r in \
+                                     self.data]) / NS_PER_MIN
+        elif (x_unit == "samples"):
+            x_axis_label = 'Realization'
+
+        plt.figure()
+        if (x_unit == "time"):
+            x_vec   = [time_vec[i] for i, r in enumerate(self.data) \
+                       if key in r]
+        elif (x_unit == "samples"):
+            x_vec   = [r["idx"] for r in self.data if key in r]
+
+        y_vec = np.array([int(r[key]) for r in self.data if key in r])
+        plt.scatter(x_vec, y_vec, s = 1.0)
+
+        plt.xlabel(x_axis_label)
+        plt.ylabel('PPS Sync Error (ns)')
+        if (save):
+            plt.savefig(self.path + "pps_err_vs_time." + save_format,
+                        format=save_format, dpi=300)
+        else:
+            plt.show()
+        plt.close()
+
+        # Histogram
+        plt.figure()
+        plt.hist(y_vec, bins=n_bins, density=True)
+        plt.xlabel('PPS Sync Error (ns)')
+        plt.ylabel('Probability Density')
+
+        if (save):
+            plt.savefig(self.path + "pps_err_hist." + save_format,
+                        format=save_format, dpi=300)
+        else:
+            plt.show()
+        plt.close()
 

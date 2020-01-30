@@ -193,6 +193,7 @@ def main():
     analyser.plot_foffset_vs_time()
     analyser.plot_temperature()
     analyser.plot_occupancy()
+    analyser.plot_pps_err()
     analyser.plot_toffset_err_hist()
     analyser.plot_toffset_err_vs_time(show_raw = False)
     analyser.plot_foffset_err_hist()
