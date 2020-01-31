@@ -2,6 +2,7 @@
 """
 import math, logging, re, os, json
 from datetime import timedelta
+from scipy import stats
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -150,6 +151,10 @@ class Analyser():
         d_ms   = np.array([r["d"] for r in self.data])
         d_sm   = np.array([r["d_bw"] for r in self.data])
 
+        # Mode
+        d_ms_mode = stats.mode(np.round(d_ms))[0]
+        d_sm_mode = stats.mode(np.round(d_sm))[0]
+
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
@@ -173,6 +178,8 @@ class Analyser():
                 print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
                     np.median(d_ms), np.median(d_sm),
                     (np.median(d_ms) - np.median(d_sm))/2), file=f)
+                print("Mode\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
+                    d_ms_mode, d_sm_mode, (d_ms_mode - d_sm_mode)/2), file=f)
 
         return np.mean(d_asym)
 
