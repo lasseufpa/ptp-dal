@@ -53,6 +53,11 @@ def main():
                         choices=["rru_uart", "rru2_uart"],
                         help='Target char device for UART communication with \
                         an RRU FPGA (default: rru_uart).')
+    parser.add_argument('--rru2',
+                        default="rru2_uart",
+                        choices=["rru_uart", "rru2_uart"],
+                        help='Target char device for UART communication with \
+                        an RRU2 FPGA (default: rru2_uart).')
     parser.add_argument('--bbu',
                         default="bbu_uart",
                         help='Target char device for UART communication \
@@ -173,7 +178,7 @@ def main():
     response = raw_resp.lower()
 
     if (response.lower() == "y"):
-        serial = ptp.serial.Serial(args.rru, args.bbu, args.sensor,
+        serial = ptp.serial.Serial(args.rru, args.rru2, args.bbu, args.sensor,
                                    args.num_iter, metadata)
         serial.run()
 

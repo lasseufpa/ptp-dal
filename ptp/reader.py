@@ -222,28 +222,17 @@ class Reader():
         else:
             n_data = len(data)
 
+        optional_metrics =  ["temp", "rru_occ", "rru2_occ", "bbu_occ",
+                             "pps_err", "seq_id"]
+
         # Put info in dictionary and append to self.data
         for i in range (0, n_data):
             results = self.process(data[i])
-            # Append temperature to results if it exists
-            if (data[i].get("temp")):
-                results["temp"] = data[i]["temp"]
 
             # Append occupancy to results if it exists
-            if (data[i].get("occupancy")):
-                results["rru_occ"] = data[i]["occupancy"]
-
-            if (data[i].get("rru_occ")):
-                results["rru_occ"] = data[i]["rru_occ"]
-
-            if (data[i].get("bbu_occ")):
-                results["bbu_occ"] = data[i]["bbu_occ"]
-
-            if (data[i].get("pps_err")):
-                results["pps_err"] = data[i]["pps_err"]
-
-            if (data[i].get("seq_id")):
-                results["seq_id"] = data[i]["seq_id"]
+            for key in optional_metrics:
+                if (data[i].get(key)):
+                    results[key] = data[i][key]
 
             self.data.append(results)
             self.check_progress(i, n_data)

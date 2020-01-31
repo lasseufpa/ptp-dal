@@ -16,11 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 class Serial():
-    def __init__(self, rru_dev, bbu_dev, sensor_dev, n_samples, metadata):
+    def __init__(self, rru_dev, rru2_dev, bbu_dev, sensor_dev, n_samples,
+                 metadata):
         """Serial capture of timestamps from testbed
 
         Args:
             rru_dev    : RRU FPGA device ('rru_uart' or 'rru2_uart')
+            rru2_dev   : RRU2 FPGA device ('rru_uart' or 'rru2_uart')
             bbu_dev    : BBU FPGA device ('bbu_uart')
             sensor_dev : Sensor device ('roe_sensor')
             n_samples  : Target number of samples (0 for infinity)
@@ -31,29 +33,27 @@ class Serial():
         self.metadata  = metadata
 
         # Serial connections
-        self.rru = self.connect(rru_dev)
-        if (bbu_dev is not None):
-            self.bbu  = self.connect(bbu_dev)
-        else:
-            self.bbu  = None
-        if (sensor_dev is not None):
-            self.sensor = self.connect(sensor_dev)
-        else:
-            self.sensor = None
+        assert(rru_dev != rru2_dev), "RRU and RRU2 devices should be different"
+        self.rru    = self.connect(rru_dev)
+        self.rru2   = None if (rru2_dev is None) else self.connect(rru2_dev)
+        self.bbu    = None if (bbu_dev is None) else self.connect(bbu_dev)
+        self.sensor = None if (sensor_dev is None) else self.connect(sensor_dev)
 
         # Filename
         path = "data/"
         self.filename = path + "serial-" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
         # Initialize some vars
-        self.last_temp    = (None, None)
-        self.last_bbu_occ = None
-        self.rru_data     = deque()
+        self.last_temp     = (None, None)
+        self.last_bbu_occ  = None
+        self.last_rru2_occ = None
+        self.rru_data      = deque()
 
         # Continuously check that the devices are alive
         self.sensor_alive  = True
         self.bbu_alive     = True
         self.rru_alive     = True
+        self.rru2_alive    = True
         self.alive_timeout = 5 # in secs
 
         # Enable
@@ -69,6 +69,10 @@ class Serial():
         if (self.bbu is not None):
             bbu_thread = threading.Thread(target=self.read_bbu, daemon=True)
             bbu_thread.start()
+
+        if (self.rru2 is not None):
+            rru2_thread = threading.Thread(target=self.read_rru2, daemon=True)
+            rru2_thread.start()
 
         rru_thread = threading.Thread(target=self.read_rru, daemon=True)
         rru_thread.start()
@@ -128,6 +132,30 @@ class Serial():
             elif (time.time() - last_read > self.alive_timeout):
                 self.bbu_alive = False
                 logging.warning("BBU is unresponsive")
+                break
+
+    def read_rru2(self):
+        """Loop for reading the RRU2 device"""
+        last_read = time.time()
+
+        while (self.en_capture):
+            assert(self.rru2.in_waiting < 2048), \
+                "RRU2 serial buffer is getting full"
+
+            line = self._readline(self.rru2)
+
+            if "Occupancy" in line:
+                line_split = line.split(" ")
+                if (len(line_split) >= 4):
+                    try:
+                        self.last_rru2_occ = int(line_split[3])
+                    except ValueError:
+                        pass
+
+                last_read = time.time()
+            elif (time.time() - last_read > self.alive_timeout):
+                self.rru2_alive = False
+                logging.warning("RRU2 is unresponsive")
                 break
 
     def read_rru(self):
@@ -361,6 +389,9 @@ class Serial():
 
                 if (self.last_bbu_occ is not None):
                     run_data["bbu_occ"] = self.last_bbu_occ
+
+                if (self.last_rru2_occ is not None):
+                    run_data["rru2_occ"] = self.last_rru2_occ
 
                 if ((last_seq_id is not None) and
                     (run_data['seq_id'] != ((last_seq_id + 1) % 2**16))):

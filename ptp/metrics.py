@@ -1530,7 +1530,8 @@ class Analyser():
 
         # Plot BBU and RRU occupancies
         plt.figure()
-        for key, label in [("rru_occ", "RRU"), ("bbu_occ", "BBU")]:
+        for key, label in [("rru_occ", "RRU"), ("bbu_occ", "BBU"),
+                           ("rru2_occ", "RRU2")]:
             if (x_unit == "time"):
                 x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
                                 if key in r]
