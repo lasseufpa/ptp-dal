@@ -50,7 +50,8 @@ class Serial():
             "bbu_occ"  : deque(),
             "rru_occ"  : deque(),
             "rru2_occ" : deque(),
-            "pps_err"  : deque()
+            "pps_err"  : deque(),
+            "pps_err2" : deque()
         }
         self.last_temp = (None, None)
         # NOTE: the temperature is asynchronous too, but it is faster than
@@ -219,6 +220,9 @@ class Serial():
                 self.rru2_alive = False
                 logging.warning("RRU2 is unresponsive")
                 break
+
+            if '[pps-rtc][' in line:
+                self._read_pps_err(line, self.async_data["pps_err2"])
 
             if "Occupancy" in line:
                 self._read_occupancy(line, self.async_data["rru2_occ"])

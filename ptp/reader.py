@@ -223,7 +223,7 @@ class Reader():
             n_data = len(data)
 
         optional_metrics =  ["temp", "rru_occ", "rru2_occ", "bbu_occ",
-                             "pps_err", "seq_id"]
+                             "pps_err", "pps_err2", "seq_id"]
 
         # Put info in dictionary and append to self.data
         for i in range (0, n_data):

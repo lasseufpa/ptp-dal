@@ -1557,7 +1557,7 @@ class Analyser():
 
     def plot_pps_err(self, x_unit='time', n_bins='auto', save=True,
                      save_format='png'):
-        """Plot RRU's PPS synchronization error vs time and histogram
+        """Plot PPS synchronization error vs time and histogram
 
         Args:
             x_unit      : Ynit for vs. time plot: 'time' in minutes or 'samples'
@@ -1567,7 +1567,9 @@ class Analyser():
 
         """
         logger.info("Plot PPS sync error")
-        key = "pps_err"
+        keys   = ["pps_err", "pps_err2"]
+        labels = ["RRU1", "RRU2"]
+
 
         if (x_unit == "time"):
             t_start      = self.data[0]["t1"]
@@ -1578,17 +1580,17 @@ class Analyser():
             x_axis_label = 'Realization'
 
         plt.figure()
-        if (x_unit == "time"):
-            x_vec   = [time_vec[i] for i, r in enumerate(self.data) \
-                       if key in r]
-        elif (x_unit == "samples"):
-            x_vec   = [r["idx"] for r in self.data if key in r]
-
-        y_vec = np.array([int(r[key]) for r in self.data if key in r])
-        plt.scatter(x_vec, y_vec, s = 1.0)
-
+        for key, label in zip(keys, labels):
+            if (x_unit == "time"):
+                x_vec   = [time_vec[i] for i, r in enumerate(self.data) \
+                           if key in r]
+            elif (x_unit == "samples"):
+                x_vec   = [r["idx"] for r in self.data if key in r]
+            y_vec = np.array([int(r[key]) for r in self.data if key in r])
+            plt.scatter(x_vec, y_vec, s = 1.0, label=label)
         plt.xlabel(x_axis_label)
         plt.ylabel('PPS Sync Error (ns)')
+        plt.legend()
         if (save):
             plt.savefig(self.path + "pps_err_vs_time." + save_format,
                         format=save_format, dpi=300)
@@ -1598,10 +1600,12 @@ class Analyser():
 
         # Histogram
         plt.figure()
-        plt.hist(y_vec, bins=n_bins, density=True)
+        for key,label in zip(keys, labels):
+            y_vec = np.array([int(r[key]) for r in self.data if key in r])
+            plt.hist(y_vec, bins=n_bins, density=True, label=label)
         plt.xlabel('PPS Sync Error (ns)')
         plt.ylabel('Probability Density')
-
+        plt.legend()
         if (save):
             plt.savefig(self.path + "pps_err_hist." + save_format,
                         format=save_format, dpi=300)
