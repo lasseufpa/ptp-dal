@@ -1555,22 +1555,21 @@ class Analyser():
             plt.show()
         plt.close()
 
-    def plot_pps_err(self, x_unit='time', n_bins='auto', save=True,
-                     save_format='png'):
-        """Plot PPS synchronization error vs time and histogram
+    def _plot_pps_rtc_metric(self, keys, labels, ylabel, name, x_unit='time',
+                             binwidth = 0.5, save=True, save_format='png'):
+        """Plot PPS RTC metric
 
         Args:
+            keys        : keys of the target metrics within the dataset
+            labels      : labels for the plot legend
+            ylabel      : y axis label
+            name        : target filename
             x_unit      : Ynit for vs. time plot: 'time' in minutes or 'samples'
-            n_bins      : Target number of bins for histogram plot
+            binwidth    : Target histogram bin width
             save        : Save the figures
             save_format : Image format: 'png' or 'eps'
 
         """
-        logger.info("Plot PPS sync error")
-        keys   = ["pps_err", "pps_err2"]
-        labels = ["RRU1", "RRU2"]
-
-
         if (x_unit == "time"):
             t_start      = self.data[0]["t1"]
             x_axis_label = 'Time (min)'
@@ -1582,17 +1581,17 @@ class Analyser():
         plt.figure()
         for key, label in zip(keys, labels):
             if (x_unit == "time"):
-                x_vec   = [time_vec[i] for i, r in enumerate(self.data) \
+                x_vec = [time_vec[i] for i, r in enumerate(self.data) \
                            if key in r]
             elif (x_unit == "samples"):
-                x_vec   = [r["idx"] for r in self.data if key in r]
-            y_vec = np.array([int(r[key]) for r in self.data if key in r])
+                x_vec = [r["idx"] for r in self.data if key in r]
+            y_vec = np.array([r[key] for r in self.data if key in r])
             plt.scatter(x_vec, y_vec, s = 1.0, label=label)
         plt.xlabel(x_axis_label)
-        plt.ylabel('PPS Sync Error (ns)')
+        plt.ylabel(ylabel)
         plt.legend()
         if (save):
-            plt.savefig(self.path + "pps_err_vs_time." + save_format,
+            plt.savefig(self.path + name + "_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
             plt.show()
@@ -1601,15 +1600,58 @@ class Analyser():
         # Histogram
         plt.figure()
         for key,label in zip(keys, labels):
-            y_vec = np.array([int(r[key]) for r in self.data if key in r])
-            plt.hist(y_vec, bins=n_bins, density=True, label=label)
-        plt.xlabel('PPS Sync Error (ns)')
+            y_vec = np.array([r[key] for r in self.data if key in r])
+            bins  = np.arange(np.floor(y_vec.min()),
+                              np.ceil(y_vec.max()) + binwidth, binwidth)
+            plt.hist(y_vec, bins=bins, density=True, label=label)
+        plt.xlabel(ylabel)
         plt.ylabel('Probability Density')
         plt.legend()
         if (save):
-            plt.savefig(self.path + "pps_err_hist." + save_format,
+            plt.savefig(self.path + name + "_hist." + save_format,
                         format=save_format, dpi=300)
         else:
             plt.show()
         plt.close()
+
+    def plot_pps_err(self, x_unit='time', binwidth=0.5, save=True,
+                     save_format='png'):
+        """Plot PPS synchronization error vs time and histogram
+
+        Args:
+            x_unit      : Unit for vs. time plot: 'time' in minutes or 'samples'
+            binwidth    : Target histogram bin width
+            save        : Save the figures
+            save_format : Image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot PPS sync error")
+        keys   = ["pps_err", "pps_err2"]
+        labels = ["RRU1", "RRU2"]
+        ylabel = "PPS Sync Error (ns)"
+        name   = "pps_err"
+        self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
+                                  save, save_format)
+
+    def plot_pps_rtc_foffset_est(self, x_unit='time', binwidth=0.5, save=True,
+                                 save_format='png'):
+        """Plot frequency offset estimates according to the PPS RTC
+
+        These are equivalent to the output of the PI controller that is used for
+        PPS synchronization.
+
+        Args:
+            x_unit      : Unit for vs. time plot: 'time' in minutes or 'samples'
+            binwidth    : Target histogram bin width
+            save        : Save the figures
+            save_format : Image format: 'png' or 'eps'
+
+        """
+        logger.info("Plot frequency offset estimates of the PPS RTC")
+        keys   = ["y_pps", "y_pps2"]
+        labels = ["RRU1", "RRU2"]
+        ylabel = "PPS frequency offset (ppb)"
+        name   = "pps_foffset"
+        self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
+                                  save, save_format)
 

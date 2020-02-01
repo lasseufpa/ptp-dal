@@ -153,6 +153,7 @@ def _run_analyzer(data, metadata, dataset_file, stats=True):
     analyser.plot_temperature()
     analyser.plot_occupancy()
     analyser.plot_pps_err()
+    analyser.plot_pps_rtc_foffset_est()
     analyser.plot_toffset_err_hist()
     analyser.plot_toffset_err_vs_time(show_raw = False)
     analyser.plot_foffset_err_hist()

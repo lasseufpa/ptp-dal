@@ -51,7 +51,9 @@ class Serial():
             "rru_occ"  : deque(),
             "rru2_occ" : deque(),
             "pps_err"  : deque(),
-            "pps_err2" : deque()
+            "pps_err2" : deque(),
+            "y_pps"    : deque(),
+            "y_pps2"   : deque()
         }
         self.last_temp = (None, None)
         # NOTE: the temperature is asynchronous too, but it is faster than
@@ -115,6 +117,20 @@ class Serial():
         if (line_val[1] == "Sync" and line_val[2] == "Error]"):
             pps_err = int(line_val[3]) + float(line_val[5])/(2**32)
             queue.append(pps_err)
+
+    def _read_pps_pi_out(self, line, queue):
+        """Read PPS sync PI loop output (frequency offset)
+
+        NOTE: the PI loop used for PPS sync runs once a second. Hence, the PI
+        controller/filter is expected to converge to the number of ns that are
+        accumulated as time offset drift per second. This is equivalent to a
+        frequency offset in ppb.
+
+        """
+        line_val = self._split_strip_line(line, "[pps-rtc][")
+        if (line_val[1] == "PI" and line_val[2] == "Out]"):
+            pi_out = int(line_val[3]) + float(line_val[5])/(2**32)
+            queue.append(pi_out)
 
     def _read_timestamp_set(self, line, idx):
         """Read set of timestamps"""
@@ -222,7 +238,10 @@ class Serial():
                 break
 
             if '[pps-rtc][' in line:
-                self._read_pps_err(line, self.async_data["pps_err2"])
+                if "Sync Error" in line:
+                    self._read_pps_err(line, self.async_data["pps_err2"])
+                elif "PI Out" in line:
+                    self._read_pps_pi_out(line, self.async_data["y_pps2"])
 
             if "Occupancy" in line:
                 self._read_occupancy(line, self.async_data["rru2_occ"])
@@ -246,7 +265,10 @@ class Serial():
                 break
 
             if '[pps-rtc][' in line:
-                self._read_pps_err(line, self.async_data["pps_err"])
+                if "Sync Error" in line:
+                    self._read_pps_err(line, self.async_data["pps_err"])
+                elif "PI Out" in line:
+                    self._read_pps_pi_out(line, self.async_data["y_pps"])
 
             if "Occupancy" in line:
                 self._read_occupancy(line, self.async_data["rru_occ"])
