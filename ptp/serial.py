@@ -3,7 +3,6 @@
 """Acquisition of timestamps via UART
 """
 import serial, time, json, logging, signal, os, shutil, subprocess
-from pprint import pprint, pformat
 from ptp.reader import Reader
 from ptp.docs import Docs
 import threading
@@ -43,11 +42,19 @@ class Serial():
         path = "data/"
         self.filename = path + "serial-" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
-        # Initialize some vars
-        self.last_temp     = (None, None)
-        self.last_bbu_occ  = None
-        self.last_rru2_occ = None
-        self.rru_data      = deque()
+        # Timestamp sets read from the RRU:
+        self.ts_data = deque()
+
+        # Complementary data that is asynchronous to timestamp sets
+        self.async_data = {
+            "bbu_occ"  : deque(),
+            "rru_occ"  : deque(),
+            "rru2_occ" : deque(),
+            "pps_err"  : deque()
+        }
+        self.last_temp = (None, None)
+        # NOTE: the temperature is asynchronous too, but it is faster than
+        # timestamps logs. So we don't queue it. Instead, we get the last value.
 
         # Continuously check that the devices are alive
         self.sensor_alive  = True
@@ -79,16 +86,80 @@ class Serial():
 
     def _readline(self, dev):
         """Readline and clean whitespaces"""
+
         line = dev.readline().strip().decode("utf-8", "ignore")
         return " ".join(line.split())
 
     def _split_strip_line(self, line, key):
         """Strip all elements preceding the key element and split"""
+
         strip_line = line[line.find(key):]
         return strip_line.split()
 
+    def _read_occupancy(self, line, queue):
+        """Read occupancy from log and save on queue"""
+
+        if "Occupancy" in line:
+            line_val = self._split_strip_line(line, "Occupancy:")
+            if (len(line_val) >= 4):
+                try:
+                    queue.append(line_val[3])
+                except ValueError:
+                    pass
+
+    def _read_pps_err(self, line, queue):
+        """Read PPS sync error"""
+
+        line_val = self._split_strip_line(line, "[pps-rtc][")
+        if (line_val[1] == "Sync" and line_val[2] == "Error]"):
+            pps_err = int(line_val[3]) + float(line_val[5])/(2**32)
+            queue.append(pps_err)
+
+    def _read_timestamp_set(self, line, idx):
+        """Read set of timestamps"""
+
+        line_val = self._split_strip_line(line,  "Timestamps")
+
+        # Normal PTP Timestamps
+        seq_id = int(line_val[2])
+        t1_ns  = int(line_val[4],16)
+        t2_ns  = int(line_val[6],16)
+        t3_ns  = int(line_val[8],16)
+        t4_ns  = int(line_val[10],16)
+        t1_sec = int(line_val[12],16)
+        t2_sec = int(line_val[14],16)
+        t3_sec = int(line_val[16],16)
+        t4_sec = int(line_val[18],16)
+
+        # PPS Timestamps
+        t1_pps_ns  = int(line_val[20],16)
+        t1_pps_sec = int(line_val[22],16)
+        t4_pps_ns  = int(line_val[24],16)
+        t4_pps_sec = int(line_val[26],16)
+
+        # Append to results
+        ts_data = {
+            'idx'        : idx,
+            'seq_id'     : seq_id,
+            't1'         : t1_ns,
+            't2'         : t2_ns,
+            't3'         : t3_ns,
+            't4'         : t4_ns,
+            't1_sec'     : t1_sec,
+            't2_sec'     : t2_sec,
+            't3_sec'     : t3_sec,
+            't4_sec'     : t4_sec,
+            't1_pps'     : t1_pps_ns,
+            't1_pps_sec' : t1_pps_sec,
+            't4_pps'     : t4_pps_ns,
+            't4_pps_sec' : t4_pps_sec
+        }
+
+        self.ts_data.append(ts_data)
+
     def read_sensor(self):
         """Loop for reading the sensor device"""
+
         last_read = time.time()
 
         while (self.en_capture):
@@ -112,30 +183,28 @@ class Serial():
 
     def read_bbu(self):
         """Loop for reading the BBU device"""
+
         last_read = time.time()
 
         while (self.en_capture):
             assert(self.bbu.in_waiting < 2048), \
                 "BBU serial buffer is getting full"
 
-            bbu_str = self._readline(self.bbu)
+            line = self._readline(self.bbu)
 
-            if "Occupancy" in bbu_str:
-                bbu_str_split = bbu_str.split(" ")
-                if (len(bbu_str_split) >= 4):
-                    try:
-                        self.last_bbu_occ = int(bbu_str_split[3])
-                    except ValueError:
-                        pass
-
+            if (len(line) > 0):
                 last_read = time.time()
             elif (time.time() - last_read > self.alive_timeout):
                 self.bbu_alive = False
                 logging.warning("BBU is unresponsive")
                 break
 
+            if "Occupancy" in line:
+                self._read_occupancy(line, self.async_data["bbu_occ"])
+
     def read_rru2(self):
         """Loop for reading the RRU2 device"""
+
         last_read = time.time()
 
         while (self.en_capture):
@@ -144,28 +213,21 @@ class Serial():
 
             line = self._readline(self.rru2)
 
-            if "Occupancy" in line:
-                line_split = line.split(" ")
-                if (len(line_split) >= 4):
-                    try:
-                        self.last_rru2_occ = int(line_split[3])
-                    except ValueError:
-                        pass
-
+            if (len(line) > 0):
                 last_read = time.time()
             elif (time.time() - last_read > self.alive_timeout):
                 self.rru2_alive = False
                 logging.warning("RRU2 is unresponsive")
                 break
 
+            if "Occupancy" in line:
+                self._read_occupancy(line, self.async_data["rru2_occ"])
+
     def read_rru(self):
         """Loop for reading the RRU device"""
+
         last_read = time.time()
-
-        rru_occ = None
-        pps_err = None
-        idx     = 0
-
+        idx = 0
         while (self.en_capture):
             assert(self.rru.in_waiting < 2048), \
                 "RRU serial buffer is getting full"
@@ -179,75 +241,15 @@ class Serial():
                 logging.warning("RRU is unresponsive")
                 break
 
-            # PPS time alignment error
             if '[pps-rtc][' in line:
-                line_val = self._split_strip_line(line, "[pps-rtc][")
-                if (line_val[1] == "Sync" and line_val[2] == "Error]"):
-                    pps_err = int(line_val[3]) + float(line_val[5])/(2**32)
+                self._read_pps_err(line, self.async_data["pps_err"])
 
-            # RRU occupancy
             if "Occupancy" in line:
-                line_val = self._split_strip_line(line, "Occupancy:")
-                if (len(line_val) >= 4):
-                    try:
-                        rru_occ = int(line_val[3])
-                    except ValueError:
-                        pass
+                self._read_occupancy(line, self.async_data["rru_occ"])
 
-            # PTP Timestamps
             if "Timestamps" in line:
-                line_val = self._split_strip_line(line,  "Timestamps")
-
-                # Normal PTP Timestamps
-                seq_id = int(line_val[2])
-                t1_ns  = int(line_val[4],16)
-                t2_ns  = int(line_val[6],16)
-                t3_ns  = int(line_val[8],16)
-                t4_ns  = int(line_val[10],16)
-                t1_sec = int(line_val[12],16)
-                t2_sec = int(line_val[14],16)
-                t3_sec = int(line_val[16],16)
-                t4_sec = int(line_val[18],16)
-
-                # PPS Timestamps
-                t1_pps_ns  = int(line_val[20],16)
-                t1_pps_sec = int(line_val[22],16)
-                t4_pps_ns  = int(line_val[24],16)
-                t4_pps_sec = int(line_val[26],16)
-
-                # Append to results
-                run_data = {
-                    "idx"        : idx,
-                    "seq_id"     : seq_id,
-                    't1'         : t1_ns,
-                    't2'         : t2_ns,
-                    't3'         : t3_ns,
-                    't4'         : t4_ns,
-                    't1_sec'     : t1_sec,
-                    't2_sec'     : t2_sec,
-                    't3_sec'     : t3_sec,
-                    't4_sec'     : t4_sec,
-                    't1_pps'     : t1_pps_ns,
-                    't1_pps_sec' : t1_pps_sec,
-                    't4_pps'     : t4_pps_ns,
-                    't4_pps_sec' : t4_pps_sec
-                }
-            else:
-                continue
-
-            # Append the last occupancy when available
-            if (rru_occ is not None):
-                run_data["rru_occ"] = rru_occ
-                rru_occ = None
-
-            # Append the last PPS error when available
-            if (pps_err is not None):
-                run_data["pps_err"] = pps_err
-                pps_err = None
-
-            self.rru_data.append(run_data)
-
-            idx += 1
+                self._read_timestamp_set(line, idx)
+                idx += 1
 
     def connect(self, device, baudrate=115200):
         """Establish a serial connection to a given device.
@@ -259,7 +261,6 @@ class Serial():
             Object with serial connection.
 
         """
-
         devices_list = ['bbu_uart',
                         'rru_uart',
                         'rru2_uart',
@@ -300,7 +301,6 @@ class Serial():
         testbed timestamps are saved to compose the data.
 
         """
-
         with open(self.filename, 'a') as fd:
             fd.write('{"metadata": ')
             json.dump(self.metadata, fd)
@@ -322,6 +322,7 @@ class Serial():
 
     def move(self):
         """Move JSON file"""
+
         dst_dir  = "/opt/ptp_datasets/"
         dst      = dst_dir + os.path.basename(self.filename)
         raw_resp = input(f"Move {self.filename} to {dst}? [Y/n] ") or "Y"
@@ -346,26 +347,21 @@ class Serial():
         exit()
 
     def run(self):
-        """Continuously read from the RRU and collect timestamps
+        """Save/process timestamp sets and complementary data acquired serially
         """
         signal.signal(signal.SIGINT, self.catch)
         signal.siginterrupt(signal.SIGINT, False)
 
         # Use the reader class to post-process each set of timestamp in
-        # real-time and to print the associated PTP metrics
+        # real-time and to print the associated PTP metrics for debugging
         reader = Reader(infer_secs=False)
 
         self.start_json_file()
 
         logger.info("Starting capture")
-        rru_occ      = None
-        pps_err      = None
         last_seq_id  = None
         debug_buffer = list()
-
-        last_read = time.time()
-        count     = 0
-
+        count        = 0
         while self.en_capture == True and \
               ((count < self.n_samples) or self.n_samples == 0):
 
@@ -376,23 +372,23 @@ class Serial():
                 logging.info("Unresponsive devices - stopping");
                 break
 
-            if (len(self.rru_data) > 0):
-                run_data = self.rru_data.popleft()
+            if (self.ts_data):
+                run_data = self.ts_data.popleft()
 
                 # Process PTP metrics for debugging
                 reader.process(run_data, pr_level=logging.INFO)
 
-                # Append the temperature and BBU occupancy when available
+                # Latest temperature reading
                 if (self.last_temp[0] is not None or
                     self.last_temp[1] is not None):
                     run_data["temp"] = self.last_temp
 
-                if (self.last_bbu_occ is not None):
-                    run_data["bbu_occ"] = self.last_bbu_occ
+                # Complementary/asynchronous data
+                for key in self.async_data:
+                    if (self.async_data[key]):
+                        run_data[key] = self.async_data[key].popleft()
 
-                if (self.last_rru2_occ is not None):
-                    run_data["rru2_occ"] = self.last_rru2_occ
-
+                # Sanity check on PTP sequenceId
                 if ((last_seq_id is not None) and
                     (run_data['seq_id'] != ((last_seq_id + 1) % 2**16))):
                     logging.warning("PTP sequence id gap: {:d} to {:d}".format(
