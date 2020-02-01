@@ -288,6 +288,7 @@ class Estimator():
         # Clean previous estimates
         for r in self.data:
             r.pop("drift", None)
+            r.pop("x_loop", None)
 
         # Run loop
         drift = 0
@@ -300,10 +301,12 @@ class Estimator():
             f_prop     = Kp * err
             f_int     += Ki * err
             f_err      = f_prop + f_int
-            dds       += f_err
 
             if (i > settling):
-                r["drift"] = f_err;
+                r["drift"]  = f_err
+                r["x_loop"] = dds
+
+            dds += f_err
 
     def optimize_loop(self):
         """Find loop parameters that minimize RMSE of cumulative drift estimates

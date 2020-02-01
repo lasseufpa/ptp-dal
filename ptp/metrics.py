@@ -49,6 +49,9 @@ est_keys = {"raw"                : {"label": "Raw Measurements",
                                     "show": True},
             "kf"                 : {"label": "Kalman",
                                     "marker": "d",
+                                    "show": True},
+            "loop"               : {"label": "PI Loop",
+                                    "marker": "v",
                                     "show": True}}
 
 class Analyser():

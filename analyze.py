@@ -82,9 +82,9 @@ def _run_pre_bias_compensation(data):
      post-processing
 
     NOTE: the raw time offset measurements are processed directly by some packet
-    selection operators (sample-average and EWMA), as well as by LS and
-    Kalman. Thus, with correction of the bias of "x_est" here it is expected
-    that the referred estimators also produce unbiased results.
+    selection operators (sample-average and EWMA), as well as by LS, Kalman and
+    the PI loop. Thus, with correction of the bias of "x_est" here it is
+    expected that the referred estimators also produce unbiased results.
 
     """
     bias = ptp.bias.Bias(data)
