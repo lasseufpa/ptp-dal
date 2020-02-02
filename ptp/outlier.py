@@ -2,6 +2,7 @@
 """
 import logging
 import numpy as np
+from ptp.mechanisms import *
 logger = logging.getLogger(__name__)
 
 
@@ -42,6 +43,48 @@ class Outlier():
 
         return outliers
 
+    def  _print_tstamps(self, idx):
+        logger.info("{:^6d} | {:21s} | {:21s} | {:21s} | {:21s}".format(
+            idx,
+            str(self.data[idx]['t1']),
+            str(self.data[idx]['t2']),
+            str(self.data[idx]['t3']),
+            str(self.data[idx]['t4'])
+        ))
+
+    def _debug_outlier_context(self, idx):
+        """Print some contextual info around the outlier
+
+        Args:
+            idx : Outlier index
+
+        """
+
+        # When
+        t_out_ns = float(self.data[idx]["t1"] - self.data[0]["t1"])
+        t_min    = t_out_ns / (60 * 1e9)
+        logger.info("---- Outlier at index {} - {} min".format(
+            idx, t_min))
+
+        # PTP Metrics
+        logger.info("Metrics:")
+        DelayReqResp.log_header(level=logging.INFO,logger=logger)
+        DelayReqResp.log(self.data[idx - 1], logging.INFO, logger)
+        DelayReqResp.log(self.data[idx], logging.INFO, logger)
+        DelayReqResp.log(self.data[idx + 1], logging.INFO, logger)
+
+        # PTP timestamps
+        logger.info("Timestamps:")
+        logger.info("{:6s} | {:21s} | {:21s} | {:21s} | {:21s}".format(
+            "idx", "t1", "t2", "t3", "t4"))
+        logger.info("----------------------------------------"
+                    "----------------------------------------"
+                    "----------------------")
+        self. _print_tstamps(idx - 1)
+        self. _print_tstamps(idx)
+        self. _print_tstamps(idx + 1)
+        logger.info("----")
+
     def process(self, c=1.5):
         """"Process the sample values
 
@@ -60,4 +103,8 @@ class Outlier():
         # Save results on global data records
         for out in outliers:
             self.data[out]['outlier'] = True
+
+            if (logger.root.level == logging.INFO and out > 1 and
+                out < (len(self.data) - 1)):
+                self._debug_outlier_context(out)
 

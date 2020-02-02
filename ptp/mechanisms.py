@@ -24,11 +24,12 @@ class DelayReqResp():
         self.asymmetry = None
 
     @staticmethod
-    def log_header(level=logging.DEBUG):
+    def log_header(level=logging.DEBUG, logger=logger):
         """Print logging header
 
         Args:
-            level : Logging level to use when printing
+            level  : Logging level to use when printing
+            logger : Logger object
 
         """
 
@@ -186,12 +187,13 @@ class DelayReqResp():
         return results
 
     @staticmethod
-    def log(r, level=logging.DEBUG):
+    def log(r, level=logging.DEBUG, logger=logger):
         """Print results
 
         Args:
-            r     : Dictionary with results
-            level : Logging level to use when printing
+            r      : Dictionary with results
+            level  : Logging level to use when printing
+            logger : Logger object
 
         """
 
