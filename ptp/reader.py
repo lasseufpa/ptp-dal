@@ -2,6 +2,7 @@ import logging, json
 import numpy as np
 from ptp.timestamping import Timestamp
 from ptp.mechanisms import *
+logger = logging.getLogger(__name__)
 
 
 class Reader():
@@ -14,7 +15,7 @@ class Reader():
     produced by the runner.
 
     """
-    def __init__(self, log_file=None, infer_secs=True, no_pps=False,
+    def __init__(self, log_file=None, infer_secs=False, no_pps=False,
                  reverse_ms=True):
         """Constructor
 
@@ -36,6 +37,9 @@ class Reader():
         self.infer_secs = infer_secs
         self.no_pps     = no_pps
         self.reverse_ms = reverse_ms
+
+        if (infer_secs):
+            logger.warning("Inferring seconds")
 
         # Prepare to infer seconds, if so desired
         self.last_t1        = 0

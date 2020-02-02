@@ -385,7 +385,7 @@ class Serial():
 
         # Use the reader class to post-process each set of timestamp in
         # real-time and to print the associated PTP metrics for debugging
-        reader = Reader(infer_secs=False)
+        reader = Reader()
 
         self.start_json_file()
 

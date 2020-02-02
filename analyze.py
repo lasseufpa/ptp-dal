@@ -222,11 +222,11 @@ def main():
                         type=int,
                         help='Maximum window length that the window optimizer \
                         can return for any algorithm.')
-    parser.add_argument('--use-secs',
+    parser.add_argument('--infer-secs',
                         default=False,
                         action='store_true',
-                        help="Use secs that were actually captured \
-                        (i.e. do not infer secs)")
+                        help="Infer seconds rather than using the seconds that \
+                        were actually captured (default: False)")
     parser.add_argument('--bias',
                         choices=['pre', 'post', 'both', 'none'],
                         default='both',
@@ -248,8 +248,8 @@ def main():
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     # Run PTP simulation
-    reader = ptp.reader.Reader(args.file, infer_secs=(not args.use_secs),
-                               reverse_ms=True)
+    reader = ptp.reader.Reader(args.file, infer_secs = args.infer_secs,
+                               reverse_ms = True)
     reader.run(args.num_iter)
 
     if (args.analyze_only):
