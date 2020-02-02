@@ -64,6 +64,11 @@ def main():
                         default=False,
                         action='store_true',
                         help='Whether to enable window optimizer fine pass')
+    parser.add_argument('--max-window',
+                        default=8192,
+                        type=int,
+                        help='Maximum window length that the window optimizer \
+                        can return for any algorithm.')
     parser.add_argument('--verbose', '-v', action='count', default=1,
                         help="Verbosity (logging) level")
     args = parser.parse_args()
@@ -109,7 +114,8 @@ def main():
                              early_stopping=(not args.no_stop),
                              save_plot=args.save_plot, force=args.force,
                              plot_info=(not args.no_plot_info),
-                             global_plot=args.global_plot, fine_pass=args.fine)
+                             global_plot=args.global_plot, fine_pass=args.fine,
+                             max_window=args.max_window)
 
 if __name__ == "__main__":
     main()

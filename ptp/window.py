@@ -154,7 +154,8 @@ class Optimizer():
 
     def _search_best_window(self, estimator, error_metric, early_stopping=True,
                             save=True, plot=False, global_plot=False,
-                            plot_info=True, fine_pass=False, eval_all=False):
+                            plot_info=True, fine_pass=False, eval_all=False,
+                            log_max_window=13):
         """Search the best window length that minimizes error
 
         Calculate the error for differents sizes of window length. Runs two
@@ -178,13 +179,16 @@ class Optimizer():
             fine_pass      : Enable fine pass
             eval_all       : Disable coarse/fine pass and instead evaluate all
                              window length values of a linear range
+            log_max_window : Log2 of the upper limit set for window
+                             lengths.
 
         """
         est_key   = self.est_op[estimator]["est_key"]
 
         if (eval_all):
-            max_window = 2**np.minimum(np.floor(np.log2(len(self.data)/2)), 13)
-            window_len = np.arange(2, max_window)
+            end_window = 2**np.minimum(np.floor(np.log2(len(self.data)/2)),
+                                       log_max_window)
+            window_len = np.arange(2, end_window)
             N_best, error , i_stop = self._eval_error(window_len, estimator,
                                                       error_metric=error_metric,
                                                       early_stopping=False)
@@ -193,13 +197,13 @@ class Optimizer():
             #
             # Evaluate power-of-2 window lengths. If using early stopping, use
             # the default patience.
-            log_max_window = np.minimum(np.floor(np.log2(len(self.data)/2)), 13)
-            # limit to 8192
+            log_len_e = np.minimum(np.floor(np.log2(len(self.data)/2)),
+                                      log_max_window)
             if (est_key == "pkts_mode"):
-                log_min_window = 2 # sample-mode needs window length > 2
+                log_len_s = 2 # sample-mode needs window length > 2
             else:
-                log_min_window = 1
-            log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
+                log_len_s = 1
+            log_window_len = np.arange(log_len_s, log_len_e + 1, 1)
             window_len     = 2**log_window_len
 
             N_best, error, i_stop = self._eval_error(window_len, estimator,
@@ -377,7 +381,7 @@ class Optimizer():
     def process(self, estimator, error_metric="max-te", file=None, save=False,
                 sample_skip=0, early_stopping=True, force=False, plot=False,
                 save_plot=True, global_plot=False, plot_info=False,
-                fine_pass=False):
+                fine_pass=False, max_window=8192):
         """Process the observations
 
         Args:
@@ -394,9 +398,18 @@ class Optimizer():
             global_plot     : Plot global curve (not only the fine region)
             plot_info       : Add window information in the plot
             fine_pass       : Enable fine pass
+            max_window      : Upper limit set for window length. This is mostly
+                              to prevent excessive memory usage and slow
+                              processing that occurs with very long windows.
 
         """
         self._sample_skip = sample_skip
+
+        # Power-of-2 maximum window length
+        log_max_window = np.floor(np.log2(max_window))
+        if ((2**log_max_window) != max_window):
+            logging.warning("Max window length set to {} instead of {}".format(
+                (2**log_max_window), max_window))
 
         # Define paths used for saving plots and config file
         self._set_paths(file)
@@ -425,7 +438,8 @@ class Optimizer():
                                          early_stopping=early_stopping,
                                          global_plot=global_plot,
                                          plot_info=plot_info,
-                                         fine_pass=fine_pass)
+                                         fine_pass=fine_pass,
+                                         log_max_window=log_max_window)
 
             # Save results on JSON file
             if (save):

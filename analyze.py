@@ -46,7 +46,7 @@ def _run_drift_estimation(data):
 
 
 def _run_window_optimizer(data, dataset_file, T_ns, metric, disable_plot,
-                          en_fine, force):
+                          en_fine, force, max_window):
     """Run tuner of window lengths"""
 
     window_optimizer = ptp.window.Optimizer(data, T_ns)
@@ -55,7 +55,8 @@ def _run_window_optimizer(data, dataset_file, T_ns, metric, disable_plot,
                              file = dataset_file,
                              plot = (not disable_plot),
                              fine_pass = en_fine,
-                             force = force)
+                             force = force,
+                             max_window = max_window)
     window_optimizer.save()
     window_optimizer.print_results()
     return window_optimizer.get_results()
@@ -216,6 +217,11 @@ def main():
                         default='max-te',
                         help='Estimation error metric for window tuning',
                         choices=['max-te', 'mse'])
+    parser.add_argument('--optimizer-max-window',
+                        default=8192,
+                        type=int,
+                        help='Maximum window length that the window optimizer \
+                        can return for any algorithm.')
     parser.add_argument('--use-secs',
                         default=False,
                         action='store_true',
@@ -267,7 +273,8 @@ def main():
                                                args.optimizer_metric,
                                                args.no_optimizer_plots,
                                                args.optimizer_fine,
-                                               args.optimizer_force)
+                                               args.optimizer_force,
+                                               args.optimizer_max_window)
 
     _run_ls(reader.data, window_lengths['ls'], T_ns)
 
