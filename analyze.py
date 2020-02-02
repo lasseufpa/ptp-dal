@@ -238,6 +238,10 @@ def main():
                         default=0,
                         type=int,
                         help='Restrict number of iterations.')
+    parser.add_argument('-t', '--time-interval',
+                        default=None,
+                        help='Specific time interval to observe given as \
+                        \"start:end\" in hours (default: None)')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,
@@ -251,6 +255,9 @@ def main():
     reader = ptp.reader.Reader(args.file, infer_secs = args.infer_secs,
                                reverse_ms = True)
     reader.run(args.num_iter)
+
+    if (args.time_interval):
+        reader.trim(args.time_interval)
 
     if (args.analyze_only):
         _run_analyzer(reader.data, reader.metadata, args.file, stats=False)

@@ -241,4 +241,23 @@ class Reader():
             self.data.append(results)
             self.check_progress(i, n_data)
 
+    def trim(self, interval):
+        """Restrict dataset to given interval
+
+        Args:
+            interval : Desired dataset interval given as start:end in hours
+
+        """
+        start = float(interval.split(":")[0])
+        end   = float(interval.split(":")[1])
+        assert(end > start), "Interval must be positive"
+
+        ns_per_hour = 1e9 * 60 * 60
+        t_start = self.data[0]["t1"]
+        t_h = np.array([float(r["t1"] - t_start) for r in self.data]) / \
+              ns_per_hour
+        i_s = np.where(t_h > start)[0][0]
+        i_e = np.where(t_h <= end)[0][-1]
+
+        self.data = self.data[i_s:i_e]
 
