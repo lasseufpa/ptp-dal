@@ -68,6 +68,7 @@ class Serial():
 
         # Enable
         self.en_capture = True
+        self.json_ended = False
 
         # Threads for reading the BBU and sensor (the RRU will be read by the
         # main thread)
@@ -334,6 +335,10 @@ class Serial():
 
     def end_json_file(self):
         """End the JSON file structure"""
+        if (self.json_ended):
+            return
+
+        self.json_ended = True
 
         with open(self.filename, 'a') as fd:
             fd.write(']}')
