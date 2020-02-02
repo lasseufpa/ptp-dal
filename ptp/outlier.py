@@ -38,9 +38,9 @@ class Outlier():
         iqr         = Q3 - Q1
         lower_bound = Q1 - (iqr * c)
         upper_bound = Q3 + (iqr * c)
-        outliers    = np.where((x > upper_bound) | (x < lower_bound))
+        outliers    = np.where((x > upper_bound) | (x < lower_bound))[0]
 
-        return np.squeeze(outliers)
+        return outliers
 
     def process(self, c=1.5):
         """"Process the sample values
