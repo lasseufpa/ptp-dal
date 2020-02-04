@@ -3,7 +3,7 @@
 """Acquisition of testbed data via serial
 
 """
-import argparse, configparser, logging, sys
+import argparse, configparser, logging, sys, os, json, subprocess
 from datetime import datetime
 from pprint import pprint
 import ptp.serial
@@ -41,6 +41,37 @@ def calc_rate(n_spf, l_iq, fs, n_rru_dl, n_rru_ul):
     bitrate_ul     = rate_per_rru * n_rru_ul
 
     return bitrate_dl, bitrate_ul
+
+
+def get_latest_pipeline(roe_path):
+    """Check the latest master-branch pipeline and download it
+
+    Args:
+        roe_path        : Gitlab API directory path
+        target_device   : Device to filter the pipeline's jobs
+
+    Returns:
+        pipeline : Pipeline number in str
+
+    """
+    roe_automation_path = os.path.join(roe_path, "automation")
+    assert os.path.exists(roe_automation_path), \
+        "Couldn't find path {}".format(roe_automation_path)
+
+    command = ['python3', 'gitlab-download.py']
+    process = subprocess.Popen(command, cwd=roe_automation_path,
+                               stdout=subprocess.PIPE)
+    final_output = list()
+    while True:
+        output = process.stdout.readline().decode()
+        if output == "" and process.poll() is not None:
+            break
+        if output:
+            final_output.append(output.split("\n")[0])
+    assert (process.returncode == 0), \
+        "Error while executing gitlab-download.py"
+    pipeline = final_output[0].split(' ')[5]
+    return pipeline
 
 
 def main():
@@ -135,7 +166,31 @@ def main():
                                         "i.e. that are actually active in the "
                                         "testbed"))
 
-    args     = parser.parse_args()
+    roe_prog_config_group = parser.add_argument_group(('RoE programing and '
+                                                       'configuration'))
+    roe_prog_config_group.add_argument('-p', '--roe-prog',
+                                       default=False,
+                                       action='store_true',
+                                       help=("Set in order to program the FPGAs"
+                                             " before the acquisition"))
+    roe_prog_config_group.add_argument('-c', '--roe-configure',
+                                       default=False,
+                                       action='store_true',
+                                       help=("Set to enable automatic runtime "
+                                             "configuration of RoE devices"))
+    roe_prog_config_group.add_argument('--bbu-pipeline',
+                                       default="latest",
+                                       type=str,
+                                       help='CI pipeline of the BBU bitstream')
+    roe_prog_config_group.add_argument('--rru-pipeline',
+                                       default="latest",
+                                       type=str,
+                                       help='CI pipeline of the RRU bitstream')
+    roe_prog_config_group.add_argument('--roe-path',
+                                       default="../roe_vivado/",
+                                       type=str,
+                                       help='Path to `roe_vivado` directory')
+    args = parser.parse_args()
 
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
@@ -162,6 +217,35 @@ def main():
     else:
         fh_traffic = None
 
+    if (args.roe_prog and (args.bbu_pipeline is "latest" or \
+                           args.rru_pipeline is "latest")):
+        last_pipeline = get_latest_pipeline(args.roe_path)
+        args.bbu_pipeline = last_pipeline if args.bbu_pipeline is "latest" \
+                            else args.bbu_pipeline
+        args.rru_pipeline = last_pipeline if args.rru_pipeline is "latest" \
+                            else args.rru_pipeline
+
+    # Dictionary for RoE programing and configuration metadata
+    if (args.roe_prog) or (args.roe_configure):
+        assert os.path.exists(args.roe_path), \
+            "Couldn't find roe_vivado directory"
+
+        pipelines = {
+            "bbu" : args.bbu_pipeline,
+            "rru" : args.rru_pipeline,
+        }
+
+        roe_prog_config = {
+            "roe_prog"        : args.roe_prog,
+            "roe_configure"   : args.roe_configure,
+            "pipeline"        : pipelines,
+            "roe_vivado_path" : args.roe_path
+        }
+
+    else:
+        roe_prog_config = None
+        pipelines       = None
+
     # Dictionary containing the metadata
     metadata = {
         "oscillator": args.oscillator,
@@ -169,6 +253,7 @@ def main():
         "fh_traffic" : fh_traffic,
         "hops" : args.hops,
         "n_rru_ptp" : args.n_rru_ptp,
+        "pipelines" : pipelines,
         "start_time" : datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
 
@@ -179,7 +264,7 @@ def main():
 
     if (response.lower() == "y"):
         serial = ptp.serial.Serial(args.rru, args.rru2, args.bbu, args.sensor,
-                                   args.num_iter, metadata)
+                                   args.num_iter, metadata, roe_prog_config)
         serial.run()
 
 if __name__ == "__main__":

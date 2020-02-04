@@ -5,6 +5,7 @@
 import serial, time, json, logging, signal, os, shutil, subprocess
 from ptp.reader import Reader
 from ptp.docs import Docs
+from ptp.roe import RoE
 import threading
 from tabulate import tabulate
 import pandas as pd
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class Serial():
     def __init__(self, rru_dev, rru2_dev, bbu_dev, sensor_dev, n_samples,
-                 metadata):
+                 metadata, roe_config):
         """Serial capture of timestamps from testbed
 
         Args:
@@ -26,10 +27,14 @@ class Serial():
             sensor_dev : Sensor device ('roe_sensor')
             n_samples  : Target number of samples (0 for infinity)
             metadata   : Information about the testbed configuration
+            roe_config : RoE configuration data
 
         """
         self.n_samples = n_samples
         self.metadata  = metadata
+
+        # RoE information and configuration data
+        self.roe_config = roe_config
 
         # Serial connections
         assert(rru_dev != rru2_dev), "RRU and RRU2 devices should be different"
@@ -37,6 +42,13 @@ class Serial():
         self.rru2   = None if (rru2_dev is None) else self.connect(rru2_dev)
         self.bbu    = None if (bbu_dev is None) else self.connect(bbu_dev)
         self.sensor = None if (sensor_dev is None) else self.connect(sensor_dev)
+
+        # Initialize RoE manager object
+        self.roe = RoE(self.metadata, self.roe_config,
+                       self.rru,
+                       self.rru2,
+                       self.bbu,
+                       self.sensor)
 
         # Filename
         path = "data/"
@@ -65,6 +77,10 @@ class Serial():
         self.rru_alive     = True
         self.rru2_alive    = True
         self.alive_timeout = 5 # in secs
+
+        # Program and configure the RoE devices before starting the acquisition
+        if (self.roe_config['roe_prog']) or (self.roe_config['roe_configure']):
+            self.roe.prog_and_configure()
 
         # Enable
         self.en_capture = True

@@ -62,6 +62,22 @@ Run:
 
 where `-vvvvv` controls the verbosity level.
 
+To program and configure the RoE devices before the acquisition, run the
+acquisition script as follows:
+
+```
+./capture.py -vvvvv -p -c
+```
+
+where `-p` activates programming of the FPGAs and option `-c` activates runtime
+configurations sent over UART to the devices.
+
+> NOTE: By default, the programming step will load the latest bistream build
+> from `roe_vivado`'s master branch into the FPGAs. This can be overridden using
+> options `--bbu-pipeline` and `--rru-pipeline`. Also, by default the script
+> will assume that the `roe_vivado` directory lies in the same root folder as
+> `ptp_simulator`. This can also be overridden using option `--roe-path`.
+
 ## Running with acquired data
 
 First download a dataset that was acquired with the testbed. They are kept at
