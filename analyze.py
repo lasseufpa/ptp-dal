@@ -181,6 +181,10 @@ def _run_analyzer(data, metadata, dataset_file, stats=True):
         analyser.toffset_err_stats(save=True)
         analyser.foffset_err_stats(save=True)
         analyser.toffset_drift_err_stats(save=True)
+        analyser.ranking(metric="max-te", save=True)
+        analyser.ranking(metric="mtie", save=True)
+        analyser.ranking(metric="rms", save=True)
+        analyser.ranking(metric="std", save=True)
 
 
 def main():

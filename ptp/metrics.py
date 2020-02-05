@@ -204,6 +204,7 @@ class Analyser():
             save    : whether to write results into info.txt
 
         """
+        logger.info("Eval time offset estimation error statistics")
 
         # Print to stdout and, if so desired, to info.txt
         files = [None]
@@ -211,7 +212,6 @@ class Analyser():
             files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
 
         # Skip the transitory (e.g. due to Kalman)
-        logger.info("Eval time offset estimation error statistics")
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
 
@@ -233,14 +233,12 @@ class Analyser():
             save    : whether to write results into info.txt
 
         """
+        logger.info("Eval frequency offset estimation error statistics")
 
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
             files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
-
-        # Skip the transitory (e.g. due to Kalman)
-        logger.info("Eval frequency offset estimation error statistics")
 
         for f in files:
             print("\nFrequency offset estimation error statistics:\n", file=f)
@@ -261,6 +259,7 @@ class Analyser():
             save    : whether to write results into info.txt
 
         """
+        logger.info("Eval time offset drift estimation error statistics")
 
         # Print to stdout and, if so desired, to info.txt
         files = [None]
@@ -288,6 +287,84 @@ class Analyser():
             for f in files:
                 self._print_err_stats(f, "Drift", drift_err, "ns")
                 self._print_err_stats(f, "Cumulative Drift", cum_drif_err, "ns")
+
+    def ranking(self, metric, max_te_win_len=1000, save=False):
+        """Rank algorithms based on a chosen performance metric
+
+        Args:
+            metric         : Metric used for ranking: max-te, mtie, rms or std
+            max_te_win_len : Window length used for the max|TE| computation
+
+        """
+        logger.info(f"Rank algorithm performances based on {metric}")
+
+        # Find index where drift estimates start (if any)
+        i_drift_start = 0
+        for i,r in enumerate(self.data):
+            if ("drift" in r):
+                i_drift_start = i
+                break
+
+        # When drift correction is used, packet selection estimates start only
+        # after drift estimate start. Hence, the post-transient dataset must
+        # start after drift estimates start. Also, for Kalman filtering results,
+        # as a rule of thumb we skip about 20% of the dataset. To accomodate the
+        # two requirements, skip the largest of the two:
+        n_skip = max(i_drift_start, int(0.2*len(self.data)))
+        post_tran_data = self.data[n_skip:]
+
+        # Find the largest number of samples that is guaranteed to be available
+        # for all post-processing algorithms that are present in the
+        # dataset. For fairness, we will compare all algorithms based on the
+        # same number of samples.
+        n_samples = np.inf
+        for suffix, value in est_keys.items():
+            key   = "x_est" if (suffix == "raw") else "x_" + suffix
+            x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
+            if (len(x_err) > 0):
+                n_samples = min(len(x_err), n_samples)
+        assert(not np.isinf(n_samples))
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+
+        for f in files:
+            print(f"\nPerformance ranking based on {metric}:\n", file=f)
+
+        ranking = dict()
+        for suffix, value in est_keys.items():
+            key   = "x_est" if (suffix == "raw") else "x_" + suffix
+            x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
+            x_err = x_err[:n_samples]
+
+            if (len(x_err) > 0):
+                if (metric == "max-te"):
+                    max_te_est = self.max_te(x_err, max_te_win_len)
+                    res        = max_te_est.mean()
+
+                elif (metric == "mtie"):
+                    _, mtie_est = self.mtie(x_err)
+                    res         = mtie_est.mean()
+
+                elif (metric == "rms"):
+                    res = np.sqrt(np.square(x_err).mean())
+
+                elif (metric == "std"):
+                    res = np.std(x_err)
+
+                else:
+                    raise ValueError("Metric choice %s unknown" %(metric))
+
+                # Save the result
+                ranking[key] = res
+
+        # Print ranking in increasing order
+        for key, value in sorted(ranking.items(), key=lambda x: x[1]):
+            for f in files:
+                print("{:20s}".format(key),
+                      "Mean: {: 8.3f} ns".format(value), file=f)
 
     def check_seq_id_gaps(self, save=False):
         """Check whether there are gaps on sequenceIds"""
