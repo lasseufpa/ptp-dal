@@ -10,6 +10,7 @@ import ptp.frequency
 import ptp.window
 import ptp.outlier
 import ptp.bias
+import ptp.download
 
 
 default_window_lengths = {
@@ -250,6 +251,10 @@ def main():
 
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
+
+    # Download the dataset if not available
+    downloader = ptp.download.Download(args.file)
+    downloader.run()
 
     # Run PTP simulation
     reader = ptp.reader.Reader(args.file, infer_secs = args.infer_secs,

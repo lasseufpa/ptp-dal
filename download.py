@@ -1,63 +1,22 @@
 #!/usr/bin/env python3
-import subprocess, os, argparse
-
-
-def download_dataset(path, remote_repo):
-    """Download dataset from lasse100 machine
-
-    Args:
-        path        : dataset file path
-        remote_repo : url of remote repo to scp from
-
-    Returns:
-        Boolean indicating whether file was found and downloaded
-
-    """
-    cmd = ["scp", os.path.join(remote_repo, path), "data/"]
-
-    try:
-        print("> %s" %(" ".join(cmd)))
-        out   = subprocess.check_output(cmd)
-        found = True
-    except subprocess.CalledProcessError as e:
-        found = False
-        pass
-
-    if (found):
-        print("Downloaded")
-        print("Run:\n./analyze.py -vvvv -f data/%s" %(path))
-    else:
-        print("Couldn't find dataset in %s" %(remote_repo))
-
-    return found
+import argparse, sys, logging
+from ptp import download
 
 
 def main():
     parser = argparse.ArgumentParser(description="Download dataset")
-    parser.add_argument('-r', '--remote',
-                        default="200.239.93.44",
-                        help="Remote host where dataset is stored")
-    parser.add_argument('-u', '--user',
-                        default="roe",
-                        help="User used to log into the remote host over ssh")
     parser.add_argument('file',
                         help='Dataset file path.')
+    parser.add_argument('--verbose', '-v',
+                        action='count',
+                        default=1,
+                        help="Verbosity (logging) level")
     args     = parser.parse_args()
 
-    print("Try to download %s from %s" %(args.file, args.remote))
-
-    prefix      = args.user + "@" + args.remote
-    global_repo = prefix + ":/opt/ptp_datasets/"
-    user_repo   = prefix + ":/home/" + args.user + "/src/ptp_simulator/data/"
-    repos       = [global_repo, user_repo]
-
-    if (not os.path.exists(os.path.join("data", args.file))):
-        for repo in repos:
-            downloaded = download_dataset(args.file, repo)
-            if (downloaded):
-                return True
-    else:
-        print("Dataset already exists")
+    logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
+    logging.basicConfig(stream=sys.stderr, level=logging_level)
+    downloader = download.Download(args.file)
+    downloader.run()
 
 
 if __name__ == "__main__":
