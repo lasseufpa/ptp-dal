@@ -1601,9 +1601,10 @@ class Analyser():
         plt.figure()
         for key,label in zip(keys, labels):
             y_vec = np.array([r[key] for r in self.data if key in r])
-            bins  = np.arange(np.floor(y_vec.min()),
-                              np.ceil(y_vec.max()) + binwidth, binwidth)
-            plt.hist(y_vec, bins=bins, density=True, label=label)
+            if (len(y_vec) > 0):
+                bins  = np.arange(np.floor(y_vec.min()),
+                                  np.ceil(y_vec.max()) + binwidth, binwidth)
+                plt.hist(y_vec, bins=bins, density=True, label=label)
         plt.xlabel(ylabel)
         plt.ylabel('Probability Density')
         plt.legend()
