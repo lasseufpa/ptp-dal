@@ -479,9 +479,9 @@ class Analyser():
 
     @dec_plot_filter
     def plot_toffset_vs_time(self, show_raw=True, show_best=True, show_ls=True,
-                             show_pkts=True, show_kf=True, show_true=True,
-                             n_skip=None, x_unit='time', save=True,
-                             save_format='png'):
+                             show_pkts=True, show_kf=True, show_loop=True,
+                             show_true=True, n_skip=None, x_unit='time',
+                             save=True, save_format='png'):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -492,6 +492,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show Packet Selection fit
             show_kf     : Show Kalman filtering results
+            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
             show_true   : Show true values
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
@@ -573,8 +574,9 @@ class Analyser():
 
     @dec_plot_filter
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
-                                 show_pkts=True, show_kf=True, n_skip=None,
-                                 x_unit='time', save=True, save_format='png'):
+                                 show_pkts=True, show_kf=True, show_loop=True,
+                                 n_skip=None, x_unit='time', save=True,
+                                 save_format='png'):
         """Plot time offset error vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -584,6 +586,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show packet selection fit
             show_kf     : Show Kalman filtering results
+            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
@@ -638,8 +641,8 @@ class Analyser():
 
     @dec_plot_filter
     def plot_toffset_err_hist(self, show_raw=True, show_ls=True, show_pkts=True,
-                              show_kf=True, n_bins=50, save=True,
-                              save_format='png'):
+                              show_kf=True, show_loop=True, n_bins=50,
+                              save=True, save_format='png'):
         """Plot time offset error histogram
 
         Args:
@@ -647,6 +650,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show packet selection fit
             show_kf     : Show Kalman filtering results
+            show_loop   : Show PI loop fit
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1352,7 +1356,7 @@ class Analyser():
 
     @dec_plot_filter
     def plot_mtie(self, show_raw=True, show_ls=True, show_pkts=True,
-                  show_kf=True, save=True, save_format='png'):
+                  show_kf=True, show_loop=True, save=True, save_format='png'):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time interval error (TIE) samples are assumed to be
@@ -1371,6 +1375,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show Packet Selection fit
             show_kf     : Show Kalman filtering results
+            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1409,8 +1414,8 @@ class Analyser():
 
     @dec_plot_filter
     def plot_max_te(self, window_len, show_raw=True, show_ls=True,
-                    show_pkts=True, show_kf=True, n_skip=None, x_unit='time',
-                    save=True, save_format='png'):
+                    show_pkts=True, show_kf=True, show_loop=True, n_skip=None,
+                    x_unit='time', save=True, save_format='png'):
         """Plot Max|TE| vs time.
 
         Args:
@@ -1419,6 +1424,7 @@ class Analyser():
             show_ls     : Show least-squares fit
             show_pkts   : Show Packet Selection fit
             show_kf     : Show Kalman filtering results
+            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
