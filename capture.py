@@ -9,7 +9,7 @@ from pprint import pprint
 import ptp.serial
 
 
-DEFAULT_CONFIG = "config/capture.cfg"
+DEFAULT_CONFIG = "cache/capture.cfg"
 
 def calc_rate(n_spf, l_iq, fs, n_rru_dl, n_rru_ul):
     """Compute theoretical DL/UL bitrates
