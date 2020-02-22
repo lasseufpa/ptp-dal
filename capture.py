@@ -43,15 +43,18 @@ def calc_rate(n_spf, l_iq, fs, n_rru_dl, n_rru_ul):
     return bitrate_dl, bitrate_ul
 
 
-def get_latest_pipeline(roe_path):
-    """Check the latest master-branch pipeline and download it
+def get_pipeline(roe_path, pipeline):
+    """Download the target CI pipeline
+
+    If the pipeline is given as string "latest", download the latest successful
+    pipeline build on roe_vivado's master branch.
 
     Args:
         roe_path        : Gitlab API directory path
         target_device   : Device to filter the pipeline's jobs
 
     Returns:
-        pipeline : Pipeline number in str
+        pipeline : Pipeline number as string
 
     """
     roe_automation_path = os.path.join(roe_path, "automation")
@@ -59,18 +62,16 @@ def get_latest_pipeline(roe_path):
         "Couldn't find path {}".format(roe_automation_path)
 
     command = ['python3', 'gitlab-download.py']
-    process = subprocess.Popen(command, cwd=roe_automation_path,
-                               stdout=subprocess.PIPE)
-    final_output = list()
-    while True:
-        output = process.stdout.readline().decode()
-        if output == "" and process.poll() is not None:
-            break
-        if output:
-            final_output.append(output.split("\n")[0])
-    assert (process.returncode == 0), \
-        "Error while executing gitlab-download.py"
-    pipeline = final_output[0].split(' ')[5]
+
+    if pipeline != "latest":
+        command.extend(['-p', pipeline])
+
+    output = subprocess.check_output(command, cwd=roe_automation_path)
+    lines = output.decode().splitlines()
+    for line in lines:
+        if (("Latest pipeline" in line) and (len(line.split()) > 5)):
+            pipeline = line.split()[5]
+    assert(int(pipeline)) # assert it can be converted to int
     return pipeline
 
 
@@ -173,6 +174,12 @@ def main():
                                        action='store_true',
                                        help=("Set in order to program the FPGAs"
                                              " before the acquisition"))
+    roe_prog_config_group.add_argument('-e', '--roe-elf-only',
+                                       default=False,
+                                       action='store_true',
+                                       help=("Set in order to load only the "
+                                             "into the FPGAs, and not the "
+                                             "bitstream"))
     roe_prog_config_group.add_argument('-c', '--roe-configure',
                                        default=False,
                                        action='store_true',
@@ -217,13 +224,9 @@ def main():
     else:
         fh_traffic = None
 
-    if (args.roe_prog and (args.bbu_pipeline is "latest" or \
-                           args.rru_pipeline is "latest")):
-        last_pipeline = get_latest_pipeline(args.roe_path)
-        args.bbu_pipeline = last_pipeline if args.bbu_pipeline is "latest" \
-                            else args.bbu_pipeline
-        args.rru_pipeline = last_pipeline if args.rru_pipeline is "latest" \
-                            else args.rru_pipeline
+    # Parse pipeline
+    args.bbu_pipeline = get_pipeline(args.roe_path, args.bbu_pipeline)
+    args.rru_pipeline = get_pipeline(args.roe_path, args.rru_pipeline)
 
     # Dictionary for RoE programing and configuration metadata
     if (args.roe_prog) or (args.roe_configure):
@@ -239,7 +242,8 @@ def main():
             "roe_prog"        : args.roe_prog,
             "roe_configure"   : args.roe_configure,
             "pipeline"        : pipelines,
-            "roe_vivado_path" : args.roe_path
+            "roe_vivado_path" : args.roe_path,
+            "elf_only"        : args.roe_elf_only
         }
 
     else:

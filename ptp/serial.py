@@ -47,8 +47,7 @@ class Serial():
         self.roe = RoE(self.metadata, self.roe_config,
                        self.rru,
                        self.rru2,
-                       self.bbu,
-                       self.sensor)
+                       self.bbu)
 
         # Filename
         path = "data/"
@@ -78,20 +77,19 @@ class Serial():
         self.rru2_alive    = True
         self.alive_timeout = 5 # in secs
 
-        # Program and configure the RoE devices before starting the acquisition
-        if (self.roe_config['roe_prog']) or (self.roe_config['roe_configure']):
-            self.roe.prog_and_configure()
-
         # Enable
         self.en_capture = True
         self.json_ended = False
 
-        # Threads for reading the BBU and sensor (the RRU will be read by the
-        # main thread)
         if (self.sensor is not None):
             sensor_thread = threading.Thread(target=self.read_sensor,
                                              daemon=True)
             sensor_thread.start()
+
+        # Program and configure the RoE devices before starting the acquisition
+        if (self.roe_config is not None and
+            (self.roe_config['roe_prog'] or self.roe_config['roe_configure'])):
+            self.roe.prog_and_configure()
 
         if (self.bbu is not None):
             bbu_thread = threading.Thread(target=self.read_bbu, daemon=True)

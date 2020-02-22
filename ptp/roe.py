@@ -33,7 +33,7 @@ class RoE_device():
         self.name    = name
         self.active  = active
         self.role    = name[:3]
-        assert(self.type in ["bbu", "rru"])
+        assert(self.role in ["bbu", "rru"])
 
     def read_line(self):
         """Readline and clean whitespaces"""
@@ -51,7 +51,7 @@ class RoE_device():
 
 
 class RoE:
-    def __init__(self, metadata, config, rru, rru2, bbu, sensor):
+    def __init__(self, metadata, config, rru, rru2, bbu):
         """RoE manager class.
 
         This class is responsible for configuration and
@@ -69,8 +69,6 @@ class RoE:
         self.rru         = RoE_device(rru, 'rru')
         self.rru2        = RoE_device(rru2, 'rru2',
                                       active=(metadata["n_rru_ptp"] == 2))
-        self.sensor      = RoE_device(sensor,'sensor') \
-                           if sensor is not None else None
         self.metadata    = metadata
         self.config      = config
 
@@ -79,33 +77,49 @@ class RoE:
         if self.rru2.active:
             self.all_dev.append(self.rru2)
 
-    def _wait_sync_stage(self, device, target_sync_stage=3):
+        self._fh_ready_barrier = threading.Barrier(len(self.all_dev))
+        self._sync_ready_barrier = threading.Barrier(len(self.all_dev))
+        self._fh_traffic_ready_barrier = threading.Barrier(len(self.all_dev))
+        self._cfg_complete = threading.Barrier(len(self.all_dev))
+        self.prog_failed = False
+
+    def _wait_sync_stage(self, device, target_sync_stage=3, cmd_timeout=10):
         """Wait until an RRU device achieves a target sync stage
 
         Args:
             device            : Device to check the sync state
             target_sync_stage : Syncronization state where capture should start
+            cmd_timeout       : How long until a GET_SYNC_STAGE command timeout
 
         """
-        logger.info(f"Checking sync stage of {device.name}")
+        logger.info("Waiting sync stage {} on {}".format(target_sync_stage,
+                                                         device.name))
 
-        sync_wait       = True
-        self.last_read  = time.time()
-
+        sync_wait = True
         while sync_wait:
             device.send_cmd(Cmd.GET_SYNC_STAGE)
-            line = device.read_line()
 
-            if "Sync" in line:
-                try:
-                    sync_stage = int(line.split(" ")[2])
-                except ValueError:
-                    pass
-                else:
-                    logging.info(f"{device.name} sync stage {sync_stage}")
-                    if sync_stage == target_sync_stage:
-                        logging.info("Target sync stage acquired")
-                        sync_wait = False
+            s_time = time.time()
+            while (True):
+                line = device.read_line()
+
+                if "Sync stage:" in line:
+                    break
+
+                c_time = time.time()
+                if ((c_time - s_time) > cmd_timeout):
+                    logger.warning("GET_SYNC_STAGE timeout")
+                    break
+
+            try:
+                sync_stage = int(line.split(" ")[2])
+            except ValueError:
+                pass
+            else:
+                logger.debug(f"{device.name} sync stage: {sync_stage}")
+                if sync_stage == target_sync_stage:
+                    logger.info("Target sync stage acquired")
+                    sync_wait = False
 
             time.sleep(2)
 
@@ -116,17 +130,17 @@ class RoE:
             device : Device to check AD9361 initialization
 
         """
-        logger.info(f"Waiting AD9361 initialization in {device.name}")
+        logger.info(f"Waiting AD9361 initialization on {device.name}")
 
         wait = True
         while wait:
             line = device.read_line()
 
             if ("AD9361" in line) and ("successfully" in line):
-                logging.info(f"{device.name} AD9361 initialized")
+                logger.info(f"{device.name} AD9361 initialized")
                 wait = False
 
-    def _wait_fh_traffic(self, device, occ_inter=[3796, 4396]):
+    def _wait_fh_traffic(self, device, occ_interval=[4000, 4200], timeout=10):
         """Waits until the device succesfully initializes the FH traffic
 
         This is based on the device's occupancy that is read via UART. If the
@@ -134,16 +148,15 @@ class RoE:
         traffic was initialized correctly.
 
         Args:
-            device     : Device to check FH traffic
-            occ_inter  : Occupancy interval to check
+            device       : Device to check FH traffic
+            occ_interval : Occupancy interval to check
+            timeout      : Give up after this interval
 
         """
-        device.reset_input_buffer()
-        logger.info(f"Checking FH traffic of {device.name}")
+        logger.info(f"Checking FH Rx traffic of {device.name}")
 
-        wait = True
-        time.sleep(0.5)
-        while wait:
+        s_time = time.time()
+        while True:
             line = device.read_line()
             if "Occupancy" in line:
                 line_val = line[line.find("Occupancy:"):]
@@ -153,11 +166,15 @@ class RoE:
                         occ_val = int(line_val[3])
                     except ValueError:
                         pass
-                    logger.info(f"Occupancy in {device.name} {occ_val}")
-                    if (occ_val >= occ_inter[0]) and (occ_val <= occ_inter[1]):
-                        logger.info(f"{device.name} initialized FH traffic")
-                        wait = False
+                    if (occ_val >= occ_interval[0]) and (occ_val <= occ_interval[1]):
+                        logger.info(f"FH Rx traffic of {device.name} is active")
                         break
+
+            # Throw error if occupancy doesn't become right after a timeout
+            c_time = time.time()
+            if ((c_time - s_time) > timeout):
+                raise RuntimeError(f"{device.name} occupancy did not "
+                                   "reach expected range")
 
     def _run_prog(self, device, pipeline):
         """Program the FPGA with the bitstream of a given pipeline
@@ -175,24 +192,37 @@ class RoE:
 
         logger.info(f"Programing {device.name}")
 
+        if self.metadata['oscillator'] == "ocxo" and device.role == "rru":
+            bitstream = "rru-sma-mgt"
+        else:
+            bitstream = device.role
+
         # Subprocess command
-        command = ["python3", "prog.py", device.role, "-p", pipeline]
+        command = ["python3", "prog.py", "-p", pipeline]
 
         if device.role is not 'bbu':
             command.append("-r")
             command.append(rru_n)
 
-        self.process = subprocess.Popen(
+        if self.config['elf_only']:
+            command.append("-e")
+
+        command.append(bitstream)
+
+        logger.debug("Running: " + " ".join(command))
+
+        process = subprocess.Popen(
             command, cwd=prog_dir, stdin=subprocess.PIPE,
             stdout=subprocess.PIPE
         )
-        self.process.communicate()
-        self.process.wait()
+        process.communicate()
+        process.wait()
 
-        assert (self.process.returncode == 0), \
-            f"Error while programming {device.name}"
-        logger.info(f"Finished programing {device.name}")
-        time.sleep(0.5)
+        assert (process.returncode == 0), \
+            "Error while programming the {} - return code {}".format(
+                device.name, process.returncode
+            )
+        logger.info(f"Finished programing the {device.name}")
 
     def _config_device(self, device):
         """Configure the RoE device by sending RoE commands over UART
@@ -204,29 +234,45 @@ class RoE:
         # Disable RFS
         logger.info(f"Disabling RFS : {device.name}")
         device.send_cmd(Cmd.DISABLE_RFS)
-        time.sleep(4)
+        time.sleep(1)
 
         if device is not self.bbu:
-            # Switch clk8k RTC source from PPS to PTP
+            # Switch clk8k RTC source from PTP to PPS
             logger.info(
-                f"Switching clk8k RTC source from PPS to PTP : {device.name}"
+                f"Switching clk8k RTC source from PTP to PPS : {device.name}"
             )
             device.send_cmd(Cmd.SWITCH_CLK8K_SRC)
 
             # Wait AD9361's initialization
             self._wait_ad9361(device)
-            time.sleep(5)
 
-        # Enable Fronthaul Traffic
-        if self.metadata["fh_traffic"]:
-            logger.info(f"Enabling FH traffic : {device.name}")
-            device.send_cmd(Cmd.ENABLE_FH)
-            self._wait_fh_traffic(device)
+        # Wait other threads
+        self._fh_ready_barrier.wait()
 
         # Check Sync stage
         if device is not self.bbu:
             self._wait_sync_stage(device)
-            logger.info(f"Enabling timestamp capture : {device.name}")
+
+        # Wait until all RRUs reach the target Sync stage
+        self._sync_ready_barrier.wait()
+
+        # Enable Fronthaul Traffic
+        if self.metadata["fh_traffic"]:
+            if (device.name == "bbu"):
+                time.sleep(1) # enable DL after UL
+                logger.info(f"Enabling DL traffic from {device.name}")
+            else:
+                logger.info(f"Enabling UL traffic from {device.name}")
+            # Enable FH Tx traffic
+            device.send_cmd(Cmd.ENABLE_FH)
+            # Check FH Rx traffic
+            self._wait_fh_traffic(device)
+
+        self._fh_traffic_ready_barrier.wait()
+
+        # Enable timestamp acquisition
+        if device is not self.bbu:
+            logger.info(f"Enabling timestamp acquisition on {device.name}")
             device.send_cmd(Cmd.ENABLE_TS_CAPTURE)
 
     def _program_and_config_thread(self, device):
@@ -242,11 +288,18 @@ class RoE:
         # Device Programing
         if self.config["roe_prog"]:
             self._run_prog(device, self.config["pipeline"][device.role])
-            time.sleep(5)
+            time.sleep(5) # let the processors run their initialization
 
         # Device Configuration
         if self.config["roe_configure"]:
             self._config_device(device)
+
+        # All devices should be able to reach the end of their programming and
+        # configuration threads. If not, it means there was a failure.
+        try:
+            self._cfg_complete.wait(timeout=10)
+        except threading.BrokenBarrierError:
+            self.prog_failed = True
 
     def prog_and_configure(self):
         """Program and configure RoE Devices
@@ -261,19 +314,22 @@ class RoE:
             assert os.path.exists(
                 os.path.join(prog_dir, "prog.py")
             ), "Couldn't find prog.py"
-            logger.info("Found prog.py script")
 
         # Initializing threads
         threads = list()
         for device in self.all_dev:
+            # Let the BBU thread start earlier, since it takes longer to load
+            # the BBU elf
+            if (device.name != "bbu"):
+                time.sleep(10)
             thread = threading.Thread(target=self._program_and_config_thread,
                                       args=(device,),
                                       daemon=True)
             thread.start()
             threads.append(thread)
-            # Add a time gap between the programming threads to avoid
-            # irregular behaviors on RoE devices occupancy
-            time.sleep(35)
+
+        if (self.prog_failed):
+            raise RuntimeError("RoE programming failed")
 
         # Wait completion on all threads
         for thread in threads:
@@ -282,7 +338,5 @@ class RoE:
         # Clear all buffers before capture
         for device in self.all_dev:
             device.clear_buffer()
-        if self.sensor:
-            self.sensor.clear_buffer()
 
 
