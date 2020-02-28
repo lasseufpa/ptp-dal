@@ -1,4 +1,4 @@
-import logging, json
+import logging, json, os
 import numpy as np
 from ptp.timestamping import Timestamp
 from ptp.mechanisms import *
@@ -15,12 +15,12 @@ class Reader():
     produced by the runner.
 
     """
-    def __init__(self, log_file=None, infer_secs=False, no_pps=False,
+    def __init__(self, ds_file=None, infer_secs=False, no_pps=False,
                  reverse_ms=True):
         """Constructor
 
         Args:
-            log_file   : JSON log file to read from
+            ds_file    : JSON dataset file to read from
             infer_secs : Ignore acquired seconds and infer their values instead
             no_pps     : Logs to be processed do not contain the reference
                          timestamps acquired from the PPS RTC.
@@ -33,7 +33,7 @@ class Reader():
         self.running    = True
         self.data       = list()
         self.metadata   = None
-        self.log_file   = log_file
+        self.ds_file    = ds_file
         self.infer_secs = infer_secs
         self.no_pps     = no_pps
         self.reverse_ms = reverse_ms
@@ -207,7 +207,18 @@ class Reader():
 
         """
 
-        with open(self.log_file) as fin:
+        # If the dataset can't be found, check the local repo. Maybe the path
+        # provided to the dataset did not include the local repo.
+        if not os.path.exists(self.ds_file):
+            this_file   = os.path.realpath(__file__)
+            rootdir     = os.path.dirname(os.path.dirname(this_file))
+            local_repo  = os.path.join(rootdir, "data")
+            ds_basename = os.path.basename(self.ds_file)
+            local_path  = os.path.join(local_repo, ds_basename)
+            if os.path.exists(local_path):
+                self.ds_file = local_path
+
+        with open(self.ds_file) as fin:
             fd = json.load(fin)
 
         # Check metadata for compatibility with old captures
