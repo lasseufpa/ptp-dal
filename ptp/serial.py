@@ -411,7 +411,7 @@ class Serial():
         """Save/process timestamp sets and complementary data acquired serially
         """
         signal.signal(signal.SIGINT, self.catch)
-        signal.siginterrupt(signal.SIGINT, False)
+        signal.signal(signal.SIGTERM, self.catch)
 
         # Use the reader class to post-process each set of timestamp in
         # real-time and to print the associated PTP metrics for debugging
