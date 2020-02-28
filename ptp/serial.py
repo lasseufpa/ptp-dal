@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class Serial():
     def __init__(self, rru_dev, rru2_dev, bbu_dev, sensor_dev, n_samples,
-                 metadata, roe_config):
+                 metadata, roe_config, yes=False):
         """Serial capture of timestamps from testbed
 
         Args:
@@ -29,6 +29,7 @@ class Serial():
             n_samples  : Target number of samples (0 for infinity)
             metadata   : Information about the testbed configuration
             roe_config : RoE configuration data
+            yes        : Yes to prompting by default
 
         """
         self.n_samples = n_samples
@@ -39,6 +40,7 @@ class Serial():
 
         # Serial connections
         assert(rru_dev != rru2_dev), "RRU and RRU2 devices should be different"
+        self._yes   = yes
         self.rru    = self.connect(rru_dev)
         self.rru2   = None if (rru2_dev is None) else self.connect(rru2_dev)
         self.bbu    = None if (bbu_dev is None) else self.connect(bbu_dev)
@@ -316,9 +318,10 @@ class Serial():
         try:
             fuser_res = subprocess.check_output(["fuser", "-n", "file",
                                                  dev_path])
-            resp = input("Process %d is reading from this device \
-            - kill it? [Y/n] " %(int(fuser_res))) or "Y"
-            if (resp.lower() == "y"):
+            if (not self._yes):
+                resp = input("Process %d is reading from this device \
+                - kill it? [Y/n] " %(int(fuser_res))) or "Y"
+            if (self._yes or (resp.lower() == "y")):
                 subprocess.run(["kill", fuser_res])
         except subprocess.CalledProcessError:
             # non-zero return code is when there is no process reading
@@ -383,12 +386,11 @@ class Serial():
 
         dst_dir  = "/opt/ptp_datasets/"
         dst      = dst_dir + os.path.basename(self.xz_file)
-        raw_resp = input(f"Move {self.xz_file} to {dst_dir}? [Y/n] ") or "Y"
-        response = raw_resp.lower()
+        raw_resp = self._yes or input(f"Move {self.xz_file} to {dst_dir}? [Y/n] ") or "Y"
 
         # Move dataset to '/opt/ptp_datasets/' and add entry on the dataset
         # catalog at '/opt/ptp_datasets/README.md'
-        if (response == 'y'):
+        if (self._yes or (raw_resp.lower() == 'y')):
             # Move
             shutil.move(self.xz_file, dst)
             # Add to catalog

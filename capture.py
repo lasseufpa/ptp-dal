@@ -36,6 +36,10 @@ def main():
                         type=int,
                         help='Restrict number of iterations. If set to 0, the \
                         acquisition will run indefinitely (default: 0).')
+    parser.add_argument('-y', '--yes',
+                        default=False,
+                        action='store_true',
+                        help='Default to answering yes on user prompting')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,
@@ -70,12 +74,14 @@ def main():
 
     print("Metadata:")
     pprint(metadata)
-    raw_resp = input("Proceed? [Y/n] ") or "Y"
-    response = raw_resp.lower()
+    if (not args.yes):
+        raw_resp = input("Proceed? [Y/n] ") or "Y"
+        response = raw_resp.lower()
 
-    if (response.lower() == "y"):
+    if (args.yes or (response.lower() == "y")):
         serial = ptp.serial.Serial(args.rru, args.rru2, args.bbu, args.sensor,
-                                   args.num_iter, metadata, roe_config)
+                                   args.num_iter, metadata, roe_config,
+                                   yes=args.yes)
         serial.run()
 
 if __name__ == "__main__":
