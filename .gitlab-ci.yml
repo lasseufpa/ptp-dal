@@ -6,6 +6,15 @@ before_script:
 after_script:
   - deactivate
 
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  key: "pip-requirements"
+  paths:
+    - .cache/pip
+    - ptp-env/
+
 test:
   script:
     - python -m unittest discover
