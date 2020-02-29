@@ -9,8 +9,6 @@ from pprint import pprint
 import ptp.serial
 
 
-DEFAULT_CONFIG = "cache/capture.cfg"
-
 def calc_rate(n_spf, l_iq, fs, n_rru_dl, n_rru_ul):
     """Compute theoretical DL/UL bitrates
 
@@ -76,9 +74,6 @@ def get_pipeline(roe_path, pipeline):
 
 
 def main():
-    cfg_parser = configparser.ConfigParser()
-    cfg_parser.read(DEFAULT_CONFIG)
-
     parser = argparse.ArgumentParser(description="Capture timestamps from FPGA")
     parser.add_argument('--rru',
                         default="rru_uart",
@@ -122,7 +117,7 @@ def main():
                         help='Number of hops')
     parser.add_argument('--n-rru-ptp',
                         type=int,
-                        default=1,
+                        default=2,
                         help='Number of RRUs actively operating as PTP slaves \
                         in the testbed (not necessarily delivering UL FH data)')
 
@@ -133,36 +128,30 @@ def main():
                                   help='Whether or not FH traffic is active')
     fh_traffic_group.add_argument('--type',
                                   choices=["inline","cross"],
-                                  default=cfg_parser.get('FH-TRAFFIC',
-                                                         'type'),
+                                  default="inline",
                                   help='Fronthaul traffic type')
     fh_traffic_group.add_argument('--fs',
                                   type=float,
                                   choices=[7680000, 30720000],
-                                  default=cfg_parser.get('FH-TRAFFIC',
-                                                         'fs'),
+                                  default=7680000,
                                   help='LTE sample rate')
     fh_traffic_group.add_argument('--iq-size',
                                   type=int,
                                   choices=list(range(4,34,2)),
-                                  default=cfg_parser.get('FH-TRAFFIC',
-                                                         'iq_size'),
+                                  default=24,
                                   help='IQ samples size')
     fh_traffic_group.add_argument('--n-spf',
                                   type=int,
-                                  default=cfg_parser.get('FH-TRAFFIC',
-                                                         'n_spf'),
+                                  default=64,
                                   help='Number of IQ samples per frame')
     fh_traffic_group.add_argument('--n-rru-dl',
                                   type=int,
-                                  default=cfg_parser.get('FH-TRAFFIC',
-                                                         'n_rru_dl'),
+                                  default=2,
                                   help='Number of RRUs that the BBU is \
                                   configured to deliver data to in DL')
     fh_traffic_group.add_argument('--n-rru-ul',
                                   type=int,
-                                  default=cfg_parser.get('FH-TRAFFIC',
-                                                         'n_rru_ul'),
+                                  default=2,
                                   help=("Number of RRUs delivering UL data, "
                                         "i.e. that are actually active in the "
                                         "testbed"))
