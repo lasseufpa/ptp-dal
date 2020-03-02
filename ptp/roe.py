@@ -17,6 +17,8 @@ class Cmd(Enum):
     DISABLE_RFS       = "6"
     ENABLE_FH         = "8"
     SWITCH_CLK8K_SRC  = "14"
+    ENABLE_DELAY_CAL  = "15"
+    DISABLE_DELAY_CAL = "16"
 
 
 class RoE_device():
@@ -256,8 +258,14 @@ class RoE:
         # Wait until all RRUs reach the target Sync stage
         self._sync_ready_barrier.wait()
 
+        # For delay asymmetry calibration, it is the BBU that coordinates the
+        # enabling of FH traffic, and it is only the BBU that needs to enter
+        # delay calibration mode. The RRUs will follow via control message.
+        if self.metadata["delay_cal"]:
+            if (device.name == "bbu"):
+                device.send_cmd(Cmd.ENABLE_DELAY_CAL)
         # Enable Fronthaul Traffic
-        if self.metadata["fh_traffic"]:
+        elif self.metadata["fh_traffic"]:
             if (device.name == "bbu"):
                 time.sleep(1) # enable DL after UL
                 logger.info(f"Enabling DL traffic from {device.name}")
