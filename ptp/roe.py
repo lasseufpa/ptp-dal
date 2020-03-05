@@ -12,14 +12,17 @@ logger = logging.getLogger(__name__)
 
 class Cmd(Enum):
     """Commands accepted by the RoE device"""
-    GET_SYNC_STAGE    = "1"
-    ENABLE_TS_CAPTURE = "2"
-    DISABLE_RFS       = "6"
-    ENABLE_FH         = "8"
-    SWITCH_CLK8K_SRC  = "14"
-    ENABLE_DELAY_CAL  = "15"
-    DISABLE_DELAY_CAL = "16"
-
+    GET_SYNC_STAGE               = "1"
+    ENABLE_TS_CAPTURE            = "2"
+    DISABLE_RFS                  = "6"
+    ENABLE_FH                    = "8"
+    SWITCH_CLK8K_SRC             = "14"
+    ENABLE_DELAY_CAL             = "15"
+    DISABLE_DELAY_CAL            = "16"
+    INCREMENT_IQ_SAMPLE          = "18"
+    DECREMENT_IQ_SAMPLE          = "19"
+    INCREMENT_NSAMPLES_PER_FRAME = "20"
+    DECREMENT_NSAMPLES_PER_FRAME = "21"
 
 class RoE_device():
     def __init__(self, serial, name, active=True):
@@ -141,6 +144,61 @@ class RoE:
             if ("AD9361" in line) and ("successfully" in line):
                 logger.info(f"{device.name} AD9361 initialized")
                 wait = False
+
+    def _config_fh_traffic(self, device, default_iq_size=24, default_n_spf=64,
+                           iq_inc=2, n_spf_inc=2, min_iq_size=4, mtu=1500):
+        """Configure the Fronthaul traffic parameters
+
+        The FH  configuration is based on the FH metadata, specifically on 2
+        parameters the IQ sample size and the number of samples per frame.
+        Based on the parameters passed, the fronthaul traffic will be
+        configured through increment or decrement commands sent on the
+        target device.
+
+        Args:
+            device          : Device on which to configure the FH traffic
+            default_iq_size : Default IQ sample size of the device
+            default_n_spf   : Default number of samples per frame
+            iq_inc          : Default iq_size increment
+            n_spf_inc       : Default n_spf increment
+            min_iq_size     : Minimum supported IQ sample size
+            mtu             : Maximum transmission unit of the fronthaul frame
+        """
+        # Fronthaul parameters
+        target_iq   = self.metadata['fh_traffic']['iq_size']
+        target_nspf = self.metadata['fh_traffic']['n_spf']
+        payload_len = (target_iq * target_nspf / 8) + (7 * 32 / 8)
+
+        # Parse target values
+        assert(target_iq <= 32 and target_iq >= 4), \
+            f"IQ size of {target_iq} is not valid"
+        assert(target_nspf <= (mtu * 8 / (min_iq_size))), \
+            f"n_spf={target_nspf} does not fit in MTU even with minimum IQ size"
+        assert (payload_len < mtu),\
+            f"n_spf={target_nspf} and iq_size={target_iq} leads to payload of \
+            {payload_len} bytes, which exceeds the MTU"
+
+        # Set the IQ sample size
+        if target_iq != default_iq_size:
+            logger.info(f"Set IQ samples size to {target_iq} on {device.name}")
+            iq_diff = default_iq_size - target_iq
+            n_inc   = int(abs(iq_diff / iq_inc))
+            command = Cmd.DECREMENT_IQ_SAMPLE if iq_diff > 0 \
+                      else Cmd.INCREMENT_IQ_SAMPLE
+            for i in range(0, n_inc):
+                device.send_cmd(command)
+                time.sleep(0.1)
+
+        # Set the number of samples per frame
+        if target_nspf != default_n_spf:
+            logger.info(f"Changing N samples per frame in: {device.name}")
+            nspf_diff = default_n_spf - target_nspf
+            n_inc     = int(abs(nspf_diff / n_spf_inc))
+            command   = Cmd.DECREMENT_NSAMPLES_PER_FRAME if nspf_diff > 0 \
+                        else Cmd.INCREMENT_NSAMPLES_PER_FRAME
+            for i in range(0, n_inc):
+                device.send_cmd(command)
+                time.sleep(0.1)
 
     def _wait_fh_traffic(self, device, occ_interval=[4000, 4200], timeout=10):
         """Waits until the device succesfully initializes the FH traffic
@@ -266,6 +324,10 @@ class RoE:
                 device.send_cmd(Cmd.ENABLE_DELAY_CAL)
         # Enable Fronthaul Traffic
         elif self.metadata["fh_traffic"]:
+            # First set the target IQ sample size and number of IQ samples to be
+            # encapsulated per FH frame:
+            self._config_fh_traffic(device)
+            # Then enable FH traffic
             if (device.name == "bbu"):
                 time.sleep(1) # enable DL after UL
                 logger.info(f"Enabling DL traffic from {device.name}")
