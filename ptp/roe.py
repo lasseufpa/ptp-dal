@@ -258,7 +258,7 @@ class RoE:
             bitstream = device.role
 
         # Subprocess command
-        command = ["python3", "prog.py", "-p", pipeline]
+        command = ["python3", "prog.py", "-p", pipeline, "-y"]
 
         if device.role is not 'bbu':
             command.append("-r")
@@ -266,6 +266,9 @@ class RoE:
 
         if self.config['elf_only']:
             command.append("-e")
+
+        if self.config['rebuild_elf']:
+            command.append("--rebuild")
 
         command.append(bitstream)
 

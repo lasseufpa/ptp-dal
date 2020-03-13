@@ -169,6 +169,11 @@ def main():
                                        help=("Set in order to load only the "
                                              "into the FPGAs, and not the "
                                              "bitstream"))
+    roe_prog_config_group.add_argument('--roe-rebuild',
+                                       default=False,
+                                       action='store_true',
+                                       help=("Set in order to rebuild the elf "
+                                             "before programming"))
     roe_prog_config_group.add_argument('-c', '--roe-configure',
                                        default=False,
                                        action='store_true',
@@ -232,7 +237,8 @@ def main():
             "roe_configure"   : args.roe_configure,
             "pipeline"        : pipelines,
             "roe_vivado_path" : args.roe_path,
-            "elf_only"        : args.roe_elf_only
+            "elf_only"        : args.roe_elf_only,
+            "rebuild_elf"     : args.roe_rebuild
         }
 
     else:
