@@ -5,6 +5,7 @@ import logging
 import serial
 import os
 import threading
+import math
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ class Cmd(Enum):
     DECREMENT_IQ_SAMPLE          = "19"
     INCREMENT_NSAMPLES_PER_FRAME = "20"
     DECREMENT_NSAMPLES_PER_FRAME = "21"
+    INCREMENT_PTP_MSG_INTERVAL   = "22"
+    DECREMENT_PTP_MSG_INTERVAL   = "23"
 
 class RoE_device():
     def __init__(self, serial, name, active=True):
@@ -144,6 +147,27 @@ class RoE:
             if ("AD9361" in line) and ("successfully" in line):
                 logger.info(f"{device.name} AD9361 initialized")
                 wait = False
+
+    def _config_ptp_rate(self, device, default_interval=-2):
+        """Configure the interval of PTP PDealayReq/Resp exchanges
+
+        Args:
+            device           : Device on which to configure the PTP rate
+            default_interval : Log2 of the default message interval
+
+        """
+        log_interval = int(math.log2(self.metadata['sync_period']))
+        assert(log_interval >= -7 and log_interval <= 1)
+
+        if log_interval != default_interval:
+            logger.info("Set log2 of PTP exchange rate to {} on {}".format(
+                log_interval, device.name))
+            diff    = log_interval - default_interval
+            command = Cmd.INCREMENT_PTP_MSG_INTERVAL if diff > 0 \
+                      else Cmd.DECREMENT_PTP_MSG_INTERVAL
+            for i in range(0, abs(diff)):
+                device.send_cmd(command)
+                time.sleep(0.1)
 
     def _config_fh_traffic(self, device, default_iq_size=24, default_n_spf=64,
                            iq_inc=2, n_spf_inc=2, min_iq_size=4, mtu=1500):
@@ -318,6 +342,13 @@ class RoE:
 
         # Wait until all RRUs reach the target Sync stage
         self._sync_ready_barrier.wait()
+
+        # Configure link delay measurement (PDelayReq/Resp )rate
+        #
+        # Do it on both RRUs, since we may want to capture the timestamps from
+        # both. In contrast, this it is not necessary on the BBU side.
+        if device is not self.bbu:
+            self._config_ptp_rate(device)
 
         # For delay asymmetry calibration, it is the BBU that coordinates the
         # enabling of FH traffic, and it is only the BBU that needs to enter
