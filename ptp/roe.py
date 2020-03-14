@@ -169,9 +169,10 @@ class RoE:
                 device.send_cmd(command)
                 time.sleep(0.1)
 
-    def _config_fh_traffic(self, device, default_iq_size=24, default_n_spf=64,
-                           iq_inc=2, n_spf_inc=2, min_iq_size=4, mtu=1500):
-        """Configure the Fronthaul traffic parameters
+    def _config_fh_tx_traffic(self, device, default_iq_size=24,
+                              default_n_spf=64, iq_inc=2, n_spf_inc=2,
+                              min_iq_size=4, mtu=1500):
+        """Configure the parameters of the fronthaul Tx traffic
 
         The FH  configuration is based on the FH metadata, specifically on 2
         parameters the IQ sample size and the number of samples per frame.
@@ -224,12 +225,27 @@ class RoE:
                 device.send_cmd(command)
                 time.sleep(0.1)
 
-    def _wait_fh_traffic(self, device, occ_interval=[4000, 4200], timeout=10):
-        """Waits until the device succesfully initializes the FH traffic
+    def _enable_fh_tx_traffic(self, device):
+        """Enable FH Tx traffic on the device
+
+        For the BBU, this will be the DL traffic. For the RRUs, this will be the
+        UL traffic.
+
+        """
+        if (device.name == "bbu"):
+            time.sleep(1) # try to enable DL after UL
+            logger.info(f"Enabling DL traffic from {device.name}")
+        else:
+            logger.info(f"Enabling UL traffic from {device.name}")
+        # Enable FH Tx traffic
+        device.send_cmd(Cmd.ENABLE_FH)
+
+    def _wait_fh_rx_traffic(self, device, occ_interval=[4000, 4200], timeout=10):
+        """Waits until the device succesfully receives FH traffic
 
         This is based on the device's occupancy that is read via UART. If the
         occupancy reaches the pre-specified interval, it is inferred that the FH
-        traffic was initialized correctly.
+        Rx traffic is running correctly.
 
         Args:
             device       : Device to check FH traffic
@@ -356,21 +372,24 @@ class RoE:
         if self.metadata["delay_cal"]:
             if (device.name == "bbu"):
                 device.send_cmd(Cmd.ENABLE_DELAY_CAL)
-        # Enable Fronthaul Traffic
-        elif self.metadata["fh_traffic"]:
-            # First set the target IQ sample size and number of IQ samples to be
-            # encapsulated per FH frame:
-            self._config_fh_traffic(device)
-            # Then enable FH traffic
-            if (device.name == "bbu"):
-                time.sleep(1) # enable DL after UL
-                logger.info(f"Enabling DL traffic from {device.name}")
-            else:
-                logger.info(f"Enabling UL traffic from {device.name}")
-            # Enable FH Tx traffic
-            device.send_cmd(Cmd.ENABLE_FH)
-            # Check FH Rx traffic
-            self._wait_fh_traffic(device)
+        # Enable Fronthaul Traffic, except for RRU2 if the number of RRUs active
+        # in UL is only 1. Do so in 3 steps:
+        #   1) Configure the target IQ sample size and number of IQ samples to
+        #      be encapsulated per FH frame in Tx
+        #   2) Enable FH Tx traffic
+        #   3) Check FH Rx traffic
+        elif (self.metadata["fh_traffic"]):
+            if (self.metadata["fh_traffic"]['n_rru_ul'] == 2):
+                self._config_fh_tx_traffic(device)
+                self._enable_fh_tx_traffic(device)
+                self._wait_fh_rx_traffic(device)
+            elif (device.name != "rru2"): # n_rru_ul=1, so don't initialize RRU2
+                self._config_fh_tx_traffic(device)
+                self._enable_fh_tx_traffic(device)
+                if (device.name == "bbu"):
+                    self._wait_fh_rx_traffic(device, occ_interval=[0, 8192])
+                else:
+                    self._wait_fh_rx_traffic(device)
 
         self._fh_traffic_ready_barrier.wait()
 

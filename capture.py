@@ -215,6 +215,9 @@ def main():
             "n_rru_ul" : args.n_rru_ul,
             "n_rru_dl" : args.n_rru_dl
         }
+        assert(args.n_rru_ptp >= args.n_rru_ul), \
+            "It is possible to have 2 RRUs running PTP and only one running FH \
+            traffic. However, the reverse is not supported."
     else:
         fh_traffic = None
 
