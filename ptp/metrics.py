@@ -401,6 +401,9 @@ class Analyser():
             else:
                 print("Checking sequenceIDs: OK (no gaps)", file=f)
 
+        if (len(non_rollover_gaps) > 0):
+            raise ValueError("Dataset has sequenceId gaps")
+
     def rolling_window_mtx(self, x, window_size):
         """Compute all overlapping (rolling) observation windows in a matrix
 

@@ -436,10 +436,12 @@ class Serial():
                 # Sanity check on PTP sequenceId
                 if ((last_seq_id is not None) and
                     (run_data['seq_id'] != ((last_seq_id + 1) % 2**16))):
-                    logging.warning("PTP sequence id gap: {:d} to {:d}".format(
-                        last_seq_id,
-                        run_data['seq_id']
-                    ))
+                    logging.error(
+                        "PTP sequence id gap: {:d} to {:d}".format(
+                            last_seq_id,
+                            run_data['seq_id']
+                        ))
+                    break
                 last_seq_id = run_data['seq_id']
 
                 if (logger.root.level == logging.DEBUG):
