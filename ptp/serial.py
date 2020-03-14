@@ -200,7 +200,7 @@ class Serial():
 
             temperature_str = self._readline(self.sensor)
 
-            if (len(temperature_str) > 0):
+            if (len(temperature_str) > 1):
                 try:
                     temp_measurements = temperature_str.split(",")
                     self.last_temp = (float(temp_measurements[0]),
