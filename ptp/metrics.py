@@ -1326,20 +1326,20 @@ class Analyser():
             x_axis_label = 'Realization'
 
         # Exchange interval
-        t1_diff = np.diff(np.array([r["t1"] for r in self.data]))/1e6
+        for t in ["t1", "t2", "t3", "t4"]:
+            t_diff = np.diff(np.array([r[t] for r in self.data]))/1e6
+            plt.figure()
+            plt.scatter(x_axis_vec[1:], t_diff, s = 1.0)
+            plt.xlabel(x_axis_label)
+            plt.ylabel('{0}[n] - {0}[n-1] (ms)'.format(t))
+            plt.title('PTP exchange interval')
 
-        plt.figure()
-        plt.scatter(x_axis_vec[1:], t1_diff, s = 1.0)
-        plt.xlabel(x_axis_label)
-        plt.ylabel('t1[n] - t1[n-1] (ms)')
-        plt.title('PTP exchange interval')
-
-        if (save):
-            plt.savefig(self.path + "t1_delta_vs_time." + save_format,
-                        format=save_format, dpi=300)
-        else:
-            plt.show()
-        plt.close()
+            if (save):
+                plt.savefig(self.path + "{}_delta_vs_time.".format(t) +
+                            save_format, format=save_format, dpi=300)
+            else:
+                plt.show()
+            plt.close()
 
     def plot_toffset_drift_vs_time(self, x_unit='time', save=True,
                                    save_format='png'):
