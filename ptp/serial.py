@@ -124,7 +124,7 @@ class Serial():
             line_val = self._split_strip_line(line, "Occupancy:")
             if (len(line_val) >= 4):
                 try:
-                    queue.append(line_val[3])
+                    queue.append(int(line_val[3]))
                 except ValueError:
                     pass
 

@@ -1624,11 +1624,13 @@ class Analyser():
                            ("rru2_occ", "RRU2")]:
             if (x_unit == "time"):
                 x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
-                                if key in r]
+                                if key in r and isinstance(r[key], int)]
             elif (x_unit == "samples"):
-                x_axis_vec   = [r["idx"] for r in self.data if key in r]
+                x_axis_vec   = [r["idx"] for r in self.data if key in r and
+                                isinstance(r[key], int)]
 
-            occ = np.array([int(r[key]) for r in self.data if key in r])
+            occ = np.array([int(r[key]) for r in self.data if key in r and
+                            isinstance(r[key], int)])
             plt.scatter(x_axis_vec, occ, s = 1.0, label=label)
 
         plt.xlabel(x_axis_label)
