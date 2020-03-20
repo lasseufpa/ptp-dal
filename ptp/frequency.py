@@ -191,8 +191,8 @@ class Estimator():
         logger.info("Optimum N:   %d" %(N_opt))
 
         # NOTE: The window length is being tunned using the cumulative drift
-        # instead of the absolute. This is because the former leads to an window
-        # configuration is very close to the 'optimize_to_y', while the latter
+        # instead of the absolute. This is because the latter leads to an window
+        # configuration is very close to the 'optimize_to_y', while the former
         # yield the best estimation performance.
         self.delta = N_opt_cum
 
@@ -308,48 +308,53 @@ class Estimator():
 
             dds += f_err
 
-    def _is_cfg_loop_valid(self, data):
+    def _is_cfg_loop_valid(self, data, error):
         """Check if the cached PI loop configuration is valid.
 
-        The configuration is assumed valid if the number of samples contained
-        into the cached data is the same as the currently self.data.
+        The configuration is assumed valid if 1) the number of samples contained
+        in the cached data is the same as the number of samples currently within
+        self.data; and 2) the error (absolute or cumulative) criterion used for
+        tuning the parameters is also the same.
 
         Args:
-            data : Cached optimal loop configuration
+            data  : Cached optimal loop configuration
+            error : Error criterion used for tuning: cumulative or absolute
 
         """
-        is_valid = False
-        if (data is not None):
-            n_samples = data['n_samples']
-            is_valid  = True if (n_samples == len(self.data)) else False
+        is_valid  = (data is not None) and \
+                    (data['n_samples'] == len(self.data)) and \
+                    (data['error'] == error)
 
         return is_valid
 
-    def optimize_loop(self, cache=None, force=False):
-        """Find loop parameters that minimize RMSE of cumulative drift estimates
+    def optimize_loop(self, error='cumulative', cache=None, force=False):
+        """Find loop parameters that minimize RMSE of drift estimates
 
         Try some pre-defined damping factor and loop bandwidth values.
 
         Args:
+            error : Error criterion used for tuning: cumulative or absolute
             cache : Cache handler used to save the optimized configuration in a
                     json file
             force : Force processing even if a configuration file with the
                     optimized parameters already exists in cache.
 
         """
-        # Check if already exist a configuration file and is valid
+        assert(error in ['cumulative', 'absolute'])
+
+        # Check if a cached configuration file exists and is valid
         if (cache is not None):
             assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
             cached_loop_cfg = cache.load('loop')
 
             if (cached_loop_cfg and not force):
-                if (self._is_cfg_loop_valid(cached_loop_cfg)):
+                if (self._is_cfg_loop_valid(cached_loop_cfg, error)):
                     best_damping = cached_loop_cfg['damping']
                     best_loopbw  = cached_loop_cfg['loopbw']
 
                     return best_damping, best_loopbw
         else:
-            logging.info("Unable to find existed configuration file")
+            logging.info("Unable to find cached configuration file")
 
         damping_vec  = [0.707, 1.0]
         loopbw_vec   = np.concatenate((
@@ -362,9 +367,13 @@ class Estimator():
         best_damping = None
         best_loopbw  = None
 
-        # First find the longest settling time in order to determine a fair
-        # amount of drift estimates to be compared among all settings
-        n_data = len(self.data)
+        # First find the longest settling time among all possible parameter
+        # combinations from damping_vec and loopbw_vec. With that, determine a
+        # number of steady-state drift estimates (i.e., estimates obtained after
+        # the settling) that is guaranteed to exist for all parameters. This
+        # result represents the number of samples that we can use to compare all
+        # settings fairly, i.e., based on the same number of samples.
+        n_data       = len(self.data)
         max_settling = 0
         for damping in damping_vec:
             for loopbw in loopbw_vec:
@@ -373,13 +382,13 @@ class Estimator():
                     max_settling = settling
 
         n_samples = n_data - max_settling
-        # This is a number of samples that is guaranteed to be available for all
-        # damping, loopbw configurations
+        # This is a number of steady-state drift estimates that is guaranteed to
+        # be available for all damping and loopbw configurations
 
         for damping in damping_vec:
             for loopbw in loopbw_vec:
                 try:
-                    self.loop(damping = damping, loopbw  = loopbw)
+                    self.loop(damping = damping, loopbw = loopbw)
                 except ValueError as e:
                     logger.warning(e)
                     logger.warning("Skipping damping: {:f}, "
@@ -389,15 +398,23 @@ class Estimator():
 
                 rms, cum_rms = self._eval_drift_err(n_samples)
 
-                # NOTE: The damping factor and loop bandwidth are being tunned
-                # using the cumulative drift instead of the absolute. This is
-                # because the former leads to a time offset drift estimation
-                # that is very close to the 'optimize_to_y', while the latter
+                # NOTE: By default the damping factor and loop bandwidth are
+                # tuned using the cumulative drift instead of the absolute. This
+                # is because the latter leads to a time offset drift estimation
+                # that is very close to the 'optimize_to_y', while the former
                 # yield the best estimation performance.
-                if (cum_rms < m_cum_rms):
-                    m_cum_rms    = cum_rms
-                    best_damping = damping
-                    best_loopbw  = loopbw
+                if (error == 'cumulative'):
+                    if (cum_rms < m_cum_rms):
+                        m_cum_rms    = cum_rms
+                        best_damping = damping
+                        best_loopbw  = loopbw
+                elif (error == 'absolute'):
+                    if (rms < m_rms):
+                        m_rms        = rms
+                        best_damping = damping
+                        best_loopbw  = loopbw
+                else:
+                    raise ValueError("Unknown error criterion %s" %(error))
 
         logger.info("PI loop optimization")
         logger.info("Damping factor: {:f}".format(best_damping))
@@ -405,9 +422,10 @@ class Estimator():
 
         if (cache is not None):
             # Save optimal configuration
-            cache.save({'n_samples': len(self.data),
-                        'damping'  : best_damping,
-                        'loopbw'   : best_loopbw},
+            cache.save({'n_samples' : len(self.data),
+                        'error'     : error,
+                        'damping'   : best_damping,
+                        'loopbw'    : best_loopbw},
                        identifier='loop')
 
         return best_damping, best_loopbw
