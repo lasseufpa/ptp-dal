@@ -5,7 +5,7 @@
 import serial, time, json, logging, signal, os, shutil, subprocess
 from ptp.reader import Reader
 from ptp.docs import Docs
-from ptp.roe import RoE
+from pyroe.roe import roe
 import threading
 from tabulate import tabulate
 import pandas as pd
@@ -45,10 +45,8 @@ class Serial():
         self.sensor = None if (sensor_dev is None) else self.connect(sensor_dev)
 
         # Initialize RoE manager object
-        self.roe = RoE(self.metadata, self.roe_config,
-                       self.rru,
-                       self.rru2,
-                       self.bbu)
+        self.roe = roe.RoE(self.metadata, self.roe_config, self.rru, self.rru2,
+                           self.bbu)
 
         # Filename
         path = "data/"

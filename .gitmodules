@@ -1,0 +1,3 @@
+[submodule "pyroe"]
+	path = pyroe
+	url = https://gitlab.lasse.ufpa.br/2014-fronthaul/synchronization/pyroe.git
