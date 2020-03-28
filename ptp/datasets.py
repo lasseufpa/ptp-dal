@@ -1,6 +1,6 @@
 """Dataset manager
 """
-import subprocess, os, logging, json
+import subprocess, os, logging, json, requests
 from ptp import util
 
 logger = logging.getLogger(__name__)
@@ -16,11 +16,13 @@ class Datasets():
         if (self.cfg is None):
             logger.error("Failed to load dataset server configurations")
 
+        self.api_url = 'https://ptp.database.lasseufpa.org/api/'
+
     def _set_paths(self, dataset=None):
         """ """
         this_file     = os.path.realpath(__file__)
         rootdir       = os.path.dirname(os.path.dirname(this_file))
-        local_repo    = os.path.join(rootdir, "data")
+        self.local_repo    = os.path.join(rootdir, "data")
         home          = os.path.expanduser("~")
         self.cfg_path = os.path.join(home, ".ptp")
         self.cfg_file = os.path.join(self.cfg_path, "config.json")
@@ -28,10 +30,10 @@ class Datasets():
         if (dataset):
             self.ds_name       = os.path.basename(dataset)
             no_ext_ds_name     = os.path.splitext(self.ds_name)[0]
-            self.local_ds_path = os.path.join(local_repo, self.ds_name)
+            self.local_ds_path = os.path.join(self.local_repo, self.ds_name)
             comp_ds_name       = no_ext_ds_name + "-comp"
             comp_exts          = [".xz", ".pbz2", ".gz", ".pickle", ".json"]
-            self.comp_ds_paths = [os.path.join(local_repo, comp_ds_name + e) for
+            self.comp_ds_paths = [os.path.join(self.local_repo, comp_ds_name + e) for
                                   e in comp_exts]
 
     def _check_cfg(self):
@@ -63,14 +65,30 @@ class Datasets():
         cfg  = list()
         more = True
         while (more):
-            server = input("IP address of the dataset server: ")
-            path   = input("Path to dataset repository on server: ")
-            user   = input("Username to access the server: ")
-            cfg.append({
-                'addr'    : server,
-                'path'    : path,
-                'user'    : user
-            })
+            dl_mode = input("Download via API or SSH? (API) ") or "API"
+
+            if (dl_mode.upper() == 'SSH'):
+                server = input("IP address of the dataset server: ")
+                path   = input("Path to dataset repository on server: ")
+                user   = input("Username to access the server: ")
+                cfg.append({
+                    'dl_mode' : 'SSH',
+                    'addr'    : server,
+                    'path'    : path,
+                    'user'    : user
+                })
+
+            elif (dl_mode.upper() == 'API'):
+                ssl_key = input("Path to your SSL key: ")
+                ssl_crt = input("Path to your SSL certificate: ")
+                cfg.append({
+                    'dl_mode' : 'API',
+                    'ssl_key' : ssl_key,
+                    'ssl_crt' : ssl_crt
+                })
+
+            else:
+                raise ValueError("Download mode {} not defined".format(dl_mode))
 
             more = util.ask_yes_or_no("Add another address?")
 
@@ -98,7 +116,7 @@ class Datasets():
 
         try:
             logger.info("> %s" %(" ".join(cmd)))
-            out   = subprocess.check_output(cmd)
+            out   = subprocess.check_output(cmd, timeout=2.0)
             found = True
         except subprocess.CalledProcessError as e:
             pass
@@ -111,6 +129,40 @@ class Datasets():
 
         return ds_path
 
+    def _download_api(self, cfg, ds_name):
+        """Download dataset via RESTful API
+
+        Args:
+            cfg     : Configuration file with user and server information
+            ds_name : Dataset file name
+
+        Return:
+            Path to the file that was downloaded. None if not found.
+
+        """
+        addr    = self.api_url + 'dataset'
+        ds_req  = os.path.join(addr, ds_name)
+        print(ds_req)
+        found   = False
+        ds_path = None
+
+        try:
+            cert = (cfg['ssl_crt'], cfg['ssl_key'])
+            req  = requests.get(ds_req, cert=cert)
+            req.raise_for_status()
+            local_ds_path = os.path.join(self.local_repo, ds_name)
+            open(local_ds_path, 'wb').write(req.content)
+            found = True
+        except requests.exceptions.RequestException as e:
+            pass
+
+        if (found):
+            print("Downloaded {} from {}".format(ds_name, addr))
+            ds_path = local_ds_path
+        else:
+            logger.info("Couldn't find file {} in {}".format(ds_name, addr))
+
+        return ds_path
 
     def download(self, dataset):
         """Download dataset from dataset server
@@ -145,8 +197,12 @@ class Datasets():
 
         # Try to load in order of compression (most compressed first)
         for entry in self.cfg:
+            dl_mode = entry['dl_mode']
             for ds_name in ds_names:
-                ds_path = self._download_ssh(entry, ds_name)
+                if dl_mode == 'SSH':
+                    ds_path = self._download_ssh(entry, ds_name)
+                else:
+                    ds_path = self._download_api(entry, ds_name)
 
                 if (ds_path is not None):
                     return ds_path
@@ -155,5 +211,50 @@ class Datasets():
         # remote repositories
         raise RuntimeError("Couldn't find dataset")
 
+
+    def search(self, parameters):
+        """Search datasets via RESTful API
+
+        Args:
+            parameters : Dictionary with the query parameters
+
+        Return:
+            List with the founded datasets
+
+        """
+        addr     = self.api_url + 'search'
+        headers  = {'content-type': 'application/json'}
+        ds_found = None
+
+        if (self.cfg is None):
+            return
+
+        api_connections = [e for e in self.cfg if (e['dl_mode'] == 'API')]
+
+        if (len(api_connections) == 0):
+            logger.error("Couldn't find a dataset server in your configuration")
+            return
+
+        for conn in api_connections:
+            cert = (conn['ssl_crt'], conn['ssl_key'])
+            try:
+                req = requests.post(addr,
+                                    data=json.dumps(parameters),
+                                    headers=headers,
+                                    cert=cert)
+                req.raise_for_status()
+                response = req.json()
+                ds_found = response['found']
+            except requests.exceptions.RequestException as e:
+                if (req.status_code == 400):
+                    logger.info("Bad request! Check your cfg file.")
+                elif (req.status_code == 404):
+                    logger.info("No dataset found!")
+                else:
+                    logger.info(e)
+                pass
+
+
+        return ds_found
 
 
