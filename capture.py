@@ -46,10 +46,6 @@ def main():
                         action='count',
                         default=1,
                         help="Verbosity (logging) level.")
-    parser.add_argument('--hops',
-                        type=int,
-                        default=4,
-                        help='Number of hops')
     roe.add_to_parser(parser) # add RoE options
     args = parser.parse_args()
 
