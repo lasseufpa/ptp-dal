@@ -234,6 +234,11 @@ class Serial():
             assert(self.bbu.in_waiting < 2048), \
                 "BBU serial buffer is getting full"
 
+            if (self.roe.bbu.wait_free()):
+                # Reset once the mutex is released since the wait could have
+                # lasted a long time
+                self.bbu.reset_input_buffer()
+
             line = self._readline(self.bbu)
 
             if (len(line) > 0):
@@ -254,6 +259,11 @@ class Serial():
         while (self.en_capture):
             assert(self.rru2.in_waiting < 2048), \
                 "RRU2 serial buffer is getting full"
+
+            if (self.roe.rru2.wait_free()):
+                # Reset once the mutex is released since the wait could have
+                # lasted a long time
+                self.rru2.reset_input_buffer()
 
             line = self._readline(self.rru2)
 
@@ -281,6 +291,11 @@ class Serial():
         while (self.en_capture):
             assert(self.rru.in_waiting < 2048), \
                 "RRU serial buffer is getting full"
+
+            if (self.roe.rru.wait_free()):
+                # Reset once the mutex is released since the wait could have
+                # lasted a long time
+                self.rru.reset_input_buffer()
 
             line = self._readline(self.rru)
 
