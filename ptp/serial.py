@@ -448,9 +448,10 @@ class Serial():
         self.start_json_file()
 
         logger.info("Starting capture")
-        last_seq_id  = None
-        debug_buffer = list()
-        count        = 0
+        delay_cal_mode = self.roe.delay_cal_mode
+        last_seq_id    = None
+        debug_buffer   = list()
+        count          = 0
         while self.en_capture == True and \
               ((count < self.n_samples) or self.n_samples == 0):
 
@@ -485,7 +486,16 @@ class Serial():
                             last_seq_id,
                             run_data['seq_id']
                         ))
-                    break
+                    # If we've just switched from delay calibration mode, accept
+                    # the sequenceId gap. If not, stop acquisition now.
+                    if (self.roe.delay_cal_mode != delay_cal_mode):
+                        logging.warning("Delay calibration mode switched from "
+                                        " {} to {} - Accepting gap...".format(
+                                            delay_cal_mode,
+                                            self.roe.delay_cal_mode))
+                        self.roe.delay_cal_mode = delay_cal_mode
+                    else:
+                        break
                 last_seq_id = run_data['seq_id']
 
                 if (logger.root.level == logging.DEBUG):
