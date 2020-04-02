@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import argparse, logging, sys
+import logging, sys
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import ptp.reader
 import ptp.ls
 import ptp.metrics
@@ -188,7 +189,8 @@ def _run_analyzer(data, metadata, dataset_file, stats=True):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PTP log reader test")
+    parser = ArgumentParser(description="PTP Analyser",
+                            formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('-f', '--file',
                         default="log.json",
                         help='JSON dataset file.')
@@ -200,7 +202,7 @@ def main():
                         the data that is already available in the dataset and \
                         the data produced by the dataset reader, such as  \
                         two-way time offset and delay measurements. Useful \
-                        to inspect results without much wait (default: False).")
+                        to inspect results without much wait.")
     parser.add_argument('--no-optimizer',
                         default=False,
                         action='store_true',
@@ -236,14 +238,13 @@ def main():
                         default=False,
                         action='store_true',
                         help="Infer seconds rather than using the seconds that \
-                        were actually captured (default: False)")
+                        were actually captured.")
     parser.add_argument('--bias',
                         choices=['pre', 'post', 'both', 'none'],
                         default='both',
                         help="Compensate the bias prior to any post-processing \
                         (pre), after post-processing (post), both pre and \
-                        post post-processing (both) or disable it ('none') \
-                        (default: 'both')")
+                        post post-processing (both) or disable it ('none').")
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
@@ -251,7 +252,7 @@ def main():
     parser.add_argument('-t', '--time-interval',
                         default=None,
                         help='Specific time interval to observe given as \
-                        \"start:end\" in hours (default: None)')
+                        \"start:end\" in hours.')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,

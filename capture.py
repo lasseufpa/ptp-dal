@@ -3,7 +3,8 @@
 """Acquisition of testbed data via serial
 
 """
-import argparse, configparser, logging, sys, os, json, subprocess
+import configparser, logging, sys, os, json, subprocess
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from datetime import datetime
 from pprint import pprint
 import ptp.serial
@@ -11,31 +12,32 @@ from pyroe.roe import roe
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Capture timestamps from FPGA")
+    parser = ArgumentParser(description="Capture timestamps from FPGA",
+                            formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('--rru',
                         default="rru_uart",
                         choices=["rru_uart", "rru2_uart"],
                         help='Target char device for UART communication with \
-                        an RRU FPGA (default: rru_uart).')
+                        an RRU FPGA')
     parser.add_argument('--rru2',
                         default="rru2_uart",
                         choices=["rru_uart", "rru2_uart"],
                         help='Target char device for UART communication with \
-                        an RRU2 FPGA (default: rru2_uart).')
+                        an RRU2 FPGA')
     parser.add_argument('--bbu',
                         default="bbu_uart",
                         help='Target char device for UART communication \
-                        with the BBU FPGA (default: bbu_uart).')
+                        with the BBU FPGA')
     parser.add_argument('--sensor',
                         default="roe_sensor",
                         help='Target char device for UART communication \
                         with the (Arduino) device that hosts the \
-                        temperature sensor (default: roe_sensor).')
+                        temperature sensor')
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
                         help='Restrict number of iterations. If set to 0, the \
-                        acquisition will run indefinitely (default: 0).')
+                        acquisition will run indefinitely')
     parser.add_argument('-y', '--yes',
                         default=False,
                         action='store_true',
