@@ -301,8 +301,12 @@ class Serial():
                 self._read_occupancy(line, self.async_data["rru_occ"])
 
             if "Timestamps" in line:
-                self._read_timestamp_set(line, idx)
-                idx += 1
+                try:
+                    self._read_timestamp_set(line, idx)
+                    idx += 1
+                except ValueError:
+                    logging.warning("Failed to parse timestamp set for "
+                                    "line:\n{}".format(line))
 
     def connect(self, device, baudrate=115200):
         """Establish a serial connection to a given device.
