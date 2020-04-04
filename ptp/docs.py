@@ -136,8 +136,12 @@ class Docs():
         """Read all datasets of target directory and generate catalog"""
 
         # Add entry for each file
-        all_datasets = glob.glob(os.path.join(self.cfg_path, "**/*.json"),
-                                 recursive=True)
+        extensions = [".json", ".pickle", ".gz", ".pbz2", ".xz"]
+        all_datasets = list()
+        for ext in extensions:
+            all_datasets.extend(glob.glob(
+                os.path.join(self.cfg_path, "**/*" + ext), recursive=True)
+            )
         if (self.catalog_json in all_datasets):
             all_datasets.remove(self.catalog_json)
 
