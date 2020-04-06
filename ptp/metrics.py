@@ -1186,7 +1186,8 @@ class Analyser():
         for suffix, value in est_keys.items():
             if (value["show"]):
                 key   = "y_est" if (suffix == "raw") else "y_" + suffix
-                y_err = [r[key] - r["rtc_y"] for r in post_tran_data if key in r]
+                y_err = [1e9*(r[key] - r["rtc_y"]) for r in post_tran_data
+                         if key in r]
 
                 if (len(y_err) > 0):
                     plt.hist(y_err, bins=50, density=True, alpha=0.7,
