@@ -3,7 +3,7 @@
 """Acquisition of testbed data via serial
 
 """
-import configparser, logging, sys, os, json, subprocess
+import logging, sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from datetime import datetime
 from pprint import pprint
@@ -56,7 +56,6 @@ def main():
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
-
     # Parse RoE information
     roe_config, fh_config = roe.parse(args)
 
@@ -86,5 +85,8 @@ def main():
                                    yes=args.yes)
         serial.run()
 
+
 if __name__ == "__main__":
     main()
+
+
