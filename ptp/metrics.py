@@ -110,6 +110,251 @@ class Analyser():
             json.dump(metadata, outfile, indent=4, sort_keys=True)
             print("\n", file=outfile)
 
+    def _calc_best_case_queueing(self, hops, t_idle, t_fh, t_ptp):
+        """Calculate the best-case queueing delay experienced by a PTP frame
+
+        Args:
+            hops   : Number of hops the PTP frame traverses
+            t_idle : Idle time between consecutive FH frames
+            t_fh   : FH transmission (serialization) delay
+            t_ptp  : PTP transmission (serialization) delay
+
+        """
+        ptp_fh_interval = t_idle # starting interval btw PTP and FH frames
+        # Approximation between FH and PTP frames on every hop due to the
+        # store-and-forward procedure (which delays the large FH frames more
+        # than the small PTP frames)
+        approx_per_hop  = (t_fh - t_ptp)
+
+        # Compute the best-case queueing delay iteratively
+        b_q_delay = 0
+        for _ in range(hops):
+            # Approximate the two frames (reduce the interval between them)
+            ptp_fh_interval -= approx_per_hop
+            # Check if the two frames have "touched" each other
+            if (ptp_fh_interval < 0 and ptp_fh_interval >= -approx_per_hop):
+                # PTP is "reaching" the FH frame in this hop. There will be some
+                # queueing delay, but it won't be the full t_fh interval.
+                #
+                # Example: suppose t_fh is 2.0 us and t_ptp is 0.2 us. Suppose
+                # also that the initial interval between them is of 1.0 us
+                # (between the end of the FH packet and the beginning of the PTP
+                # packet). On initialization, the FH packet departs on instant 0
+                # and finishes serialization on instant 2.0 us. The PTP packet
+                # departs 1.0 sec later, on instant 3.0 us. If it weren't for
+                # the preceding FH frame, the PTP frame would arrive completely
+                # on the first hop (switch) on instant 3.2 us and would depart
+                # to the next hop. However, the first hop has its output
+                # interface occupied by the preceding FH frame until instant 4.0
+                # us. As a result, the PTP packet only departs on instant 4.0 us
+                # from the switch to the next hop, i.e., 0.8 us later than what
+                # it would in the absence of the preceding FH packet. What
+                # happened is that in this first hop the PTP-FH approximation
+                # was of (2.0 - 0.2) = 1.8 us. However, the starting interval
+                # between the end of the FH frame and the start of the PTP frame
+                # was only of 1.0 us. So in the first hop, the approximation is
+                # larger than the interval between the packets, which means the
+                # PTP packet "reaches" the FH packet. The remaining part of the
+                # difference "approximation - interval", i.e., of "1.8 - 1.0" is
+                # 0.8 us. That's the queuing delay experienced by the PTP packet
+                # in this hop.
+                b_q_delay += -ptp_fh_interval
+            elif (ptp_fh_interval < -approx_per_hop):
+                # PTP frame has already "reached" FH frames in previous hops
+                b_q_delay += approx_per_hop
+                # NOTE: when the PTP message is adjacent to the FH frame, it
+                # always experiences a delay of t_fh on each hop. However,
+                # "t_fh" is not entirely queueing delay. The queueing delay
+                # component is only "t_fh - t_ptp" (equivalent to the
+                # approximation per hop), where as the remaining "t_ptp"
+                # component is the transmission delay that the PTP frame would
+                # normally experience on each store-and-forward hop.
+        return b_q_delay
+
+    def calc_expected_delays(self, metadata, save=False):
+        """Calculate the expected range of PTP delays in the given FH setup
+
+        Takes queueing, processing, and transmission delays into account.
+
+        Args:
+            metadata : Metadata dictionary containing FH setup information
+            save     : whether to write results into info.txt
+
+        Returns:
+            Dictionary containing (best DL, worst DL, best UL, worst UL)
+            theoretical delays including processing and queueing delays.
+
+        """
+        # PTP transmission (serialization) delay over 1GbE interface
+        t_ptp = 80*8 / 1e9 # PDelayReq/Resp messages are 54 bytes long + plus 26
+                           # bytes of Ethernet header (8B preamble + 14B MAC
+                           # untagged header + 4B FCS)
+
+        # Overhead bits on FH frames (8B preamble + 18 bytes Ethernet MAC header
+        # w/ 802.1Q tag + 12 bytes FH metadata + 2 bytes of stuffing + 4B FCS)
+        fh_overhead_bits = (8*44)
+
+        if (metadata["fh_traffic"] is not None):
+            l_iq_info  = metadata["fh_traffic"]["iq_size"]
+            n_spf_info = metadata["fh_traffic"]["n_spf"]
+
+            if (isinstance(l_iq_info, dict)):
+                l_iq_dl = l_iq_info['dl']
+                l_iq_ul = l_iq_info['ul']
+            else:
+                l_iq_dl = l_iq_info
+                l_iq_ul = l_iq_info
+
+            if (isinstance(n_spf_info, dict)):
+                n_spf_dl = n_spf_info['dl']
+                n_spf_ul = n_spf_info['ul']
+            else:
+                n_spf_dl = n_spf_info
+                n_spf_ul = n_spf_info
+
+            frame_size_bits_dl = (l_iq_dl * n_spf_dl) + fh_overhead_bits
+            frame_size_bits_ul = (l_iq_ul * n_spf_ul) + fh_overhead_bits
+
+            # Frame transmission (serialization) delay, assuming 1GbE
+            t_fh_dl  = frame_size_bits_dl / 1e9
+            t_fh_ul  = frame_size_bits_ul / 1e9
+
+            # Fundamental assumption of the ensuing analysis
+            assert(t_fh_dl > t_ptp)
+            assert(t_fh_ul > t_ptp)
+
+            # Nominal FH frame inter-departure interval
+            fs              = metadata["fh_traffic"]["fs"] # sample rate in Hz
+            Ts              = 1/fs # sample period in sec
+            n_axc_per_frame = 2
+            i_fh_dl         = (n_spf_dl / n_axc_per_frame) * Ts
+            i_fh_ul         = (n_spf_ul / n_axc_per_frame) * Ts
+
+            # Idle iterval between consecutive FH frames
+            n_rru_dl  = metadata["fh_traffic"]["n_rru_dl"]
+            n_rru_ul  = metadata["fh_traffic"]["n_rru_ul"]
+            t_idle_dl = i_fh_dl - (t_fh_dl * n_rru_dl)
+            t_idle_ul = i_fh_ul - t_fh_ul
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            print("\nExpected theoretical delays:\n", file=files[1])
+
+        # Maintain compatibility with old captures
+        if (type(metadata["hops"]) is not dict):
+            hops_md = dict()
+            hops_md['rru1'] = metadata['hops']
+            if (metadata['n_rru_ptp'] == 2):
+                hops_md['rru2'] = metadata['hops']
+        else:
+            hops_md = metadata["hops"]
+
+        expected_delays = dict()
+        for dev, hops in hops_md.items():
+            # Worst-case and best-case processing delays
+            #
+            # To compute worst-case queueing delays, we consider the worst-case
+            # processing delay per hop. Likewise, for the best-case queueing
+            # delays, we consider the best-case processing delay per hop. The
+            # values below are based on analysis of some experiments.
+            w_p_delay = 3.75e-6 * hops # worst-case processing delay
+            b_p_delay = 3.52e-6 * hops # best-case processing delay
+
+            # Transmission delays
+            #
+            # Corresponds to the store-and-forward processing of the PTP frame
+            # on every hop.
+            t_delay = t_ptp * hops
+
+            # Worst-case queuing delays in DL and UL
+            #
+            # The worst-case is when the PTP frame departs already "adjacent"
+            # (with no interval) to the preceding FH frame. Consequently, the
+            # PTP frame has to wait the entire FH transmission delay on every
+            # hop, due to store-and-forward. For example, say the FH
+            # transmission delay (t_fh) is 1.0 us, and that the PTP transmission
+            # delay (t_ptp) is 0.4 us. Suppose the FH frame departs on instant 0
+            # and that the PTP frame departs immediately after, on instant 1.0
+            # us. On instant 1.0, the first switch completes reception of the FH
+            # frame and can start sending it forward. The output of the first
+            # switch remains occupied by the FH frame until instant 2.0. If it
+            # were not for the FH frame, the PTP frame would depart on instant
+            # 1.0 from the sender and on instant 1.4 from the first switch to
+            # the next. However, due to the preceding FH frame, the PTP frame
+            # departs only on instant 2.0. As a result, the PTP frame waits an
+            # additional 0.6 us (i.e., t_fh - t_ptp) of delay with respect the
+            # instant that it would normally depart from the switch (instant
+            # 1.4 us). This is the queueing delay component.
+            #
+            # Also, in the UL, when there are 2 RRUs, and in the tree topology
+            # that we typically consider, the PTP frame may need to wait an
+            # extra t_fh (FH transmission delay) in the first hop. We assume
+            # that this "first hop" is the aggregation switch, which is
+            # connected to the two RRUs and has a single shared output to the
+            # next hop in the UL direction. Hence, the frames arriving from the
+            # two RRUs compete for this shared output. In the worst-case
+            # scenario, the PTP frame waits for the full serialization of the FH
+            # frame preceding it (coming from the same RRU) plus the
+            # serialization of a FH frame from the other RRU that arrived
+            # earlier and already holds the outbound interface.
+            if (metadata["fh_traffic"] is not None):
+                w_dl_q_delay = (t_fh_dl - t_ptp) * hops
+                w_ul_q_delay = (t_fh_ul - t_ptp) * hops
+                if (n_rru_ul == 2):
+                    w_ul_q_delay += t_fh_ul
+            else:
+                w_dl_q_delay = w_ul_q_delay = 0
+
+            # Best-case queueing delay
+            #
+            # The best-case is when the PTP frame departs with the maximum
+            # interval possible relative to the preceding FH frame. This
+            # interval corresponds to the idle interval between two consecutive
+            # FH frames. In this scenario, it is possible that the PTP frame
+            # does not experience queueing delays for some hops. However, due to
+            # the "approximation" between frames caused by the store-and-forward
+            # procedure, eventually (after some hops) the PTP frame can still
+            # reach the FH frame. From that point on, the PTP frame will
+            # experience queueing delays.
+            if (metadata["fh_traffic"] is not None):
+                b_dl_q_delay = self._calc_best_case_queueing(hops, t_idle_dl,
+                                                             t_fh_dl, t_ptp)
+                b_ul_q_delay = self._calc_best_case_queueing(hops, t_idle_ul,
+                                                             t_fh_ul, t_ptp)
+            else:
+                b_dl_q_delay = b_ul_q_delay = 0
+
+            # Total theoretical delays (queueing + transmission + processing)
+            w_dl_delay = w_dl_q_delay + t_delay + w_p_delay
+            w_ul_delay = w_ul_q_delay + t_delay + w_p_delay
+            b_dl_delay = b_dl_q_delay + t_delay + b_p_delay
+            b_ul_delay = b_ul_q_delay + t_delay + b_p_delay
+
+            for f in files:
+                print("DL FH delay for {}: "
+                      "best-case: {:.4f} us "
+                      "worst-case: {:.4f} us".format(
+                          dev, (b_dl_delay * 1e6), (w_dl_delay * 1e6)
+                ), file=f)
+                print("UL FH delay for {}: "
+                      "best-case: {:.4f} us "
+                      "worst-case: {:.4f} us ".format(
+                          dev, (b_ul_delay * 1e6), (w_ul_delay * 1e6)
+                ), file=f)
+
+            # Save expected delays
+            expected_delays[dev] = {
+                'b_dl_delay': b_dl_delay,
+                'w_dl_delay': w_dl_delay,
+                'b_ul_delay': b_ul_delay,
+                'w_ul_delay': w_ul_delay
+            }
+
+        return expected_delays
+
+
     def ptp_exchanges_per_sec(self, save=False):
         """Compute average number of PTP exchanges per second
 
