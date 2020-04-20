@@ -46,6 +46,15 @@ class Serial():
         self.bbu    = None if (bbu_dev is None) else self.connect(bbu_dev)
         self.sensor = None if (sensor_dev is None) else self.connect(sensor_dev)
 
+        # Configure RoE network
+        hops      = "{},{}".format(metadata["hops"]["rru1"],
+                                   metadata["hops"]["rru2"])
+        set_cmd   = ["python3", "switch_ctrl.py", "--json", "set", hops]
+        read_cmd  = ["python3", "switch_ctrl.py", "--json", "read"]
+        subprocess.run(set_cmd, cwd="roe-instruments")
+        net_cfg   = subprocess.check_output(read_cmd, cwd="roe-instruments")
+        print(net_cfg.decode())
+
         # Initialize RoE manager object
         self.roe = roe.RoE(self.metadata, self.roe_config, self.rru, self.rru2,
                            self.bbu)
