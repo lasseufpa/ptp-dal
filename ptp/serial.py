@@ -162,24 +162,24 @@ class Serial():
     def _read_timestamp_set(self, line, idx):
         """Read set of timestamps"""
 
-        line_val = self._split_strip_line(line,  "Timestamps")
+        line_val = self._split_strip_line(line,  "Ts:")
 
         # Normal PTP Timestamps
-        seq_id = int(line_val[2])
-        t1_ns  = int(line_val[4],16)
-        t2_ns  = int(line_val[6],16)
-        t3_ns  = int(line_val[8],16)
-        t4_ns  = int(line_val[10],16)
-        t1_sec = int(line_val[12],16)
-        t2_sec = int(line_val[14],16)
-        t3_sec = int(line_val[16],16)
-        t4_sec = int(line_val[18],16)
+        seq_id = int(line_val[1],16)
+        t1_ns  = int(line_val[2],16)
+        t2_ns  = int(line_val[3],16)
+        t3_ns  = int(line_val[4],16)
+        t4_ns  = int(line_val[5],16)
+        t1_sec = int(line_val[6],16)
+        t2_sec = int(line_val[7],16)
+        t3_sec = int(line_val[8],16)
+        t4_sec = int(line_val[9],16)
 
         # PPS Timestamps
-        t1_pps_ns  = int(line_val[20],16)
-        t1_pps_sec = int(line_val[22],16)
-        t4_pps_ns  = int(line_val[24],16)
-        t4_pps_sec = int(line_val[26],16)
+        t1_pps_ns  = int(line_val[10],16)
+        t1_pps_sec = int(line_val[11],16)
+        t4_pps_ns  = int(line_val[12],16)
+        t4_pps_sec = int(line_val[13],16)
 
         # Append to results
         ts_data = {
@@ -315,7 +315,7 @@ class Serial():
             if "Occupancy" in line:
                 self._read_occupancy(line, self.async_data["rru_occ"])
 
-            if "Timestamps" in line:
+            if "Ts:" in line:
                 try:
                     self._read_timestamp_set(line, idx)
                     idx += 1
