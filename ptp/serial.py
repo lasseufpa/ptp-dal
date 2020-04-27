@@ -35,6 +35,9 @@ class Serial():
         self.n_samples = n_samples
         self.metadata  = metadata
 
+        # Check if submodules are up-to-date
+        self._check_git_submodules()
+
         # RoE information and configuration data
         self.roe_config = roe_config
 
@@ -113,6 +116,22 @@ class Serial():
 
         rru_thread = threading.Thread(target=self.read_rru, daemon=True)
         rru_thread.start()
+
+    def _check_git_submodules(self):
+        """Check if Git submodules are up-to-date"""
+
+        res = subprocess.check_output(["git", "submodule", "status"])
+
+        outdated = False
+        for line in res.decode().splitlines():
+            if ("+" in line):
+                submodule = line.split()[1]
+                logger.warning(f"{submodule} is not up-to-date")
+                outdated = True
+
+        if (outdated):
+            raise RuntimeError("Git submodules are not up-to-date. "
+                               "Run \"git submodule update\"")
 
     def _readline(self, dev):
         """Readline and clean whitespaces"""
