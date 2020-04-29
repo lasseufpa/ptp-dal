@@ -35,6 +35,9 @@ class Serial():
         self.n_samples = n_samples
         self.metadata  = metadata
 
+        # Check if there is another acquisition running
+        self._assert_free_to_capture()
+
         # Check if submodules are up-to-date
         self._check_git_submodules()
 
@@ -116,6 +119,21 @@ class Serial():
 
         rru_thread = threading.Thread(target=self.read_rru, daemon=True)
         rru_thread.start()
+
+    def _assert_free_to_capture(self):
+        """Verify whether we are free to capture from FPGAs
+
+        Throw exception in case there is another acquisition running.
+
+        """
+        our_pid = os.getpid()
+        res     = subprocess.check_output(["pgrep", "-f", "capture.py", "-a"])
+
+        for line in res.splitlines():
+            pid = int(line.decode().split()[0])
+            if (pid != our_pid):
+                raise RuntimeError("An acquisition is already running on PID "
+                                   f"{pid}")
 
     def _check_git_submodules(self):
         """Check if Git submodules are up-to-date"""
