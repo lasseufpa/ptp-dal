@@ -17,6 +17,12 @@ cache:
     - .cache/pip
     - ptp-env/
 
+stages:
+  - test
+  - build
+  - deploy
+  - capture
+
 test:
   script:
     - python -m unittest discover
@@ -24,6 +30,7 @@ test:
     - ptp
 
 acquisition:
+  stage: capture
   script:
     - source /opt/Xilinx/Vivado/2016.4/settings64.sh
     - git clone --recurse-submodules https://gitlab.lasse.ufpa.br/2014-fronthaul/synchronization/roe_vivado.git
