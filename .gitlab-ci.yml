@@ -43,9 +43,16 @@ acquisition:
     - ptp
 
 .api:
-  only:
-    changes:
-      - api/**/*
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - changes:
+      - "api/**/*"
+      when: on_success
+    - when: never
   tags:
     - ptp
 
