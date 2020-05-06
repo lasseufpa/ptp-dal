@@ -17,7 +17,8 @@ metadata_v1 = {
         'iq_size': 24,
         'n_spf': 64,
         'n_rru_dl': 2,
-        'n_rru_ul': 2
+        'n_rru_ul': 2,
+        'vlan_pcp': 1
     },
     'delay_cal': False,
     'hops': 4,
@@ -48,7 +49,8 @@ metadata_v2 = {
             'ul': 64,
         },
         'n_rru_dl': 2,
-        'n_rru_ul': 2
+        'n_rru_ul': 2,
+        'vlan_pcp': 1
     },
     'delay_cal': False,
     'hops': 4,
@@ -74,6 +76,7 @@ expected_md_structure = {
     'fh_n_spf_ul': 64,
     'fh_n_rru_dl': 2,
     'fh_n_rru_ul': 2,
+    'fh_vlan_pcp': 1,
     'delay_cal': False,
     'delay_cal_duration': None,
     'hops_rru1': 4,

@@ -87,6 +87,9 @@ def main():
                         type=int,
                         help='Number of RRUs delivering UL data, i.e. that are \
                         actually active in the testbed')
+    search.add_argument('--fh-vlan-pcp',
+                        type=int,
+                        help='802.1Q priority code point (PCP) of FH frames')
     args = parser.parse_args()
 
     if (args.command is None):

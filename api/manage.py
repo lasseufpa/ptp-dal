@@ -71,7 +71,8 @@ class Database:
                     'ul': None,
                 },
                 'n_rru_dl': None,
-                'n_rru_ul': None
+                'n_rru_ul': None,
+                'vlan_pcp': None,
             },
             'delay_cal': None,
             'delay_cal_duration': None,
