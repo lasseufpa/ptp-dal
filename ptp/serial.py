@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class Serial():
     def __init__(self, rru_dev, rru2_dev, bbu_dev, sensor_dev, n_samples,
-                 metadata, roe_config, yes=False):
+                 metadata, roe_config, baudrate, yes=False):
         """Serial capture of timestamps from testbed
 
         Args:
@@ -47,10 +47,13 @@ class Serial():
         # Serial connections
         assert(rru_dev != rru2_dev), "RRU and RRU2 devices should be different"
         self._yes   = yes
-        self.rru    = self.connect(rru_dev)
-        self.rru2   = None if (rru2_dev is None) else self.connect(rru2_dev)
-        self.bbu    = None if (bbu_dev is None) else self.connect(bbu_dev)
-        self.sensor = None if (sensor_dev is None) else self.connect(sensor_dev)
+        self.rru    = self.connect(rru_dev, baudrate=baudrate)
+        self.rru2   = None if (rru2_dev is None) else \
+                      self.connect(rru2_dev, baudrate=baudrate)
+        self.bbu    = None if (bbu_dev is None) else \
+                      self.connect(bbu_dev, baudrate=baudrate)
+        self.sensor = None if (sensor_dev is None) else \
+                      self.connect(sensor_dev, baudrate=115200)
 
         # Configure RoE network
         hops      = "{},{}".format(metadata["hops"]["rru1"],
@@ -360,7 +363,7 @@ class Serial():
                     logging.warning("Failed to parse timestamp set for "
                                     "line:\n{}".format(line))
 
-    def connect(self, device, baudrate=115200):
+    def connect(self, device, baudrate):
         """Establish a serial connection to a given device.
 
         Args:

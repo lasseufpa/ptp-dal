@@ -42,6 +42,10 @@ def main():
                         default=False,
                         action='store_true',
                         help='Default to answering yes on user prompting')
+    parser.add_argument('-b', '--baudrate',
+                        type=int,
+                        default=230400,
+                        help='UART baud rate for communication with RoE devices')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,
@@ -78,7 +82,7 @@ def main():
     if (args.yes or (response.lower() == "y")):
         serial = ptp.serial.Serial(args.rru, args.rru2, args.bbu, args.sensor,
                                    args.num_iter, metadata, roe_config,
-                                   yes=args.yes)
+                                   args.baudrate, yes=args.yes)
         serial.run()
 
 
