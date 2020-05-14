@@ -56,7 +56,7 @@ class Docs():
         dataset = codec.decompress()
 
         # Check metadata for compatibility with old captures
-        if ('metadata' in dataset):
+        if ('metadata' and 'data' in dataset and len(dataset['data']) > 0):
             metadata = dataset['metadata']
             # Add other relevat information
             t_end       = Timestamp(dataset['data'][-1]["t2_sec"],
@@ -69,7 +69,10 @@ class Docs():
             metadata["n_exchanges"] = len(dataset['data'])
             metadata["duration"]    = str(duration_tdelta)
         else:
-            logger.info(f"File {filename} does not have metadata")
+            if ('metadata' not in dataset):
+                logger.warning(f"File {filename} does not have metadata")
+            if ('data' not in dataset or len(dataset['data']) == 0):
+                logger.warning(f"File {filename} does not have any data")
 
         return metadata
 
