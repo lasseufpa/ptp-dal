@@ -11,7 +11,6 @@ COPY ptp/compression.py /app/ptp/
 COPY api /app/api/
 
 # Define environment variables
-ENV DS_PATH /app/api/datasets/
 ENV PYTHONDONTWRITEBYTECODE 1
 
 WORKDIR /app/api

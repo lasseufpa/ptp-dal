@@ -2,7 +2,7 @@ import unittest
 import copy
 from datetime import datetime
 from collections import OrderedDict
-from manage import Database
+from manager import Formatter
 
 metadata_v1 = {
     'oscillator': 'xo',
@@ -91,12 +91,12 @@ expected_md_structure = {
 
 class TestFormatter(unittest.TestCase):
     def test_formatter_v1(self):
-        formatter = Database()
-        formated_md = formatter.format_metadata('test-name', metadata_v1)
+        formatter   = Formatter('test-name', metadata_v1)
+        formated_md = formatter.format()
         self.assertEqual(expected_md_structure, formated_md)
 
     def test_formatter_v2(self):
-        formatter = Database()
-        formated_md = formatter.format_metadata('test-name', metadata_v2)
+        formatter   = Formatter('test-name', metadata_v2)
+        formated_md = formatter.format()
         self.assertEqual(expected_md_structure, formated_md)
 

@@ -1,24 +1,20 @@
 import os, json, logging
 from flask import send_file, request
 from flask_restful import Resource, reqparse
-from models import Dataset
-from sqlalchemy.exc import SQLAlchemyError
-
-
-DS_PATH = os.getenv('DS_PATH')
+from manager import Manager
 
 
 class DatasetSearch(Resource):
-    def post(self):
-        try:
-            search_ds = Dataset.search(request.json)
-        except SQLAlchemyError as e:
-            logging.exception(e)
-            search_ds = []
+    def __init__(self, app):
+        self.app = app
 
-        results   = list()
-        if (len(search_ds) > 0):
-            for ds in search_ds:
+    def post(self):
+        manager = Manager(self.app)
+        query   = manager.search(request.json)
+        results = list()
+
+        if (len(query) > 0):
+            for ds in query:
                 results.append({
                     'name'         : ds.name,
                     'oscillator'   : ds.oscillator,
@@ -40,11 +36,11 @@ class DatasetSearch(Resource):
 
 class DatasetDownload(Resource):
     def get(self, dataset):
-        ds_filename = os.path.join(DS_PATH, dataset)
+        ds_folder   = "/app/api/datasets/"
+        ds_filename = os.path.join(ds_folder, dataset)
 
         if (os.path.isfile(ds_filename)):
             return send_file(ds_filename, as_attachment=True)
         else:
             return {'message': 'Dataset not found!'}, 404
-
 

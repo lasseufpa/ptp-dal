@@ -1,10 +1,10 @@
-import threading, time, logging
+import threading, time, logging, sys
 from flask import Flask, Blueprint
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
-from resources import dataset
+from resources import DatasetSearch, DatasetDownload
 from models import db
-from manage import Watcher
+from watcher import Watcher
 
 def get_logger(app):
     gunicorn_logger = logging.getLogger('gunicorn.error')
@@ -21,8 +21,8 @@ def create_app():
     api    = Api(api_bp)
 
     # Create API endpoints
-    api.add_resource(dataset.DatasetDownload, '/dataset/<dataset>')
-    api.add_resource(dataset.DatasetSearch, '/search')
+    api.add_resource(DatasetDownload, '/dataset/<dataset>')
+    api.add_resource(DatasetSearch, '/search', resource_class_kwargs={'app': app})
     app.register_blueprint(api_bp, url_prefix='/api')
 
     # Init database
@@ -42,6 +42,13 @@ app = create_app()
 get_logger(app)
 
 # Init file system watcher
-watcher  = Watcher(app)
+watcher  = Watcher(app, db)
 watching = threading.Thread(target=watcher.run)
 watching.start()
+
+
+if __name__ == "__main__":
+    app.run('0.0.0.0', 80, debug=True)
+
+
+
