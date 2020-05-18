@@ -112,6 +112,7 @@ def main():
             print("Found datasets:")
             df = pd.DataFrame(ds_found)
             df = df.sort_values(by=['start-time'])
+            df = df.reset_index(drop=True)
             print(tabulate(df, headers='keys', tablefmt='psql'))
 
 if __name__ == "__main__":

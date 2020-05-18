@@ -16,18 +16,16 @@ class DatasetSearch(Resource):
         if (len(query) > 0):
             for ds in query:
                 results.append({
-                    'name'         : ds.name,
-                    'oscillator'   : ds.oscillator,
-                    'sync-period'  : ds.sync_period,
-                    'calibration'  : ds.delay_cal,
-                    'cal-duration' : ds.delay_cal_duration,
-                    'fh-traffic'   : ds.fh_traffic,
-                    'n-rrus-dl'    : ds.fh_n_rru_dl,
-                    'n-rrus-ul'    : ds.fh_n_rru_ul,
-                    'n-rru-ptp'    : ds.n_rru_ptp,
-                    'hops-rru1'    : ds.hops_rru1,
-                    'hops-rru2'    : ds.hops_rru2,
-                    'start-time'   : ds.start_time.strftime('%Y-%m-%d %H:%M:%S')
+                    'name'               : ds.name,
+                    'oscillator'         : ds.oscillator,
+                    'sync-period'        : ds.sync_period,
+                    'calibration'        : ds.delay_cal,
+                    'fh-traffic'         : ds.fh_traffic,
+                    'n-rrus (dl/ul)'     : f'{ds.fh_n_rru_dl}/{ds.fh_n_rru_ul}',
+                    'n-rru-ptp'          : ds.n_rru_ptp,
+                    'n-hops (rru1/rru2)' : f'{ds.hops_rru1}/{ds.hops_rru2}',
+                    'pipeline (bbu/rru)' : f'{ds.pipeline_bbu}/{ds.pipeline_rru}',
+                    'start-time'         : ds.start_time.strftime('%Y-%m-%d %H:%M:%S')
                 })
             return {'found': results}
         else:
