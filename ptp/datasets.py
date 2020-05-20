@@ -18,23 +18,27 @@ class Datasets():
 
         self.api_url = 'https://ptp.database.lasseufpa.org/api/'
 
-    def _set_paths(self, dataset=None):
-        """ """
-        this_file     = os.path.realpath(__file__)
-        rootdir       = os.path.dirname(os.path.dirname(this_file))
-        self.local_repo    = os.path.join(rootdir, "data")
-        home          = os.path.expanduser("~")
-        self.cfg_path = os.path.join(home, ".ptp")
-        self.cfg_file = os.path.join(self.cfg_path, "config.json")
+    def _set_paths(self):
+        """Define paths to save the configuration file"""
+        this_file       = os.path.realpath(__file__)
+        rootdir         = os.path.dirname(os.path.dirname(this_file))
+        self.local_repo = os.path.join(rootdir, "data")
+        home            = os.path.expanduser("~")
+        self.cfg_path   = os.path.join(home, ".ptp")
+        self.cfg_file   = os.path.join(self.cfg_path, "config.json")
 
-        if (dataset):
-            self.ds_name       = os.path.basename(dataset)
-            no_ext_ds_name     = os.path.splitext(self.ds_name)[0]
-            self.local_ds_path = os.path.join(self.local_repo, self.ds_name)
-            comp_ds_name       = no_ext_ds_name + "-comp"
-            comp_exts          = [".xz", ".pbz2", ".gz", ".pickle", ".json"]
-            self.comp_ds_paths = [os.path.join(self.local_repo, comp_ds_name + e) for
-                                  e in comp_exts]
+    def _get_all_ds_variations(self, dataset):
+        """Get all possible variations to the dataset name"""
+        self.ds_name    = os.path.basename(dataset)
+        no_ext_ds_name  = os.path.splitext(self.ds_name)[0]
+        ds_prefix       = no_ext_ds_name.replace("-comp", "")
+        ds_suffixes     = ["-comp.xz", "-comp.pbz2", "-comp.gz",
+                           "-comp.pickle", "-comp.json", ".json"]
+        all_ds_names    = [ds_prefix + suffix for suffix in ds_suffixes]
+        all_local_paths = [os.path.join(self.local_repo, d) for d in \
+                           all_ds_names]
+
+        return all_local_paths, all_ds_names
 
     def _check_cfg(self):
         """Check if path to cfg folder exists or create it otherwise"""
@@ -174,31 +178,19 @@ class Datasets():
             Path to dataset file
 
         """
-        self._set_paths(dataset)
+        all_local_paths, all_ds_names = self._get_all_ds_variations(dataset)
         # Does the dataset exist on the local repository already?
-        if (os.path.exists(self.local_ds_path)):
-            logger.info("Dataset already available locally")
-            return self.local_ds_path
-
-        # Search for a compressed dataset locally
-        if ("-comp" not in self.local_ds_path):
-            for path in self.comp_ds_paths:
-                if (os.path.exists(path)):
-                    logger.info("Found compressed dataset {}".format(path))
-                    return path
+        for path in all_local_paths:
+            if (os.path.exists(path)):
+                logger.info("Dataset already available locally")
+                return path
 
         print("Dataset not available locally. Try to download from server.")
-
-        no_ext_ds_name = os.path.splitext(self.ds_name)[0]
-        ds_prefix      = no_ext_ds_name.replace("-comp", "")
-        ds_suffixes    = ["-comp.xz", "-comp.pbz2", "-comp.gz", "-comp.pickle",
-                          "-comp.json", ".json"]
-        ds_names       = [ds_prefix + suffix for suffix in ds_suffixes]
 
         # Try to load in order of compression (most compressed first)
         for entry in self.cfg:
             dl_mode = entry['dl_mode']
-            for ds_name in ds_names:
+            for ds_name in all_ds_names:
                 if dl_mode == 'SSH':
                     ds_path = self._download_ssh(entry, ds_name)
                 else:
