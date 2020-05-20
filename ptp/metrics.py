@@ -431,14 +431,15 @@ class Analyser():
 
         return np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides)
 
-    def mtie(self, tie, window_step = 2, starting_window = 16):
+    def mtie(self, te, window_step = 2, starting_window = 16):
         """Maximum time interval error (MTIE)
 
-        Computes the MTIE based on time interval error (TIE) samples. The MTIE
-        computes the peak-to-peak TIE over windows of increasing duration.
+        Computes the MTIE based on time error (TE) samples. The MTIE computes
+        the peak-to-peak time interval error (TIE) over windows of increasing
+        duration.
 
         Args:
-            tie             : Vector of TIE values
+            te              : Vector of TE values
             window_step     : Enlarge window by this step on every iteration
             starting_window : Starting window size
 
@@ -447,8 +448,8 @@ class Analyser():
             mtie_array : The calculated MTIE for each observation interval
 
         """
-        n_samples   = len(tie) # total number of samples
-        tie         = np.array(tie)
+        n_samples = len(te) # total number of samples
+        te        = np.array(te)
 
         # Number of different intervals to be evaluated
         log_max_win_size   = math.floor(math.log2(n_samples/2))
@@ -466,13 +467,13 @@ class Analyser():
         window_size = starting_window
         while (window_size <= max_win_size):
             # Get all possible windows with the current window size:
-            parted_array = self.rolling_window_mtx(tie, window_size)
+            parted_array = self.rolling_window_mtx(te, window_size)
 
-            # Get maximum and minimum of each window
+            # Get maximum and minimum TE values of each window
             window_max = np.max(parted_array, axis = 1)
             window_min = np.min(parted_array, axis = 1)
 
-            # MTIE candidates (for each window):
+            # MTIE candidates (maximum TIE of each window):
             mtie_candidates = window_max - window_min
 
             # Final MTIE is the maximum among all candidates
@@ -1441,16 +1442,24 @@ class Analyser():
                   show_kf=True, show_loop=True, save=True, save_format='png'):
         """Plot MTIE versus the observation interval(Tau)
 
-        Plots MTIE. The time interval error (TIE) samples are assumed to be
-        equal to the time offset estimation errors. The underlying assumption is
-        that in practice these estimations would be used to correct the clock
-        and thus the resulting TIE with respect to the reference time would
-        correspond to the error in the time offset estimation.
+        Plots MTIE. The time error (TE) samples are assumed to be equal to the
+        time offset estimation errors. The underlying assumption is that in
+        practice these estimations would be used to correct the clock and thus
+        the resulting TE would correspond to the residual error of the imperfect
+        (noisy) time offset estimation. The time interval error (TIE), in turn,
+        is the difference between TE samples over a given interval. Essentially,
+        it assesses how accurately the RTC can measure elapsed intervals. If the
+        time offset is constant during an interval measurement, i.e., the ending
+        TE is the same as the starting TE, the TIE is zero, meaning the RTC
+        measures the interval perfectly. The TE variations experienced by the
+        clock during an interval are the reason why the corresponding interval
+        measurements are noisy and, thus, there is TIE.
 
-        The observation window durations of the associated time error samples
-        are assumed to be given in terms of number of samples that they contain,
-        rather than their actual time durations. This is not strictly how MTIE
-        is computed, but useful for the evaluation and simpler to implement.
+        In our implementation, the observation window durations of the
+        associated TIE samples are assumed to be given in terms of number of
+        samples that they contain, rather than their actual time durations. This
+        is not strictly how MTIE is computed, but useful for the evaluation and
+        simpler to implement.
 
         Args:
             show_raw    : Show raw measurements
@@ -1474,10 +1483,10 @@ class Analyser():
         for suffix, value in est_keys.items():
             if (value["show"]):
                 key   = "x_est" if (suffix == "raw") else "x_" + suffix
-                x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
+                x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
 
-                if (len(x_est) > 0):
-                    tau_est, mtie_est = self.mtie(x_est)
+                if (len(x_err) > 0):
+                    tau_est, mtie_est = self.mtie(x_err)
                     plt.semilogx(tau_est, mtie_est,
                                  label=value["label"], marker=value["marker"],
                                  alpha=0.7, basex=2)
