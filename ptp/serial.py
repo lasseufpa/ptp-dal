@@ -85,11 +85,9 @@ class Serial():
             "pps_err"  : deque(),
             "pps_err2" : deque(),
             "y_pps"    : deque(),
-            "y_pps2"   : deque()
+            "y_pps2"   : deque(),
+            "temp"     : deque()
         }
-        self.last_temp = (None, None)
-        # NOTE: the temperature is asynchronous too, but it is faster than
-        # timestamps logs. So we don't queue it. Instead, we get the last value.
 
         # Continuously check that the devices are alive
         self.sensor_alive  = True
@@ -254,11 +252,12 @@ class Serial():
 
             if (len(temperature_str) > 1):
                 try:
-                    temp_measurements = temperature_str.split(",")
-                    self.last_temp = (float(temp_measurements[0]),
-                                      float(temp_measurements[1]))
+                    temp_measurements_str = temperature_str.split(",")
+                    temp_measurements = (float(temp_measurements_str[0]),
+                                         float(temp_measurements_str[1]))
+                    self.async_data["temp"].append(temp_measurements)
                 except ValueError:
-                        pass
+                    pass
                 last_read = time.time()
             elif (time.time() - last_read > self.alive_timeout):
                 self.sensor_alive = False
@@ -507,11 +506,6 @@ class Serial():
 
                 # Process PTP metrics for debugging
                 reader.process(run_data, pr_level=logging.INFO)
-
-                # Latest temperature reading
-                if (self.last_temp[0] is not None or
-                    self.last_temp[1] is not None):
-                    run_data["temp"] = self.last_temp
 
                 # Complementary/asynchronous data
                 for key in self.async_data:
