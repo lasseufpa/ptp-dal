@@ -648,6 +648,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "toffset_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -715,6 +716,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "toffset_err_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -760,6 +762,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "toffset_err_hist." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -848,6 +851,7 @@ class Analyser():
             plt.legend()
 
             if (save):
+                plt.tight_layout()
                 plt.savefig(self.path + "delay_hist." + save_format,
                             format=save_format, dpi=300)
             else:
@@ -890,6 +894,7 @@ class Analyser():
             plt.ylabel('m-to-s delay (ns)')
 
             if (save):
+                plt.tight_layout()
                 plt.savefig(self.path + "delay_m2s_vs_time." + save_format,
                             format=save_format, dpi=300)
             else:
@@ -902,6 +907,7 @@ class Analyser():
             plt.ylabel('s-to-m delay (ns)')
 
             if (save):
+                plt.tight_layout()
                 plt.savefig(self.path + "delay_s2m_vs_time." + save_format,
                             format=save_format, dpi=300)
             else:
@@ -916,6 +922,7 @@ class Analyser():
             plt.legend()
 
             if (save):
+                plt.tight_layout()
                 plt.savefig(self.path + "delay_vs_time." + save_format,
                             format=save_format, dpi=300)
             else:
@@ -953,6 +960,7 @@ class Analyser():
         plt.ylabel('Delay Estimation Error (ns)')
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "delay_est_err_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -977,6 +985,7 @@ class Analyser():
         plt.ylabel('Probability Density')
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "delay_asym_hist." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1014,6 +1023,7 @@ class Analyser():
         plt.ylabel('Delay asymmetry (us)')
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "delay_asym_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1086,6 +1096,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "foffset_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1156,6 +1167,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "foffset_err_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1199,6 +1211,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "foffset_err_hist." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1266,6 +1279,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "pdv_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1303,6 +1317,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "pdv_hist." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1338,6 +1353,7 @@ class Analyser():
             plt.title('PTP exchange interval')
 
             if (save):
+                plt.tight_layout()
                 plt.savefig(self.path + "{}_delta_vs_time.".format(t) +
                             save_format, format=save_format, dpi=300)
             else:
@@ -1386,6 +1402,7 @@ class Analyser():
         plt.legend()
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "toffset_drift_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1401,6 +1418,7 @@ class Analyser():
         plt.title('Cumulative time offset drift error')
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "toffset_drift_cum_err_vs_time." +
                         save_format,
                         format=save_format, dpi=300)
@@ -1431,6 +1449,7 @@ class Analyser():
         plt.title('Time offset drift histogram')
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "toffset_drift_hist." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1497,6 +1516,7 @@ class Analyser():
         plt.legend(loc=0)
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "mtie_vs_tau." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1562,6 +1582,7 @@ class Analyser():
         plt.legend(loc=0)
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "max_te_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1603,6 +1624,7 @@ class Analyser():
         plt.ylabel('Temperature (C)')
 
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "temperature_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1648,6 +1670,7 @@ class Analyser():
         plt.ylabel('Occupancy')
         plt.legend()
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + "occupancy_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1690,6 +1713,7 @@ class Analyser():
         plt.ylabel(ylabel)
         plt.legend()
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + name + "_vs_time." + save_format,
                         format=save_format, dpi=300)
         else:
@@ -1708,6 +1732,7 @@ class Analyser():
         plt.ylabel('Probability Density')
         plt.legend()
         if (save):
+            plt.tight_layout()
             plt.savefig(self.path + name + "_hist." + save_format,
                         format=save_format, dpi=300)
         else:
