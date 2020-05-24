@@ -21,6 +21,8 @@ class Dataset(db.Model):
     pipeline_bbu       = db.Column(db.Integer)
     pipeline_rru       = db.Column(db.Integer)
     start_time         = db.Column(db.DateTime)
+    departure_ctrl     = db.Column(db.Boolean)
+    departure_gap      = db.Column(db.Integer)
     fh_traffic         = db.Column(db.Boolean, nullable=False)
     fh_type            = db.Column(db.String(20))
     fh_fs              = db.Column(db.Float)

@@ -90,6 +90,14 @@ def main():
     search.add_argument('--fh-vlan-pcp',
                         type=int,
                         help='802.1Q priority code point (PCP) of FH frames')
+    search.add_argument('--departure-crtl',
+                        choices=['True', 'False'],
+                        help='Departure control mechanism')
+    search.add_argument('--departure-gap',
+                        type=int,
+                        help='Gap in ns assigned between the departure of a \
+                        PTP event message and the start of the preceding \
+                        FH frame')
     args = parser.parse_args()
 
     if (args.command is None):

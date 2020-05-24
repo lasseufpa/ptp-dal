@@ -214,6 +214,8 @@ class Formatter():
                 'bbu': None,
                 'rru': None
             },
+            'departure_ctrl': None,
+            'departure_gap': None,
             'start_time': None
         }
 

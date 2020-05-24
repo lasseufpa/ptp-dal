@@ -27,6 +27,8 @@ metadata_v1 = {
         "bbu" : 239,
         "rru" : 239
     },
+    'departure_ctrl': False,
+    'departure_gap': 0,
     'start_time': '2020-04-25 09:47:07'
 }
 
@@ -59,6 +61,8 @@ metadata_v2 = {
         "bbu" : 239,
         "rru" : 239
     },
+    'departure_ctrl': False,
+    'departure_gap': 0,
     'start_time': '2020-04-25 09:47:07'
 }
 
@@ -85,6 +89,8 @@ expected_md_structure = {
     'pipeline_bbu': 239,
     'pipeline_rru': 239,
     'start_time': datetime.strptime('2020-04-25 09:47:07', '%Y-%m-%d %H:%M:%S'),
+    'departure_ctrl': False,
+    'departure_gap': 0,
     'fh_traffic': True
 }
 

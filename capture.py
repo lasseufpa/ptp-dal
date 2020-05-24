@@ -68,6 +68,8 @@ def main():
             "rru1" : args.rru1_hops,
             "rru2" : args.rru2_hops
         },
+        "departure_ctrl" : (not args.no_departure_ctrl),
+        "departure_gap" : args.departure_gap,
         "n_rru_ptp"  : args.n_rru_ptp,
         "pipelines"  : None if roe_config is None else roe_config['pipeline'],
         "start_time" : datetime.now().strftime('%Y-%m-%d %H:%M:%S')
