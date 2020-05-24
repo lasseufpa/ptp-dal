@@ -1324,32 +1324,21 @@ class Analyser():
             plt.show()
         plt.close()
 
-    def plot_ptp_exchange_interval_vs_time(self, x_unit='time', save=True,
+    def plot_ptp_exchange_interval_vs_time(self, n_bins=200, save=True,
                                            save_format='png'):
-        """Plot the interval between PTP exchanges
+        """Plot CDF of the interval between PTP exchanges
         """
 
         logger.info("Plot PTP exchange interval vs. time")
-        n_data  = len(self.data)
-
-        # TODO: move the definition of x-axis label into the decorator
-        if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
-            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
-                                     self.data]) / NS_PER_MIN
-            x_axis_label = 'Time (min)'
-
-        elif (x_unit == "samples"):
-            x_axis_vec   = range(0, n_data)
-            x_axis_label = 'Realization'
 
         # Exchange interval
         for t in ["t1", "t2", "t3", "t4"]:
-            t_diff = np.diff(np.array([r[t] for r in self.data]))/1e6
+            t_diff = np.diff(np.array([float(r[t]) for r in self.data]))/1e6
             plt.figure()
-            plt.scatter(x_axis_vec[1:], t_diff, s = 1.0)
-            plt.xlabel(x_axis_label)
-            plt.ylabel('{0}[n] - {0}[n-1] (ms)'.format(t))
+            plt.hist(t_diff, bins=n_bins, density=True, cumulative=True,
+                     histtype='step', alpha=0.8, color='k')
+            plt.xlabel('{0}[n] - {0}[n-1] (ms)'.format(t))
+            plt.ylabel('CDF')
             plt.title('PTP exchange interval')
 
             if (save):
