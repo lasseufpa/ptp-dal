@@ -114,7 +114,7 @@ class Serial():
             bbu_thread = threading.Thread(target=self.read_bbu, daemon=True)
             bbu_thread.start()
 
-        if (self.rru2 is not None):
+        if (self.rru2 is not None and self.roe.rru2.active):
             rru2_thread = threading.Thread(target=self.read_rru2, daemon=True)
             rru2_thread.start()
 
