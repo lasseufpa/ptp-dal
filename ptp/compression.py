@@ -97,8 +97,7 @@ class Codec():
         # Find all possible dictionary keys (no need to loop over the entire
         # dataset, they should be present on the first entries)
         keys  = set()
-        i_max = min(100, len(self.ds['data']))
-        for x in self.ds['data'][:i_max]:
+        for x in self.ds['data']:
             keys.update(x.keys())
 
         # Find the keys that are always present
