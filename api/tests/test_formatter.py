@@ -29,6 +29,20 @@ metadata_v1 = {
     },
     'departure_ctrl': False,
     'departure_gap': 0,
+    'tstamp_latency_corr': {
+        'bbu': {
+            'tx': 80,
+            'rx': 80,
+        },
+        'rru1': {
+            'tx': 80,
+            'rx': 80,
+        },
+        'rru2': {
+            'tx': 80,
+            'rx': 80
+        }
+    },
     'start_time': '2020-04-25 09:47:07'
 }
 
@@ -63,6 +77,20 @@ metadata_v2 = {
     },
     'departure_ctrl': False,
     'departure_gap': 0,
+    'tstamp_latency_corr': {
+        'bbu': {
+            'tx': 80,
+            'rx': 80,
+        },
+        'rru1': {
+            'tx': 80,
+            'rx': 80,
+        },
+        'rru2': {
+            'tx': 80,
+            'rx': 80
+        }
+    },
     'start_time': '2020-04-25 09:47:07'
 }
 
@@ -91,6 +119,12 @@ expected_md_structure = {
     'start_time': datetime.strptime('2020-04-25 09:47:07', '%Y-%m-%d %H:%M:%S'),
     'departure_ctrl': False,
     'departure_gap': 0,
+    'tstamp_latency_corr_bbu_tx': 80,
+    'tstamp_latency_corr_bbu_rx': 80,
+    'tstamp_latency_corr_rru1_tx': 80,
+    'tstamp_latency_corr_rru1_rx': 80,
+    'tstamp_latency_corr_rru2_tx': 80,
+    'tstamp_latency_corr_rru2_rx': 80,
     'fh_traffic': True
 }
 

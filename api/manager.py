@@ -216,6 +216,20 @@ class Formatter():
             },
             'departure_ctrl': None,
             'departure_gap': None,
+            'tstamp_latency_corr': {
+                'bbu': {
+                    'tx': 80,
+                    'rx': 80,
+                },
+                'rru1': {
+                    'tx': 80,
+                    'rx': 80,
+                },
+                'rru2': {
+                    'tx': 80,
+                    'rx': 80
+                }
+            },
             'start_time': None
         }
 
