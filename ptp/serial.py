@@ -75,7 +75,8 @@ class Serial():
         self.xz_file     = basename + "-comp.xz" # compressed file
 
         # Timestamp sets read from the RRU:
-        self.ts_data = deque()
+        self.ts_data     = deque()
+        self.ts_last_sec = None
 
         # Complementary data that is asynchronous to timestamp sets
         self.async_data = {
@@ -202,22 +203,52 @@ class Serial():
 
         line_val = self._split_strip_line(line,  "Ts:")
 
-        # Normal PTP Timestamps
-        seq_id = int(line_val[1],16)
-        t1_ns  = int(line_val[2],16)
-        t2_ns  = int(line_val[3],16)
-        t3_ns  = int(line_val[4],16)
-        t4_ns  = int(line_val[5],16)
-        t1_sec = int(line_val[6],16)
-        t2_sec = int(line_val[7],16)
-        t3_sec = int(line_val[8],16)
-        t4_sec = int(line_val[9],16)
+        # The RoE device will either print the full set with seconds and
+        # nanoseconds of six timestamps, or print a reduced set containing only
+        # the nanoseconds. The device prints the reduced set when the values of
+        # seconds of all timestamps coincide with a previously printed value. In
+        # this case, the receive end (here) can infer the values of seconds.
+        if (len(line_val) == 14):
+            # Normal PTP Timestamps
+            seq_id     = int(line_val[1],16)
+            t1_ns      = int(line_val[2],16)
+            t2_ns      = int(line_val[3],16)
+            t3_ns      = int(line_val[4],16)
+            t4_ns      = int(line_val[5],16)
+            t1_sec     = int(line_val[6],16)
+            t2_sec     = int(line_val[7],16)
+            t3_sec     = int(line_val[8],16)
+            t4_sec     = int(line_val[9],16)
+            # PPS Timestamps
+            t1_pps_ns  = int(line_val[10],16)
+            t1_pps_sec = int(line_val[11],16)
+            t4_pps_ns  = int(line_val[12],16)
+            t4_pps_sec = int(line_val[13],16)
+            # The RoE hardware takes t1_sec as reference for the last printed
+            # value of seconds
+            self.ts_last_sec = t1_sec
+        elif (len(line_val) == 8):
+            if (self.ts_last_sec is None):
+                raise ValueError("Can't infer the values of seconds")
+            # Normal PTP Timestamps
+            seq_id     = int(line_val[1],16)
+            t1_ns      = int(line_val[2],16)
+            t2_ns      = int(line_val[3],16)
+            t3_ns      = int(line_val[4],16)
+            t4_ns      = int(line_val[5],16)
+            # PPS Timestamps
+            t1_pps_ns  = int(line_val[6],16)
+            t4_pps_ns  = int(line_val[7],16)
+            # Repeated seconds
+            t1_sec     = self.ts_last_sec
+            t2_sec     = self.ts_last_sec
+            t3_sec     = self.ts_last_sec
+            t4_sec     = self.ts_last_sec
+            t1_pps_sec = self.ts_last_sec
+            t4_pps_sec = self.ts_last_sec
+        else:
+            raise ValueError("Missing elements on timestamp set")
 
-        # PPS Timestamps
-        t1_pps_ns  = int(line_val[10],16)
-        t1_pps_sec = int(line_val[11],16)
-        t4_pps_ns  = int(line_val[12],16)
-        t4_pps_sec = int(line_val[13],16)
 
         # Append to results
         ts_data = {
