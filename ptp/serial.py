@@ -18,18 +18,18 @@ logger = logging.getLogger(__name__)
 
 class Serial():
     def __init__(self, rru_dev, rru2_dev, bbu_dev, sensor_dev, n_samples,
-                 metadata, roe_config, baudrate, yes=False):
+                 metadata, roe_manager, baudrate, yes=False):
         """Serial capture of timestamps from testbed
 
         Args:
-            rru_dev    : RRU FPGA device ('rru_uart' or 'rru2_uart')
-            rru2_dev   : RRU2 FPGA device ('rru_uart' or 'rru2_uart')
-            bbu_dev    : BBU FPGA device ('bbu_uart')
-            sensor_dev : Sensor device ('roe_sensor')
-            n_samples  : Target number of samples (0 for infinity)
-            metadata   : Information about the testbed configuration
-            roe_config : RoE configuration data
-            yes        : Yes to prompting by default
+            rru_dev     : RRU FPGA device ('rru_uart' or 'rru2_uart')
+            rru2_dev    : RRU2 FPGA device ('rru_uart' or 'rru2_uart')
+            bbu_dev     : BBU FPGA device ('bbu_uart')
+            sensor_dev  : Sensor device ('roe_sensor')
+            n_samples   : Target number of samples (0 for infinity)
+            metadata    : Information about the testbed configuration
+            roe_manager : RoE manager object
+            yes         : Yes to prompting by default
 
         """
         self.n_samples = n_samples
@@ -41,8 +41,8 @@ class Serial():
         # Check if submodules are up-to-date
         self._check_git_submodules()
 
-        # RoE information and configuration data
-        self.roe_config = roe_config
+        # RoE object manager
+        self.roe_manager = roe_manager
 
         # Serial connections
         assert(rru_dev != rru2_dev), "RRU and RRU2 devices should be different"
@@ -64,9 +64,8 @@ class Serial():
         net_cfg   = subprocess.check_output(read_cmd, cwd="roe-instruments")
         print(net_cfg.decode())
 
-        # Initialize RoE manager object
-        self.roe = roe.RoE(self.metadata, self.roe_config, self.rru, self.rru2,
-                           self.bbu)
+        # Initialize RoE devices within the RoE manager object
+        self.roe_manager.set_devices(self.bbu, self.rru, self.rru2)
 
         # Filename
         path = "data/"
@@ -107,15 +106,15 @@ class Serial():
             sensor_thread.start()
 
         # Program and configure the RoE devices before starting the acquisition
-        if (self.roe_config is not None and
-            (self.roe_config['roe_prog'] or self.roe_config['roe_configure'])):
-            self.roe.prog_and_configure()
+        if (self.roe_manager.dev_programming_en or
+            self.roe_manager.dev_config_en):
+            self.roe_manager.prog_and_configure()
 
         if (self.bbu is not None):
             bbu_thread = threading.Thread(target=self.read_bbu, daemon=True)
             bbu_thread.start()
 
-        if (self.rru2 is not None and self.roe.rru2.active):
+        if (self.rru2 is not None and self.roe_manager.rru2.active):
             rru2_thread = threading.Thread(target=self.read_rru2, daemon=True)
             rru2_thread.start()
 
@@ -304,7 +303,7 @@ class Serial():
             assert(self.bbu.in_waiting < 2048), \
                 "BBU serial buffer is getting full"
 
-            if (self.roe.bbu.wait_free()):
+            if (self.roe_manager.bbu.wait_free()):
                 # Reset once the mutex is released since the wait could have
                 # lasted a long time
                 self.bbu.reset_input_buffer()
@@ -330,7 +329,7 @@ class Serial():
             assert(self.rru2.in_waiting < 2048), \
                 "RRU2 serial buffer is getting full"
 
-            if (self.roe.rru2.wait_free()):
+            if (self.roe_manager.rru2.wait_free()):
                 # Reset once the mutex is released since the wait could have
                 # lasted a long time
                 self.rru2.reset_input_buffer()
@@ -362,7 +361,7 @@ class Serial():
             assert(self.rru.in_waiting < 2048), \
                 "RRU serial buffer is getting full"
 
-            if (self.roe.rru.wait_free()):
+            if (self.roe_manager.rru.wait_free()):
                 # Reset once the mutex is released since the wait could have
                 # lasted a long time
                 self.rru.reset_input_buffer()
@@ -518,10 +517,10 @@ class Serial():
         self.start_json_file()
 
         logger.info("Starting capture")
-        delay_cal_mode = self.roe.delay_cal_mode
-        last_seq_id    = None
-        debug_buffer   = list()
-        count          = 0
+        delay_cal    = self.roe_manager.calibration
+        last_seq_id  = None
+        debug_buffer = list()
+        count        = 0
         while self.en_capture == True and \
               ((count < self.n_samples) or self.n_samples == 0):
 
@@ -551,14 +550,20 @@ class Serial():
                             last_seq_id,
                             run_data['seq_id']
                         ))
-                    # If we've just switched from delay calibration mode, accept
-                    # the sequenceId gap. If not, stop acquisition now.
-                    if (self.roe.delay_cal_mode != delay_cal_mode):
+
+                    # If the delay calibration procedure has just stopped
+                    # running, accept the sequenceId gap, as it is inevitable
+                    # during the shutdown of the calibration mechanism. If not,
+                    # stop acquisition now.
+                    if (delay_cal and (not self.roe_manager.delay_cal_running)):
                         logging.warning("Delay calibration mode switched from "
                                         " {} to {} - Accepting gap...".format(
-                                            delay_cal_mode,
-                                            self.roe.delay_cal_mode))
-                        self.roe.delay_cal_mode = delay_cal_mode
+                                            delay_cal,
+                                            self.roe_manager.delay_cal_running))
+                        # Save that the delay calibration is not running
+                        # anymore, so that we won't tolerate any further
+                        # sequenceId gap in the future
+                        delay_cal = self.roe_manager.delay_cal_running
                     else:
                         break
                 last_seq_id = run_data['seq_id']
