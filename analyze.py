@@ -71,14 +71,12 @@ def _run_window_optimizer(data, T_ns, dataset_file, metric, disable_plot,
     return window_optimizer.get_results()
 
 
-def _run_kalman(data, T_ns):
+def _run_kalman(data, T_ns, cache, force):
     """Run Kalman Filtering"""
 
-    kalman = ptp.kalman.Kalman(data, T_ns/1e9,
-                               trans_cov = [[1, 0], [0, 1e-2]],
-                               obs_cov = [[1e4, 0], [0, 1e2]])
-    kalman.process()
-
+    kf = ptp.kalman.KalmanFilter(data, T_ns/1e9)
+    kf.optimize(error_metric='mse', cache=cache, force=force)
+    kf.process()
 
 def _run_ls(data, N_ls, T_ns):
     """Run Least-squares estimator"""
@@ -387,7 +385,8 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
         _run_ls(ds['data'].data, window_lengths['ls'], T_ns)
 
     if (kalman):
-        _run_kalman(ds['data'].data, T_ns)
+        _run_kalman(ds['data'].data, T_ns, cache=ds['cache'],
+                    force=args.optimizer_force)
 
     if (pktselection):
         _run_pktselection(ds['data'].data, window_lengths)
