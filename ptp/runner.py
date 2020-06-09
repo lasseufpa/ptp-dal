@@ -46,8 +46,8 @@ class SimTime():
 class Runner():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
                  rtc_clk_freq = 125e6, rtc_resolution = 0, freq_tolerance = 60,
-                 freq_stability = 1e-18, phase_stability = 1e-12,
-                 pdv_distr="Gamma", gamma_shape=None, gamma_scale=None):
+                 freq_rw = 1e-18, phase_rw = 1e-12, pdv_distr="Gamma",
+                 gamma_shape=None, gamma_scale=None):
         """PTP Runner class
 
         Args:
@@ -57,28 +57,26 @@ class Runner():
             rtc_clk_freq    : RTC clock frequency in Hz
             rtc_resolution  : RTC representation resolution in ns
             freq_tolerance  : Slave RTC frequency tolerance in ppb
-            freq_stability  : Slave RTC freq. stability - given as the
-                              normalized variance of the frequency offset
-                              random-walk (set 0 for constant frequency).
-            phase_stability : Slave RTC phase stability - given as the
-                              normalized variance of the phase offset
-                              random-walk (set 0 to disable this noise).
+            freq_rw         : Normalized variance of the frequency offset
+                              random-walk presented by the slave RTC.
+            phase_rw        : Normalized variance of the phase offset
+                              random-walk presented by the slave RTC.
             pdv_distr       : PTP message PDV distribution (Gamma or Gaussian)
             gamma_shape     : Shape parameter of the Gamma distribution
             gamma_scale     : Scale parameter of the Gamma distribution
 
         """
 
-        self.n_iter                = n_iter
-        self.sync_period           = sync_period
-        self.rtc_clk_freq          = rtc_clk_freq
-        self.rtc_resolution        = rtc_resolution
-        self.pdv_distr             = pdv_distr
-        self.slave_freq_tolerance  = freq_tolerance
-        self.slave_freq_stability  = freq_stability
-        self.slave_phase_stability = phase_stability
-        self.gamma_shape           = gamma_shape
-        self.gamma_scale           = gamma_scale
+        self.n_iter               = n_iter
+        self.sync_period          = sync_period
+        self.rtc_clk_freq         = rtc_clk_freq
+        self.rtc_resolution       = rtc_resolution
+        self.pdv_distr            = pdv_distr
+        self.slave_freq_tolerance = freq_tolerance
+        self.slave_freq_rw        = freq_rw
+        self.slave_phase_rw       = phase_rw
+        self.gamma_shape          = gamma_shape
+        self.gamma_scale          = gamma_scale
 
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
@@ -113,8 +111,8 @@ class Runner():
             'rtc_resolution'        : self.rtc_resolution,
             'pdv_distr'             : self.pdv_distr,
             'slave_freq_tolerance'  : self.slave_freq_tolerance,
-            'slave_freq_stability'  : self.slave_freq_stability,
-            'slave_phase_stability' : self.slave_phase_stability,
+            'slave_freq_rw'         : self.slave_freq_rw,
+            'slave_phase_rw'        : self.slave_phase_rw,
             'gamma_shape'           : self.gamma_shape,
             'gamma_scale'           : self.gamma_scale
         }
@@ -183,8 +181,8 @@ class Runner():
                          label = "Master")
         slave_rtc  = Rtc(self.rtc_clk_freq, self.rtc_resolution,
                          tol_ppb = self.slave_freq_tolerance,
-                         norm_var_freq_rw = self.slave_freq_stability,
-                         norm_var_time_rw = self.slave_phase_stability,
+                         norm_var_freq_rw = self.slave_freq_rw,
+                         norm_var_time_rw = self.slave_phase_rw,
                          label = "Slave")
 
         # Main loop

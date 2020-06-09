@@ -9,8 +9,8 @@ Suggested experiments:
 - Set pdv_distr to "Gaussian" in order to experiment with Gaussian-distributed
   time offset noise.
 
-- Change the freq_stability = 1e-18 to control how fast the frequency offset
-  changes over time.
+- Change the freq_rw = 1e-18 to control how fast the frequency offset changes
+  over time.
 
 - Change the LS window length as it substantially affects the LS result.
 
@@ -31,7 +31,7 @@ import ptp.frequency
 # Run PTP simulation
 n_iter = 1e3
 runner = ptp.runner.Runner(n_iter = n_iter, pdv_distr="Gamma",
-                           freq_stability = 1e-18)
+                           freq_rw = 1e-18)
 runner.run()
 
 # Least-squares estimator

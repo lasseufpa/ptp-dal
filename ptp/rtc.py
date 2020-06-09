@@ -43,6 +43,9 @@ class Rtc():
 
         # Nominal increment value in nanoseconds
         inc_val_ns = (1.0/nom_freq_hz)*1e9
+        # TODO: a practical RTC cannot represent any arbitrary increment
+        # value. It will be limited by its fixed-point resolution. Use
+        # `resolution_ns` here.
 
         # Actual initial driving frequency, considering the initial fractional
         # freq. offset of the driving clock due to "manufacture tolerance"
