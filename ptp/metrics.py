@@ -91,7 +91,7 @@ class Analyser():
 
         return path
 
-    def save_metadata(self, metadata):
+    def save_metadata(self, metadata, save=False):
         """Save metadata info on the path where plots are saved
 
         Note this method will overwrite the info.txt file. Hence, it should be
@@ -107,10 +107,17 @@ class Analyser():
         metadata["sync_rate"]   = int(1 / metadata["sync_period"])
         metadata["duration"]    = str(duration_tdelta)
 
-        with open(os.path.join(self.path, 'info.txt'), 'w') as outfile:
-            print("Setup:", file=outfile)
-            json.dump(metadata, outfile, indent=4, sort_keys=True)
-            print("\n", file=outfile)
+        files = [None]
+        if (save):
+            files.append(open(os.path.join(self.path, 'info.txt'), 'w'))
+
+        for f in files:
+            print("Setup:", file=f)
+            if (f is None):
+                print(json.dumps(metadata, indent=4, sort_keys=True))
+            else:
+                json.dump(metadata, f, indent=4, sort_keys=True)
+                print("\n", file=f)
 
     def _calc_best_case_queueing(self, hops, t_idle, t_fh, t_ptp):
         """Calculate the best-case queueing delay experienced by a PTP frame

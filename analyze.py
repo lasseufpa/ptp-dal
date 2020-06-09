@@ -169,7 +169,7 @@ def _run_analyzer(data, metadata, dataset_file, no_processing=False):
     """Analyze results"""
 
     analyser = ptp.metrics.Analyser(data, dataset_file)
-    analyser.save_metadata(metadata)
+    analyser.save_metadata(metadata, save=True)
 
     # Start with the analysis that does not require processing algorithms. That
     # is, the analysis based on info readily available in the dataset or
