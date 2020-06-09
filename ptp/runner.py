@@ -9,11 +9,11 @@ Conventions:
 """
 import logging, heapq, random, time
 from pathlib import Path
-import numpy as np
 from ptp.rtc import *
 from ptp.messages import *
 from ptp.mechanisms import *
 from pprint import pprint
+import ptp.compression
 
 
 class SimTime():
@@ -88,7 +88,7 @@ class Runner():
 
         # Simulation data and metadata
         self.data     = list()
-        self.metadata = list()
+        self.metadata = {}
 
     def check_progress(self, i_iter):
         """Check/print simulation progress"""
@@ -103,16 +103,32 @@ class Runner():
         """Save runner data and metadata on NPZ file"""
 
         path     = "data/"
-        filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S") + ".npz"
-        data     = self.data
-        # Save class instance variables as metadata
-        metadata = vars(self)
-        # Delete unusable variables
-        for k in ['data', 'metadata', 'sim_timer', 'last_progress_print']:
-            del metadata[k]
+        filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S")
 
-        logging.info("Saving runner data on %s" %(filename))
-        np.savez_compressed(filename, data=data, metadata=metadata)
+        # Collect metadata
+        self.metadata = {
+            'n_iter'                : self.n_iter,
+            'sync_period'           : self.sync_period,
+            'rtc_clk_freq'          : self.rtc_clk_freq,
+            'rtc_resolution'        : self.rtc_resolution,
+            'pdv_distr'             : self.pdv_distr,
+            'slave_freq_tolerance'  : self.slave_freq_tolerance,
+            'slave_freq_stability'  : self.slave_freq_stability,
+            'slave_phase_stability' : self.slave_phase_stability,
+            'gamma_shape'           : self.gamma_shape,
+            'gamma_scale'           : self.gamma_scale
+        }
+
+        # Dataset
+        ds = {
+            'metadata' : self.metadata,
+            'data'     : self.data
+        }
+
+        # Compress and save to file
+        codec = ptp.compression.Codec(ds, filename)
+        codec.compress()
+        codec.dump(ext="xz")
 
     def load(self, filename):
         """Load runner data and metadata from NPZ file
@@ -122,10 +138,10 @@ class Runner():
 
         """
         assert(Path(filename).exists()), "Load file does not exist"
-        fd = np.load(filename)
-
-        self.data     = fd['data']
-        self.metadata = fd['metadata'].item()
+        codec = ptp.compression.Codec(filename=filename)
+        ds    = codec.decompress()
+        self.data     = ds['data']
+        self.metadata = ds['metadata']
         logging.info("Imported data from %s" %(filename))
 
     def dump(self):
@@ -138,9 +154,9 @@ class Runner():
         pprint(self.metadata)
 
         logging.info("Runner data:")
-        DelayReqResp.log_header()
+        DelayReqResp.log_header(level=logging.INFO)
         for x in self.data:
-            DelayReqResp.log(x)
+            DelayReqResp.log(x, level=logging.INFO)
 
     def run(self):
         """Main loop

@@ -31,7 +31,12 @@ class Codec():
             self.compressed = compressed
 
         if (filename != ""):
-            self.orig_size = os.path.getsize(filename)
+            # When the filename is provided, but also the dataset (ds) is
+            # provided, assume that the file doesn't exist. The name is just
+            # there so that we can set "out_name" (output file name). Otherwise,
+            # when the ds argument is empty, assume there is a file from which
+            # we will load the data.
+            self.orig_size = None if (ds != {}) else os.path.getsize(filename)
             no_ext_name    = os.path.splitext(filename)[0]
             self.name      = no_ext_name
             self.out_name  = no_ext_name + "-comp"
