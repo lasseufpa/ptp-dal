@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 from scipy import stats
+from ptp.ewma import Ewma
 logger = logging.getLogger(__name__)
 
 
@@ -36,8 +37,7 @@ class PktSelection():
         self._movavg_buffer      = np.zeros(2*N)
         self._movavg_i           = N
         # Exponentially-weight moving average
-        self._ewma_last_avg      = 0
-        self._ewma_n             = 0
+        self._ewma.reset()
         # Sample-mode params
         self._sample_mode_bin    = SAMPLE_MODE_BIN_0
         self._sample_mode_bin_fw = SAMPLE_MODE_BIN_0
@@ -46,9 +46,9 @@ class PktSelection():
 
     def _set_window_len(self, N):
         """Set window length and associated paramters"""
-        self.N              = N
-        self._ewma_alpha    = 1/N
-        self._ewma_beta     = 1 - (1/N)
+        self.N = N
+        self._ewma = Ewma()
+        self._ewma.set_equivalent_window(N)
 
     def _window(self, v, N, shift=1, copy = False):
         """Split numpy vector into windows with configurable overlapping
@@ -131,27 +131,6 @@ class PktSelection():
         self._movavg_i              = (self._movavg_i + 1) % (2*self.N)
 
         return new_avg
-
-    def _sample_avg_ewma(self, x_obs):
-        """Calculate the exponentially weighted moving average (EWMA)
-
-        Args:
-            x_obs   : Scalar time offset observation
-
-        Returns:
-            The bias-corrected exponentially weighted moving average
-
-        """
-        new_avg             = (self._ewma_beta * self._ewma_last_avg) + \
-                              self._ewma_alpha * x_obs
-        # Save for the next iteration
-        self._ewma_last_avg = new_avg
-        # Apply bias correction (but don't save the bias-corrected average)
-        self._ewma_n       += 1
-        bias_corr           = 1 / (1 - (self._ewma_beta ** self._ewma_n))
-        corr_avg            = new_avg * bias_corr
-
-        return corr_avg
 
     def _sample_median(self, t2_minus_t1_w, t4_minus_t3_w):
         """Calculate the sample-median estimate of a given observation window
@@ -464,7 +443,7 @@ class PktSelection():
             if (strategy == 'avg-recursive'):
                 x_est = self._sample_avg_recursive(x_obs[i] - drift_accum)
             elif (strategy == 'ewma'):
-                x_est = self._sample_avg_ewma(x_obs[i] - drift_accum)
+                x_est = self._ewma.step(x_obs[i] - drift_accum)
             else:
                 raise ValueError("Strategy choice %s unknown" %(strategy))
 
