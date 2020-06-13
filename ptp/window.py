@@ -120,7 +120,7 @@ class Optimizer():
             x_err = np.array([r[f"x_{est_key}"] - r["x"] for r in
                               post_tran_data if f"x_{est_key}" in r])
 
-            # Erase results from runner data
+            # Erase results from dataset
             for r in data:
                 r.pop(f"x_{est_key}", None)
 

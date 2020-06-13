@@ -108,7 +108,7 @@ class Kalman():
                 state_cov,
                 obs)
 
-            # put filtered results in the list of runner results
+            # put filtered results in the list of simulation results
             self.data[idx]["x_kf"] = state_mean[0]
             self.data[idx]["y_kf"] = state_mean[1]*1e-9
 

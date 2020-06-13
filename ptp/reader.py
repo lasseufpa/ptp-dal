@@ -7,13 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 class Reader():
-    """Reader of data acquired through the test
+    """Reader of data acquired through the testbed
 
-    Captures timestamps in real-time via serial communication or reads a log
-    file with previously acquired timestamps. Post-processes the timestamps
-    following the same sequence that is adopted by the PTP runner and similarly
-    saves reults into a list of dictionaries containing the same keys as
-    produced by the runner.
+    Reads a log file containing timestamps acquired via serial communication
+    with the testbed. Post-processes the timestamps following the same sequence
+    that is adopted in PTP simulation and similarly saves reults into a list of
+    dictionaries containing the same keys as produced by the simulation.
 
     """
     def __init__(self, ds_file=None, infer_secs=False, no_pps=False,
@@ -201,7 +200,7 @@ class Reader():
 
         Load a list containing sets of timestamps (t1, t2, t3 and t4) from a
         JSON and save each set of PTP metrics into self.data just like the PTP
-        runner would.
+        simulation would.
 
         Args:
             max_len    : Maximum number of entries to process

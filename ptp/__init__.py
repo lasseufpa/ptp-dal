@@ -3,5 +3,5 @@ __all__ = [
     'mechanisms',
     'rtc',
     'dataset',
-    'runner'
+    'simulation'
 ]

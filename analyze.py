@@ -13,7 +13,7 @@ import ptp.outlier
 import ptp.bias
 import ptp.datasets
 import ptp.cache
-import ptp.runner
+import ptp.simulation
 
 
 default_window_lengths = {
@@ -313,7 +313,7 @@ def main():
                                 reverse_ms = True)
         src.run(args.num_iter)
     else:
-        src = ptp.runner.Runner()
+        src = ptp.simulation.Simulation()
         src.load(ds_path)
 
     if (args.time_interval):

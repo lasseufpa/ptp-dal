@@ -1,4 +1,4 @@
-"""PTP simulation runner
+"""PTP simulation
 
 Conventions:
 - Simulation time is given in seconds
@@ -43,12 +43,12 @@ class SimTime():
         self.time += self.t_step
 
 
-class Runner():
+class Simulation():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
                  rtc_clk_freq = 125e6, rtc_resolution = 0, freq_tolerance = 60,
                  freq_rw = 1e-18, phase_rw = 1e-12, pdv_distr="Gamma",
                  gamma_shape=None, gamma_scale=None):
-        """PTP Runner class
+        """PTP Simulation class
 
         Args:
             n_iter          : Number of iterations
@@ -94,14 +94,14 @@ class Runner():
         progress = i_iter / self.n_iter
 
         if (progress > self.last_progress_print + 0.1):
-            print("Runner progress: %6.2f %%" %(progress * 100))
+            print("Progress: %6.2f %%" %(progress * 100))
             self.last_progress_print = progress
 
     def save(self):
-        """Save runner data and metadata on NPZ file"""
+        """Save simulation data and metadata on compressed file"""
 
         path     = "data/"
-        filename = path + "runner-" + time.strftime("%Y%m%d-%H%M%S")
+        filename = path + "sim-" + time.strftime("%Y%m%d-%H%M%S")
 
         # Collect metadata
         self.metadata = {
@@ -129,10 +129,10 @@ class Runner():
         codec.dump(ext="xz")
 
     def load(self, filename):
-        """Load runner data and metadata from NPZ file
+        """Load simulation data and metadata from compressed file
 
         Args:
-            filename : Path of the NPZ file to load
+            filename : Path to the dataset
 
         """
         assert(Path(filename).exists()), "Load file does not exist"
@@ -143,15 +143,15 @@ class Runner():
         logging.info("Imported data from %s" %(filename))
 
     def dump(self):
-        """Dump runner metadata and data into stdout
+        """Dump simulation metadata and data into stdout
 
-        Runner data is printed according to the logging level.
+        Simulation data is printed according to the logging level.
 
         """
-        print("Runner configurations:")
+        print("Simulation configurations:")
         pprint(self.metadata)
 
-        logging.info("Runner data:")
+        logging.info("Simulation data:")
         DelayReqResp.log_header(level=logging.INFO)
         for x in self.data:
             DelayReqResp.log(x, level=logging.INFO)
@@ -267,7 +267,7 @@ class Runner():
 
             # Stop criterion
             if (i_iter >= self.n_iter):
-                print("Runner progress: %6.2f %%" %(100))
+                print("Progress: %6.2f %%" %(100))
                 stop = True
 
             self.check_progress(i_iter)

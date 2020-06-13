@@ -462,7 +462,7 @@ class Serial():
             fd.write(']}')
 
     def save_json(self, data):
-        """Save runner data on JSON file"""
+        """Save data on JSON file"""
 
         with open(self.json_file, 'a') as fd:
             if (data['idx'] > 0):
