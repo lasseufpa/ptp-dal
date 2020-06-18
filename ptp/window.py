@@ -325,14 +325,9 @@ class Optimizer():
         # Check if the cached data is complete, i.e. have window configuration
         # of all estimators
         for k, v in data.items():
-            if (not v["N_best"]):
+            if (v["N_best"] is None):
                 print("Window configuration file is incomplete.")
-                raw_resp = input("Find missing windows? [Y/n] ") or "Y"
-                response = raw_resp.lower()
-                if (response == 'y'):
-                    return False
-                else:
-                    break
+                return False
         return True
 
     def process(self, estimator, error_metric="max-te", cache=None,
@@ -375,19 +370,20 @@ class Optimizer():
             cached_cfg = cache.load('window')
 
             if (cached_cfg and not force):
+                self.est_op = cached_cfg
                 if (self._is_cache_complete(cached_cfg)):
-                    self.est_op = cached_cfg
                     return
-                else:
-                    logger.info("Cleaning configurations from %s." %(
-                        cache.cache_file))
-                    cache.save(est_op, identifier='window')
         else:
             logging.info("Unable to find existed configuration file")
 
-        # Iterate over the estimators
-        estimators = [k for k in self.est_op.keys()] if (estimator == 'all') \
-                     else [estimator]
+        # Estimators to optimize
+        if (estimator == 'all'):
+            # All estimators, except the ones that are already optimized (within
+            # the results that were loaded from cache)
+            estimators = [k for k in self.est_op.keys() if
+                          self.est_op[k]["N_best"] is None]
+        else:
+            estimators = [estimator]
 
         for estimator in estimators:
             # Search the window length that minimizes the calculated error
