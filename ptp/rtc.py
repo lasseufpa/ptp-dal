@@ -7,7 +7,8 @@ from ptp.timestamping import Timestamp
 
 class Rtc():
     def __init__(self, nom_freq_hz, resolution_ns, tol_ppb = 0.0,
-                 norm_var_freq_rw = 0.0, norm_var_time_rw = 0.0, label="RTC"):
+                 norm_var_freq_rw = 0.0, norm_var_time_rw = 0.0, label="RTC",
+                 ts_quantization=True):
         """Real-time Clock (RTC)
 
         Model:
@@ -34,8 +35,11 @@ class Rtc():
             norm_var_freq_rw : Freq. offset random-walk's normalized variance
             norm_var_time_rw : Time offset random-walk's normalized variance
             label            : RTC label
+            ts_quantization  : Enables quantization of the time scale
 
         """
+        # Time scale quantization
+        self.ts_quantization = ts_quantization
 
         # Start the rtc with a random time and phase
         sec_0 = random.randint(0, 0)
@@ -149,7 +153,13 @@ class Rtc():
         # Based on the current RTC driving clock period (which changes over
         # time), check how many times the RTC has incremented since last time
         rtc_period_ns = (1.0/self.freq_hz) * 1e9
-        n_new_incs = math.floor((t_sim_ns - self.t_last_inc) / (rtc_period_ns))
+
+        # The number of increments controls the time scale behavior. If it is
+        # truncated to integer values, the time-scale will be quantized, as in
+        # real RTC hardware.
+        n_new_incs = (t_sim_ns - self.t_last_inc) / (rtc_period_ns)
+        if (self.ts_quantization):
+            n_new_incs = math.floor(n_new_incs)
         # TODO: model phase noise in addition to freq. noise
 
         # Prevent negative number of increments

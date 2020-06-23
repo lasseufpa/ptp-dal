@@ -65,6 +65,10 @@ def main():
     sim_group.add_argument('--gamma-scale',  default=None,
                            type=int,
                            help="Scale parameter of the Gamma distribution")
+    sim_group.add_argument('--no-ts-quantization', default=False,
+                           action='store_true',
+                           help="Disables the quantization of the time scale"
+                           )
     args = parser.parse_args()
 
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
@@ -81,7 +85,8 @@ def main():
         phase_rw = args.phase_rw,
         pdv_distr = args.pdv_distr,
         gamma_shape = args.gamma_shape,
-        gamma_scale = args.gamma_scale
+        gamma_scale = args.gamma_scale,
+        ts_quantization = (not args.no_ts_quantization)
     )
 
     if (args.file is not None):

@@ -47,7 +47,7 @@ class Simulation():
     def __init__(self, n_iter = 100, sim_t_step = 1e-9, sync_period = 1.0/16,
                  rtc_clk_freq = 125e6, rtc_resolution = 0, freq_tolerance = 60,
                  freq_rw = 1e-18, phase_rw = 1e-12, pdv_distr="Gamma",
-                 gamma_shape=None, gamma_scale=None):
+                 gamma_shape=None, gamma_scale=None, ts_quantization=True):
         """PTP Simulation class
 
         Args:
@@ -64,6 +64,7 @@ class Simulation():
             pdv_distr       : PTP message PDV distribution (Gamma or Gaussian)
             gamma_shape     : Shape parameter of the Gamma distribution
             gamma_scale     : Scale parameter of the Gamma distribution
+            ts_quantization : Enables quantization of the time scale
 
         """
 
@@ -77,6 +78,7 @@ class Simulation():
         self.slave_phase_rw       = phase_rw
         self.gamma_shape          = gamma_shape
         self.gamma_scale          = gamma_scale
+        self.ts_quantization      = ts_quantization
 
         # Simulation time
         self.sim_timer = SimTime(sim_t_step)
@@ -114,7 +116,8 @@ class Simulation():
             'slave_freq_rw'         : self.slave_freq_rw,
             'slave_phase_rw'        : self.slave_phase_rw,
             'gamma_shape'           : self.gamma_shape,
-            'gamma_scale'           : self.gamma_scale
+            'gamma_scale'           : self.gamma_scale,
+            'ts_quantization'       : self.ts_quantization
         }
 
         # Dataset
@@ -178,12 +181,15 @@ class Simulation():
         # default is to assume perfect conditions (no phase/freq. noise and no
         # freq. error).
         master_rtc = Rtc(self.rtc_clk_freq, self.rtc_resolution,
-                         label = "Master")
+                         label = "Master",
+                         ts_quantization = self.ts_quantization
+                         )
         slave_rtc  = Rtc(self.rtc_clk_freq, self.rtc_resolution,
                          tol_ppb = self.slave_freq_tolerance,
                          norm_var_freq_rw = self.slave_freq_rw,
                          norm_var_time_rw = self.slave_phase_rw,
-                         label = "Slave")
+                         label = "Slave",
+                         ts_quantization = self.ts_quantization)
 
         # Main loop
         evts       = list()
