@@ -306,7 +306,8 @@ def main():
     cache = None if args.no_cache else ptp.cache.Cache(ds_path)
 
     # Detect the source of the dataset
-    ds_source = "testbed" if args.file.split("-")[0] == "serial" else \
+    ds_name   = ds_path.split("/")[-1]
+    ds_source = "testbed" if ds_name.split("-")[0] == "serial" else \
                 "simulation"
     logging.info(f"Dataset acquired from {ds_source}")
 
