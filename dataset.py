@@ -98,6 +98,10 @@ def main():
                         help='Gap in ns assigned between the departure of a \
                         PTP event message and the start of the preceding \
                         FH frame')
+    search.add_argument('--ptp-unicast',
+                        choices=['True', 'False'],
+                        help='Whether dataset uses the unicast-addressed PTP \
+                        messages')
     args = parser.parse_args()
 
     if (args.command is None):

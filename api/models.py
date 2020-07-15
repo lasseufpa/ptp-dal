@@ -29,6 +29,7 @@ class Dataset(db.Model):
     tstamp_latency_corr_rru1_rx = db.Column(db.Integer)
     tstamp_latency_corr_rru2_tx = db.Column(db.Integer)
     tstamp_latency_corr_rru2_rx = db.Column(db.Integer)
+    ptp_unicast                 = db.Column(db.Boolean)
     fh_traffic                  = db.Column(db.Boolean, nullable=False)
     fh_type                     = db.Column(db.String(20))
     fh_fs                       = db.Column(db.Float)

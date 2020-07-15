@@ -214,6 +214,7 @@ class Formatter():
                 'bbu': None,
                 'rru': None
             },
+            'ptp_unicast': None,
             'departure_ctrl': None,
             'departure_gap': None,
             'tstamp_latency_corr': {
@@ -275,11 +276,13 @@ class Formatter():
         # Add dataset name
         flatten_exp_md['name'] = self.ds_name
 
-        # Reduce keynames on the final dictionary
-        red_keys = {'fh_traffic' : 'fh'}
-        for old_key,new_key in red_keys.items():
-            for k in flatten_exp_md.keys():
-                flatten_exp_md[k.replace(old_key, new_key)] = flatten_exp_md.pop(k)
+        # Reduce 'fh_traffic' prefix to 'fh' on the final dictionary
+        fh_keys = []
+        for k in flatten_exp_md.keys():
+            if 'fh_traffic' in k:
+                fh_keys.append(k)
+        for k in fh_keys:
+            flatten_exp_md[k.replace('fh_traffic', 'fh')] = flatten_exp_md.pop(k)
 
         # Add boolean value to indicate the presence or absence of the FH
         # traffic

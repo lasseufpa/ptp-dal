@@ -27,6 +27,7 @@ metadata_v1 = {
         "bbu" : 239,
         "rru" : 239
     },
+    'ptp_unicast': False,
     'departure_ctrl': False,
     'departure_gap': 0,
     'tstamp_latency_corr': {
@@ -75,6 +76,7 @@ metadata_v2 = {
         "bbu" : 239,
         "rru" : 239
     },
+    'ptp_unicast': False,
     'departure_ctrl': False,
     'departure_gap': 0,
     'tstamp_latency_corr': {
@@ -119,6 +121,7 @@ expected_md_structure = {
     'start_time': datetime.strptime('2020-04-25 09:47:07', '%Y-%m-%d %H:%M:%S'),
     'departure_ctrl': False,
     'departure_gap': 0,
+    'ptp_unicast': False,
     'tstamp_latency_corr_bbu_tx': 80,
     'tstamp_latency_corr_bbu_rx': 80,
     'tstamp_latency_corr_rru1_tx': 80,
