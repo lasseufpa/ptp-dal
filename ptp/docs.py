@@ -18,7 +18,7 @@ def sizeof_fmt(num, suffix='B'):
 
 
 class Docs():
-    def __init__(self, reset=False, cfg_path='/opt/ptp_datasets/'):
+    def __init__(self, reset=False, cfg_path='data/'):
 
         self.cfg_path     = os.path.abspath(cfg_path)
         self.catalog_json = os.path.join(cfg_path, 'catalog.json')

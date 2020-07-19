@@ -11,7 +11,7 @@ def main():
                         (default: %(default)s)')
 
     parser.add_argument('-d', '--directory',
-                        default='/opt/ptp_datasets/',
+                        default='data/',
                         help='Dataset directory (default: %(default)s)')
 
     parser.add_argument('-r', '--reset',
