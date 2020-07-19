@@ -146,7 +146,7 @@ class Docs():
             fd.write(html_body)
             fd.write(html_foot)
 
-        logger.info(f"HTML catalog at {self.catalog_html} updated")
+        logger.info(f"Updated HTML dataset catalog at {self.catalog_html}")
 
     def process(self):
         """Read all datasets of target directory and generate catalog"""

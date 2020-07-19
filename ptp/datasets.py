@@ -1,7 +1,7 @@
 """Dataset manager
 """
 import subprocess, os, logging, json, requests
-from ptp import util
+from ptp import util, docs
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +197,13 @@ class Datasets():
                     ds_path = self._download_api(entry, ds_name)
 
                 if (ds_path is not None):
-                    return ds_path
+                    break
+
+        # Add to local catalog
+        if (ds_path is not None):
+            catalog = docs.Docs()
+            catalog.add_dataset(ds_path)
+            return ds_path
 
         # We should have returned before if a datset was found on the local or
         # remote repositories
