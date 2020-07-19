@@ -113,23 +113,20 @@ class Datasets():
             Path to the file that was downloaded. None if not found.
 
         """
-        addr    = cfg['user'] + "@" + cfg['addr'] + ":" + cfg['path']
-        cmd     = ["scp", os.path.join(addr, ds_name), "data/"]
-        found   = False
+        ds_repo = cfg['user'] + "@" + cfg['addr'] + ":" + cfg['path']
+        scp_src = os.path.join(ds_repo, ds_name)
+        cmd     = ["scp", scp_src, "data/"]
         ds_path = None
 
-        try:
-            logger.info("> %s" %(" ".join(cmd)))
-            out   = subprocess.check_output(cmd, timeout=2.0)
-            found = True
-        except subprocess.CalledProcessError as e:
-            pass
+        logger.info("Trying %s" %(scp_src))
+        res = subprocess.run(cmd, timeout=2.0, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
 
-        if (found):
-            print("Downloaded {} from {}".format(ds_name, addr))
+        if (res.returncode == 0):
+            print("Downloaded {} from {}".format(ds_name, ds_repo))
             ds_path = os.path.join("data", ds_name)
         else:
-            logger.info("Couldn't find file {} in {}".format(ds_name, addr))
+            logger.debug("Couldn't find file {} in {}".format(ds_name, ds_repo))
 
         return ds_path
 
@@ -146,13 +143,13 @@ class Datasets():
         """
         addr    = self.api_url + 'dataset'
         ds_req  = os.path.join(addr, ds_name)
-        print(ds_req)
+        logger.info("Trying " + ds_req)
         found   = False
         ds_path = None
 
         try:
             cert = (cfg['ssl_crt'], cfg['ssl_key'])
-            req  = requests.get(ds_req, cert=cert)
+            req  = requests.get(ds_req, cert=cert, timeout=2.0)
             req.raise_for_status()
             local_ds_path = os.path.join(self.local_repo, ds_name)
             open(local_ds_path, 'wb').write(req.content)
@@ -164,7 +161,7 @@ class Datasets():
             print("Downloaded {} from {}".format(ds_name, addr))
             ds_path = local_ds_path
         else:
-            logger.info("Couldn't find file {} in {}".format(ds_name, addr))
+            logger.debug("Couldn't find file {} in {}".format(ds_name, addr))
 
         return ds_path
 
