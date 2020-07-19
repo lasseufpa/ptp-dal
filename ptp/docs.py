@@ -50,29 +50,38 @@ class Docs():
         Returns:
             Dictionary containing the metadata
         """
-        metadata = None
+        codec     = ptp.compression.Codec(filename=filename)
+        dataset   = codec.decompress()
+        ds_name   = os.path.basename(filename)
+        ds_source = "testbed" if ds_name.split("-")[0] == "serial" else \
+                    "simulation"
 
-        codec = ptp.compression.Codec(filename=filename)
-        dataset = codec.decompress()
+        if ('data' not in dataset or len(dataset['data']) == 0):
+            logger.warning(f"File {filename} does not have any data")
+            return
 
         # Check metadata for compatibility with old captures
-        if ('metadata' and 'data' in dataset and len(dataset['data']) > 0):
+        if ('metadata' in dataset and len(dataset['metadata']) > 0):
             metadata = dataset['metadata']
-            # Add other relevat information
-            t_end       = Timestamp(dataset['data'][-1]["t2_sec"],
-                                    dataset['data'][-1]["t2"])
-            t_start     = Timestamp(dataset['data'][0]["t2_sec"],
-                                    dataset['data'][0]["t2"])
-            duration_ns = float(t_end - t_start)
-            duration_tdelta = timedelta(microseconds = (duration_ns / 1e3))
-            metadata['size']        = sizeof_fmt(os.path.getsize(filename))
-            metadata["n_exchanges"] = len(dataset['data'])
-            metadata["duration"]    = str(duration_tdelta)
         else:
-            if ('metadata' not in dataset):
-                logger.warning(f"File {filename} does not have metadata")
-            if ('data' not in dataset or len(dataset['data']) == 0):
-                logger.warning(f"File {filename} does not have any data")
+            metadata = {}
+
+        # Add other relevant information to the metadata dictionary
+        if (ds_source == "testbed"):
+            t_end   = Timestamp(dataset['data'][-1]["t2_sec"],
+                                dataset['data'][-1]["t2"])
+            t_start = Timestamp(dataset['data'][0]["t2_sec"],
+                                dataset['data'][0]["t2"])
+        else:
+            t_end   = dataset['data'][-1]["t2"]
+            t_start = dataset['data'][0]["t2"]
+
+        duration_ns             = float(t_end - t_start)
+        duration_tdelta         = timedelta(microseconds = (duration_ns / 1e3))
+        metadata["duration"]    = str(duration_tdelta)
+        metadata["size"]        = sizeof_fmt(os.path.getsize(filename))
+        metadata["n_exchanges"] = len(dataset['data'])
+        metadata["source"]      = ds_source.title()
 
         return metadata
 
@@ -83,7 +92,11 @@ class Docs():
             file_path : Path to dataset JSON file
 
         """
-        metadata = self._read_metadata(file_path)
+        try:
+            metadata = self._read_metadata(file_path)
+        except EOFError:
+            logger.error(f"Dataset {file_path} missing termination")
+            return # probably a broken acquisition
         ds_name  = os.path.basename(file_path)
 
         exists = False
