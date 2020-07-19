@@ -15,5 +15,6 @@ ENV PYTHONDONTWRITEBYTECODE 1
 
 WORKDIR /app/api
 CMD ["gunicorn", "-b", "0.0.0.0:80", "run:app", "--timeout", "120", \
-"--log-level", "DEBUG", "--access-logfile", "-", "--error-logfile", "-"]
+"--preload", "--log-level", "DEBUG", "--access-logfile", "-", \
+"--error-logfile", "-"]
 
