@@ -26,7 +26,8 @@ class DatasetSearch(Resource):
                     'n-rru-ptp'          : ds.n_rru_ptp,
                     'n-hops (rru1/rru2)' : f'{ds.hops_rru1}/{ds.hops_rru2}',
                     'pipeline (bbu/rru)' : f'{ds.pipeline_bbu}/{ds.pipeline_rru}',
-                    'start-time'         : ds.start_time.strftime('%Y-%m-%d %H:%M:%S')
+                    'start-time'         : ds.start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'n-exchanges'        : ds.n_exchanges
                 })
             return {'found': results}
         else:

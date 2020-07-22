@@ -30,6 +30,8 @@ class Manager:
             ds_path: Dataset path
 
         """
+        metadata = None
+
         try:
             codec = ptp.compression.Codec(filename=ds_path)
             ds    = codec.decompress()
@@ -37,12 +39,19 @@ class Manager:
             self.logger.warning(f"Error while reading {ds_path}")
             return
 
-        if ("metadata" in ds):
+        # Check metadata for compatibility with old captures
+        if ('metadata' and 'data' in ds and len(ds['data']) > 0):
             metadata = ds['metadata']
-            return metadata
+
+            # Add additional information
+            metadata["n_exchanges"] = len(ds['data'])
         else:
-            self.logger.warning(f"Unable to find metadata in {ds_path}")
-            return
+            if ('metadata' not in ds):
+                self.logger.warning(f"File {ds_path} does not have metadata")
+            if ('data' not in ds or len(ds['data']) == 0):
+                self.logger.warning(f"File {ds_path} does not have any data")
+
+        return metadata
 
     def search(self, parameters):
         """Apply a query on the database based on the passed parameters
@@ -231,7 +240,8 @@ class Formatter():
                     'rx': 80
                 }
             },
-            'start_time': None
+            'start_time': None,
+            'n_exchanges': None
         }
 
         # Generate flatten dictionaries

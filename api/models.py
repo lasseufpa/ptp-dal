@@ -42,6 +42,7 @@ class Dataset(db.Model):
     fh_n_rru_ul                 = db.Column(db.Integer)
     fh_n_rru_dl                 = db.Column(db.Integer)
     fh_vlan_pcp                 = db.Column(db.Integer)
+    n_exchanges                 = db.Column(db.Integer)
 
     def __repr__(self):
         return f"Dataset {self.name}"

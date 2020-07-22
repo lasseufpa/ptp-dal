@@ -44,6 +44,7 @@ metadata_v1 = {
             'rx': 80
         }
     },
+    'n_exchanges': 1000,
     'start_time': '2020-04-25 09:47:07'
 }
 
@@ -93,6 +94,7 @@ metadata_v2 = {
             'rx': 80
         }
     },
+    'n_exchanges': 1000,
     'start_time': '2020-04-25 09:47:07'
 }
 
@@ -128,7 +130,8 @@ expected_md_structure = {
     'tstamp_latency_corr_rru1_rx': 80,
     'tstamp_latency_corr_rru2_tx': 80,
     'tstamp_latency_corr_rru2_rx': 80,
-    'fh_traffic': True
+    'fh_traffic': True,
+    'n_exchanges': 1000
 }
 
 
