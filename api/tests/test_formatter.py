@@ -20,7 +20,8 @@ metadata_v1 = {
         'n_rru_ul': 2,
         'vlan_pcp': 1
     },
-    'delay_cal': False,
+    'delay_cal': True,
+    'delay_cal_duration': 300,
     'hops': 4,
     'n_rru_ptp': 2,
     'pipelines': {
@@ -70,7 +71,8 @@ metadata_v2 = {
         'n_rru_ul': 2,
         'vlan_pcp': 1
     },
-    'delay_cal': False,
+    'calibration': True,
+    'calibration_duration': 300,
     'hops': 4,
     'n_rru_ptp': 2,
     'pipelines': {
@@ -113,8 +115,8 @@ expected_md_structure = {
     'fh_n_rru_dl': 2,
     'fh_n_rru_ul': 2,
     'fh_vlan_pcp': 1,
-    'delay_cal': False,
-    'delay_cal_duration': None,
+    'calibration': True,
+    'calibration_duration': 300,
     'hops_rru1': 4,
     'hops_rru2': 4,
     'n_rru_ptp': 2,

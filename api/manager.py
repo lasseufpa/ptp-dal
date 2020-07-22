@@ -212,8 +212,8 @@ class Formatter():
                 'n_rru_ul': None,
                 'vlan_pcp': None,
             },
-            'delay_cal': None,
-            'delay_cal_duration': None,
+            'calibration': None,
+            'calibration_duration': None,
             'hops': {
                 'rru1': None,
                 'rru2': None,
@@ -256,6 +256,7 @@ class Formatter():
                 incoming_k = "pipelines_{}".format(k.split("_")[-1])
                 if (incoming_k in flatten_ds_md):
                     flatten_exp_md[k] = flatten_ds_md[incoming_k]
+
             elif (k == "start_time"):
                 flatten_exp_md[k] = datetime.datetime.strptime(
                     flatten_ds_md[k], '%Y-%m-%d %H:%M:%S')
@@ -282,6 +283,19 @@ class Formatter():
                     flatten_exp_md[k] = flatten_ds_md[find_key]
                 except:
                     pass
+
+        # The keys "delay_cal" and "delay_cal_duration" were substituted
+        # for "calibration" and "calibration_duration" respectively in
+        # the new version of pyroe. In order to maintain compatibility
+        # with old datasets get the right values using the old key.
+        if (flatten_exp_md["calibration"] is None \
+                and "delay_cal" in flatten_ds_md):
+            flatten_exp_md["calibration"] = flatten_ds_md["delay_cal"]
+
+        if (flatten_exp_md["calibration_duration"] is None \
+                and "delay_cal_duration" in flatten_ds_md):
+            flatten_exp_md["calibration_duration"] = \
+                flatten_ds_md["delay_cal_duration"]
 
         # Add dataset name
         flatten_exp_md['name'] = self.ds_name

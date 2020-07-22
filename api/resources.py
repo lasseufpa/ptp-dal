@@ -20,7 +20,7 @@ class DatasetSearch(Resource):
                     'oscillator'         : ds.oscillator,
                     'sync-period'        : ds.sync_period,
                     'fh-traffic'         : ds.fh_traffic,
-                    'calibration'        : ds.delay_cal,
+                    'calibration'        : ds.calibration,
                     'departure-ctrl'     : ds.departure_ctrl,
                     'n-rrus (dl/ul)'     : f'{ds.fh_n_rru_dl}/{ds.fh_n_rru_ul}',
                     'n-rru-ptp'          : ds.n_rru_ptp,
