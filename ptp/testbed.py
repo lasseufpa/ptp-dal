@@ -9,6 +9,7 @@ from collections import deque
 from ptp.reader import Reader
 from ptp.docs import Docs
 import ptp.compression
+from ptp import util
 
 
 logger = logging.getLogger(__name__)
@@ -89,11 +90,11 @@ class Acquisition():
 
         dst_dir  = "/opt/ptp_datasets/"
         dst      = dst_dir + os.path.basename(self.xz_file)
-        raw_resp = self._yes or input(f"Move {self.xz_file} to {dst_dir}? [Y/n] ") or "Y"
 
         # Move dataset to '/opt/ptp_datasets/' and add entry on the dataset
         # catalog at '/opt/ptp_datasets/README.md'
-        if (self._yes or (raw_resp.lower() == 'y')):
+        if (self._yes or
+            util.ask_yes_or_no(f"Move {self.xz_file} to {dst_dir}?")):
             # Move
             shutil.move(self.xz_file, dst)
             # Add to catalog
@@ -155,6 +156,19 @@ class Acquisition():
 
         self._end_json_file()
         self._save_to_bin()
-        self._move()
 
+        if (target_samples != math.inf and (sample_count != target_samples)):
+            logger.warning("Failed to acquire the target number of samples.")
+            logger.warning("Target was {}, but acquired only {}".format(
+                target_samples, sample_count))
+            # In non-interactive mode, consider this as a failure and don't move
+            # the dataset to the dataset repository
+            if (self._yes):
+                logger.warning("Dataset was not moved to repository")
+                return
+
+            if (not util.ask_yes_or_no("Move dataset to repository anyway?")):
+                return
+
+        self._move()
 
