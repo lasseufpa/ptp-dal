@@ -42,7 +42,8 @@ class Acquisition():
         self.xz_file   = basename + "-comp.xz" # compressed file
 
         # State
-        self.json_ended = False
+        self.json_ended   = False
+        self.sample_count = 0
 
     def _start_json_file(self):
         """Start the JSON file structure
@@ -102,10 +103,35 @@ class Acquisition():
             docs.add_dataset(dst) # assume file has already moved to dst
 
     def _catch(self, signum, frame):
+        """Signal handler"""
+        self._terminate(True)
+
+    def _terminate(self, signal=False):
+        """Terminate the acquisition"""
         self.roe.serial.stop()
         logger.info("Terminating acquisition of dataset")
         self._end_json_file()
         self._save_to_bin()
+
+        if ((self.n_samples != 0) and (self.sample_count != self.n_samples)):
+            logger.warning("Failed to acquire the target number of samples.")
+            logger.warning("Target was {}, but acquired only {}".format(
+                self.n_samples, self.sample_count))
+            # In non-interactive mode, consider this as a failure and don't move
+            # the dataset to the dataset repository
+            if (self._yes):
+                logger.warning("Dataset was not moved to repository")
+                exit(-1)
+
+            if (not util.ask_yes_or_no("Move dataset to repository anyway?")):
+                exit()
+        elif (self.n_samples == 0):
+            # When acquiring infinite samples in non-interactive mode, if the
+            # termination is being called by a signal handler, don't move the
+            # dataset to the repository.
+            if (self._yes and signal):
+                exit(-1)
+
         self._move()
         logging.info("Run:\n./analyze.py -vvvv -f %s" %(
             os.path.basename(self.xz_file)))
@@ -129,9 +155,9 @@ class Acquisition():
 
         logger.info("Starting capture")
         debug_buffer   = list()
-        sample_count   = 0
         target_samples = math.inf if (self.n_samples == 0) else self.n_samples
-        while (self.roe.serial.enabled and (sample_count < target_samples)):
+        while (self.roe.serial.enabled and
+               (self.sample_count < target_samples)):
             # Is there any data available?
             if (not self.roe.serial.data):
                 time.sleep(0.1)
@@ -152,23 +178,7 @@ class Acquisition():
 
             # Append to output JSON file
             self._save_json(data)
-            sample_count += 1
+            self.sample_count += 1
 
-        self._end_json_file()
-        self._save_to_bin()
-
-        if (target_samples != math.inf and (sample_count != target_samples)):
-            logger.warning("Failed to acquire the target number of samples.")
-            logger.warning("Target was {}, but acquired only {}".format(
-                target_samples, sample_count))
-            # In non-interactive mode, consider this as a failure and don't move
-            # the dataset to the dataset repository
-            if (self._yes):
-                logger.warning("Dataset was not moved to repository")
-                return
-
-            if (not util.ask_yes_or_no("Move dataset to repository anyway?")):
-                return
-
-        self._move()
+        self._terminate()
 
