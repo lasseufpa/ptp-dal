@@ -196,6 +196,9 @@ class Datasets():
                 if (ds_path is not None):
                     break
 
+            if (ds_path is not None):
+                break
+
         # Add to local catalog
         if (ds_path is not None):
             catalog = docs.Docs()
