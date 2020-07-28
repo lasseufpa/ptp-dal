@@ -43,6 +43,7 @@ Main scripts:
   `Lasse100` machine).
 
 Complementary:
+* `batch.py`    : Runs a batch of acquisitions using `capture.py`.
 * `compress.py` : Compress a given dataset captured with the testbed.
 * `ptp_plots.py`: Demonstrates several plots that can be generated using the
   `ptp.metrics` module.
