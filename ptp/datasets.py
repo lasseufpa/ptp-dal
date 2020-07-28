@@ -119,7 +119,7 @@ class Datasets():
         ds_path = None
 
         logger.info("Trying %s" %(scp_src))
-        res = subprocess.run(cmd, timeout=2.0, stdout=subprocess.DEVNULL,
+        res = subprocess.run(cmd, timeout=60.0, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
 
         if (res.returncode == 0):
@@ -149,7 +149,7 @@ class Datasets():
 
         try:
             cert = (cfg['ssl_crt'], cfg['ssl_key'])
-            req  = requests.get(ds_req, cert=cert, timeout=2.0)
+            req  = requests.get(ds_req, cert=cert, timeout=60.0)
             req.raise_for_status()
             local_ds_path = os.path.join(self.local_repo, ds_name)
             open(local_ds_path, 'wb').write(req.content)
