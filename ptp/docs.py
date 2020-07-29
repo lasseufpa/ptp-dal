@@ -19,10 +19,17 @@ def sizeof_fmt(num, suffix='B'):
 
 class Docs():
     def __init__(self, reset=False, cfg_path='data/'):
+        if (cfg_path[0] == "/"):
+            # Assume the target path is an absolute path
+            self.cfg_path = os.path.abspath(cfg_path)
+        else:
+            # Assume the path is relative to this project's root directory
+            this_file     = os.path.realpath(__file__)
+            rootdir       = os.path.dirname(os.path.dirname(this_file))
+            self.cfg_path = os.path.join(rootdir, "data")
 
-        self.cfg_path     = os.path.abspath(cfg_path)
-        self.catalog_json = os.path.join(cfg_path, 'catalog.json')
-        self.catalog_html = os.path.join(cfg_path, 'index.html')
+        self.catalog_json = os.path.join(self.cfg_path, 'catalog.json')
+        self.catalog_html = os.path.join(self.cfg_path, 'index.html')
 
         if (os.path.isfile(self.catalog_json) and reset):
             raw_resp = input(f"Catalog {self.catalog_json} already exists.\
