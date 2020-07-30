@@ -69,6 +69,7 @@ class Analyser():
         """
         self.data        = data
         self.path        = self._set_path(file)
+        self.info        = os.path.join(self.path, 'info.txt')
         self.prefix      = prefix
         self.save_format = save_format
         self.dpi         = dpi
@@ -139,7 +140,7 @@ class Analyser():
 
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'w'))
+            files.append(open(self.info, 'w'))
 
         for f in files:
             print("Setup:", file=f)
@@ -280,7 +281,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
             print("\nExpected theoretical delays:\n", file=files[1])
 
         # Maintain compatibility with old captures
@@ -415,7 +416,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
 
         for f in files:
             print("Average no. of PTP exchanges per second: %f" %(n_per_sec),
@@ -448,7 +449,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
 
         if (verbose):
             for f in files:
@@ -496,7 +497,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
 
         # Skip the transitory (e.g. due to Kalman)
         n_skip         = int(0.2*len(self.data))
@@ -525,7 +526,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
 
         for f in files:
             print("\nFrequency offset estimation error statistics:\n", file=f)
@@ -551,7 +552,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
 
         for f in files:
             print("\nTime offset drift estimation error statistics:\n", file=f)
@@ -615,7 +616,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
 
         for f in files:
             print(f"\nPerformance ranking based on {metric}:\n", file=f)
@@ -659,7 +660,7 @@ class Analyser():
         # Print to stdout and, if so desired, to info.txt
         files = [None]
         if (save):
-            files.append(open(os.path.join(self.path, 'info.txt'), 'a'))
+            files.append(open(self.info, 'a'))
 
         seq_ids = np.array([r["seq_id"] for r in self.data if "seq_id" in r])
         diff    = np.mod(np.diff(seq_ids), 2**16)
