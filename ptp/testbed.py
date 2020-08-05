@@ -16,20 +16,18 @@ logger = logging.getLogger(__name__)
 
 
 class Acquisition():
-    def __init__(self, n_samples, metadata, roe, yes):
+    def __init__(self, n_samples, roe, yes):
         """Data acquisition from the PTP testbed
 
         Gather PTP timestamp and complimentary data from the FPGA-based testbed.
 
         Args:
             n_samples   : Target number of samples (0 for infinity)
-            metadata    : Information about the testbed configuration
             roe         : RoE object
             yes         : Yes to prompting by default
 
         """
         self.n_samples = n_samples
-        self.metadata  = metadata
         self._yes      = yes
 
         # RoE object
@@ -48,19 +46,20 @@ class Acquisition():
     def _start_json_file(self):
         """Start the JSON file structure
 
-        The JSON file is organized as a dictionary and contain the data and
-        metadata. First, the file is initialized with the initial dict structure
-        and the metadata information. After, list of dictionaries containing the
-        testbed timestamps are saved to compose the data.
+        The JSON file should contain the "data" and "metadata" fields. First,
+        the file is initialized with the "data". The "metadata" is added by the
+        end of the acquisition.
 
         """
         with open(self.json_file, 'a') as fd:
-            fd.write('{"metadata": ')
-            json.dump(self.metadata, fd)
-            fd.write(', "data":[')
+            fd.write('{"data":[')
 
     def _end_json_file(self):
-        """End the JSON file structure"""
+        """End the JSON file structure
+
+        Close the data array, add the metadata and close the main JSON scope.
+
+        """
         if (self.json_ended):
             return
 
@@ -68,8 +67,14 @@ class Acquisition():
 
         logging.info(f"Finalize {self.json_file} file")
 
+        # Get the metadata from the RoE manager
+        metadata = self.roe.manager.get_config()
+
         with open(self.json_file, 'a') as fd:
-            fd.write(']}')
+            fd.write('],\n')
+            fd.write('"metadata": ')
+            json.dump(metadata, fd)
+            fd.write('}')
 
     def _save_json(self, data):
         """Save data on JSON file"""

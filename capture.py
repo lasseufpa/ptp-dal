@@ -99,8 +99,7 @@ def main():
     roe_system.config()
 
     # Start data acquisition
-    acquisition = ptp.testbed.Acquisition(args.num_iter, metadata, roe_system,
-                                          args.yes)
+    acquisition = ptp.testbed.Acquisition(args.num_iter, roe_system, args.yes)
     acquisition.run()
 
 
