@@ -150,14 +150,18 @@ class Analyser():
                 json.dump(metadata, f, indent=4, sort_keys=True)
                 print("\n", file=f)
 
-    def _calc_best_case_queueing(self, hops, t_idle, t_fh, t_ptp):
+    def _calc_best_case_queueing(self, hops, t_idle, t_fh, t_ptp, direction,
+                                 n_rru):
         """Calculate the best-case queueing delay experienced by a PTP frame
 
         Args:
-            hops   : Number of hops the PTP frame traverses
-            t_idle : Idle time between consecutive FH frames
-            t_fh   : FH transmission (serialization) delay
-            t_ptp  : PTP transmission (serialization) delay
+            hops      : Number of hops the PTP frame traverses
+            t_idle    : Idle time between consecutive FH frames
+            t_fh      : FH transmission (serialization) delay
+            t_ptp     : PTP transmission (serialization) delay
+            direction : Message direction (dl or ul)
+            n_rru     : Number of RRUs consuming (in DL) or generating (in UL)
+                        the FH traffic
 
         """
         ptp_fh_interval = t_idle # starting interval btw PTP and FH frames
@@ -168,9 +172,21 @@ class Analyser():
 
         # Compute the best-case queueing delay iteratively
         b_q_delay = 0
-        for _ in range(hops):
-            # Approximate the two frames (reduce the interval between them)
-            ptp_fh_interval -= approx_per_hop
+        for i_hop in range(hops):
+            # On each store-and-forward hop, approximate the two frames (reduce
+            # the interval between them).
+            #
+            # The exception is in the last hop of the DL direction, when the BBU
+            # serves two RRUs. There is a chance that the PTP message (going to
+            # RRU1) departs behind a FH frame addressed to RRU2. In this case,
+            # the PTP message does not need to wait the FH frame in the last
+            # hop. Hence, the two messages do not approximate in this hop. Also,
+            # the PTP message does not experience queueing delay in this case.
+            if (direction == "dl" and n_rru == 2 and (i_hop + 1) == hops):
+                continue
+            else:
+                ptp_fh_interval -= approx_per_hop
+
             # Check if the two frames have "touched" each other
             if (ptp_fh_interval < 0 and ptp_fh_interval >= -approx_per_hop):
                 # PTP is "reaching" the FH frame in this hop. There will be some
@@ -301,8 +317,8 @@ class Analyser():
             # processing delay per hop. Likewise, for the best-case queueing
             # delays, we consider the best-case processing delay per hop. The
             # values below are based on analysis of some experiments.
-            w_p_delay = 3.75e-6 * hops # worst-case processing delay
-            b_p_delay = 3.52e-6 * hops # best-case processing delay
+            w_p_delay = 3.6e-6 * hops # worst-case processing delay
+            b_p_delay = 3.5e-6 * hops # best-case processing delay
 
             # Transmission delays
             #
@@ -362,9 +378,11 @@ class Analyser():
             # experience queueing delays.
             if (metadata["fh_traffic"] is not None):
                 b_dl_q_delay = self._calc_best_case_queueing(hops, t_idle_dl,
-                                                             t_fh_dl, t_ptp)
+                                                             t_fh_dl, t_ptp,
+                                                             "dl", n_rru_dl)
                 b_ul_q_delay = self._calc_best_case_queueing(hops, t_idle_ul,
-                                                             t_fh_ul, t_ptp)
+                                                             t_fh_ul, t_ptp,
+                                                             "ul", n_rru_ul)
             else:
                 b_dl_q_delay = b_ul_q_delay = 0
 
