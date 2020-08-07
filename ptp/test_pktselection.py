@@ -153,3 +153,50 @@ class TestPktSelection(unittest.TestCase):
             self.assertEqual(x_est_max[1], -3)
             self.assertEqual(x_est_max[2], -3)
 
+    def test_sample_mode_vec(self):
+        # Run vectorized processing with and without batch processing
+        for batch in [True, False]:
+            data = copy.deepcopy(immutable_data)
+            N    = 3
+            pkts = PktSelection(N, data)
+            pkts.process('mode', drift_comp=False, vectorize=True,
+                         batch=batch, batch_size=3)
+            x_est_mode = [r["x_pkts_mode"] for r in data if "x_pkts_mode" in r]
+
+            # #  Timestamp differences
+            # t2-t1: [[18. 12. 16.]
+            #         [12. 16. 19.]
+            #         [16. 19. 12.]]
+            # t4-t3: [[ 8. 12. 15.]
+            #         [12. 15. 25.]
+            #         [15. 25. 11.]]
+            #
+            # # Quantized timestamp differences (quantum = 10 ns)
+            # t2-t1: [[2. 1. 2.]
+            #         [1. 2. 2.]
+            #         [2. 2. 1.]]
+            # t4-t3: [[1. 1. 2.]
+            #         [1. 2. 2.]
+            #         [2. 2. 1.]]
+            #
+            # # Mode in each quantized window
+            # t2-t1: [[2.]
+            #         [2.]
+            #         [2.]]
+            # t4-t3: [[1.]
+            #         [2.]
+            #         [2.]]
+            #
+            # # After dequantization
+            # t2-t1: [[20.]
+            #         [20.]
+            #         [20.]]
+            # t4-t3: [[10.]
+            #         [20.]
+            #         [20.]]
+            #
+            # Expected results
+            self.assertEqual(x_est_mode[0], 5.0)
+            self.assertEqual(x_est_mode[1], 0)
+            self.assertEqual(x_est_mode[2], 0)
+
