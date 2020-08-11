@@ -266,6 +266,9 @@ class Analyser():
         # w/ 802.1Q tag + 12 bytes FH metadata + 2 bytes of stuffing + 4B FCS)
         fh_overhead_bits = (8*44)
 
+        # Inter-packet gap
+        ipg = 96e-9
+
         if (metadata["fh_traffic"] is not None):
             l_iq_info  = metadata["fh_traffic"]["iq_size"]
             n_spf_info = metadata["fh_traffic"]["n_spf"]
@@ -307,8 +310,8 @@ class Analyser():
                 metadata["fh_traffic"] else metadata["fh_traffic"]["n_rru"]["dl"]
             n_rru_ul  = metadata["fh_traffic"]["n_rru_ul"] if "n_rru_ul" in \
                 metadata["fh_traffic"] else metadata["fh_traffic"]["n_rru"]["ul"]
-            t_idle_dl = i_fh_dl - (t_fh_dl * n_rru_dl)
-            t_idle_ul = i_fh_ul - t_fh_ul
+            t_idle_dl = i_fh_dl - ((t_fh_dl + ipg) * n_rru_dl)
+            t_idle_ul = i_fh_ul - (t_fh_ul + ipg)
 
         # Print to stdout and, if so desired, to info.txt
         files = [None]
@@ -411,13 +414,17 @@ class Analyser():
             for f in files:
                 print("DL FH delay for {}: "
                       "best-case: {:.4f} us "
-                      "worst-case: {:.4f} us".format(
-                          dev, (b_dl_delay * 1e6), (w_dl_delay * 1e6)
+                      "worst-case: {:.4f} us "
+                      "span: {:.4f} us".format(
+                          dev, (b_dl_delay * 1e6), (w_dl_delay * 1e6),
+                          ((w_dl_delay - b_dl_delay) * 1e6)
                 ), file=f)
                 print("UL FH delay for {}: "
                       "best-case: {:.4f} us "
-                      "worst-case: {:.4f} us ".format(
-                          dev, (b_ul_delay * 1e6), (w_ul_delay * 1e6)
+                      "worst-case: {:.4f} us "
+                      "span: {:.4f} us".format(
+                          dev, (b_ul_delay * 1e6), (w_ul_delay * 1e6),
+                          ((w_ul_delay - b_ul_delay) * 1e6)
                 ), file=f)
 
             # Save expected delays
