@@ -139,7 +139,6 @@ class KalmanFilter():
             Q    : Process noise covariance matrix
             R    : Measurement covariance matrix
 
-
         """
         self.data      = data
         self.T         = T
@@ -150,11 +149,11 @@ class KalmanFilter():
             f"Unknow observation model {obs_model}"
 
         # Default system state
-        self.s_0 = self._set_initial_state()   # Initial state's mean
-        self.P_0 = np.diag([500, 500])         # Initial state's cov matrix
-        self.A   = np.array([[1., self.T],     # State transition matrix
+        self.s_0 = self._set_initial_state() if s_0 is None else s_0
+        self.P_0 = np.diag([500, 500])
+        self.A   = np.array([[1., self.T],          # State transition matrix
                              [0., 1.]])
-        self.Q   = np.array([[1e-13, 0],       # State noise cov matrix
+        self.Q   = np.array([[1e-13, 0],            # State noise cov matrix
                              [0, 1e-18]])
 
         # System measurements (scalar or vector)
@@ -195,12 +194,17 @@ class KalmanFilter():
         the convergence time.
 
         """
-        for data in self.data:
-            if 'x_est' and 'y_est' in data:
-                x = np.array([data['x_est'], 1e9*data['y_est']])
-                break
+        # Estimate frequency offset based on the first two exchanges
+        t1           = np.array([float(r["t1"]) for r in self.data[:2]])
+        t2           = np.array([float(r["t2"]) for r in self.data[:2]])
+        delta_slave  = np.diff(t1)
+        delta_master = np.diff(t2)
+        y_est        = (delta_slave - delta_master) / delta_master
 
-        return x
+        # First time offset raw estimate
+        x_est = self.data[0]["x_est"]
+
+        return np.array([x_est, 1e9*y_est])
 
     def _reset_state(self):
         """Set the initial Kalman filter state

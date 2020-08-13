@@ -147,8 +147,11 @@ class TestKalman(unittest.TestCase):
         # Parameters
         T = 1
 
+        # Initial state
+        s_0   = np.array([data[0]["x_est"], 1e9*data[0]["y_est"]])
+
         # Filtering using the default Q matrix
-        kf = KalmanFilter(data, T, obs_model='scalar')
+        kf = KalmanFilter(data, T, obs_model='scalar', s_0=s_0)
         kf.process()
 
         # MSE
