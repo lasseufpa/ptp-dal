@@ -9,6 +9,7 @@ import ptp.window
 import ptp.frequency
 import ptp.cache
 import ptp.datasets
+import ptp.metrics
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -93,7 +94,7 @@ def main():
     if (args.file.split("-")[0] == "serial"):
         # Testbed
         src = ptp.reader.Reader(ds_path)
-        src.run()
+        src.run(args.num_iter)
     else:
         # Simulation
         src = ptp.simulation.Simulation()
@@ -117,14 +118,18 @@ def main():
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
     # Optimize window lengths
-    window_optimizer = ptp.window.Optimizer(src.data, T_ns, args.file)
+    window_optimizer = ptp.window.Optimizer(src.data, T_ns)
     window_optimizer.process(args.estimator, error_metric=args.metric,
-                             cache=cache, plot=args.plot,
-                             early_stopping=(not args.no_stop),
-                             save_plot=args.save_plot, force=args.force,
-                             plot_info=(not args.no_plot_info),
-                             global_plot=args.global_plot, fine_pass=args.fine,
-                             max_window=args.max_window)
+                             cache=cache, early_stopping=(not args.no_stop),
+                             force=args.force, fine_pass=args.fine,
+                             max_window=args.max_window,
+                             save_global=args.global_plot)
+
+    if (args.plot):
+        analyser = ptp.metrics.Analyser(src.data, ds_path, cache=cache)
+        analyser.plot_error_vs_window(plot_info=(not args.no_plot_info),
+                                      save=args.save_plot)
+
 
 if __name__ == "__main__":
     main()

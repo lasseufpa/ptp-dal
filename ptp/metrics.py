@@ -1,6 +1,7 @@
 """PTP metrics
 """
 import math, logging, re, os, json
+import ptp.cache
 from datetime import timedelta
 from scipy import stats
 import matplotlib
@@ -56,7 +57,7 @@ est_keys = {"raw"                : {"label": "Raw Measurements",
 
 class Analyser():
     def __init__(self, data, file=None, prefix="", usetex=False,
-                 save_format='png', dpi=300):
+                 save_format='png', dpi=300, cache=None):
         """PTP metrics analyser
 
         Args:
@@ -73,6 +74,10 @@ class Analyser():
         self.prefix      = prefix
         self.save_format = save_format
         self.dpi         = dpi
+        self.cache       = cache
+
+        if (cache is not None):
+            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
 
         if (usetex):
             aspect_ratio = 1.4
@@ -2209,4 +2214,47 @@ class Analyser():
         name   = "pps_foffset"
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
                                   save, save_format, dpi)
+
+    def plot_error_vs_window(self, plot_info=False, save=True, save_format=None,
+                             dpi=None):
+        """Plot error vs window"""
+
+        if (self.cache):
+            window_cfg = self.cache.load('window')
+        else:
+            logger.warning("Unable to find cached file with window"
+                            "optimization parameters")
+            return
+
+        for estimator in window_cfg.keys():
+
+            est_key      = window_cfg[estimator]['est_key']
+            est_name     = window_cfg[estimator]['name']
+            N_best       = window_cfg[estimator]['N_best']
+            error_metric = window_cfg[estimator]['error_metric']
+            win_len      = window_cfg[estimator]['window_len']
+            win_error    = window_cfg[estimator]['window_error']
+
+            plt.figure(figsize=self.figsize)
+            plt.scatter(win_len, win_error, s=3.0)
+            plt.title(est_name)
+            plt.xlabel("window length (samples)")
+            plt.ylabel(f"{error_metric} (ns)")
+            plt.grid(color='k', linewidth=.5, linestyle=':')
+
+            if (plot_info):
+                plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
+                         transform=plt.gca().transAxes, va='top', ha='right')
+
+            if (save):
+                img_name   = self.prefix + "win_opt_" + \
+                             f"{est_key}_{error_metric}_error_vs_window."
+                img_format = save_format or self.save_format
+                img_dpi    = dpi or self.dpi
+                plt.tight_layout()
+                plt.savefig(self.path + img_name + img_format,
+                            format=img_format, dpi=img_dpi)
+            else:
+                plt.show()
+            plt.close()
 

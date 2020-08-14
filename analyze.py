@@ -55,14 +55,13 @@ def _run_drift_estimation(data, cache, cache_id='loop'):
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
 
-def _run_window_optimizer(data, T_ns, dataset_file, metric, disable_plot,
-                          en_fine, force, max_window, cache):
+def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
+                          cache):
     """Run tuner of window lengths"""
 
-    window_optimizer = ptp.window.Optimizer(data, T_ns, dataset_file)
+    window_optimizer = ptp.window.Optimizer(data, T_ns)
     window_optimizer.process('all',
                              error_metric = metric,
-                             plot = (not disable_plot),
                              fine_pass = en_fine,
                              force = force,
                              max_window = max_window,
@@ -171,13 +170,15 @@ def _run_pktselection(data, window_len):
 
 
 def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
-                  uselatex, save=True, no_processing=False):
+                  uselatex, cache=None, save=True, no_processing=False):
     """Analyze results"""
 
     save_format = 'eps' if eps_format else 'png'
 
     analyser = ptp.metrics.Analyser(data, dataset_file, usetex=uselatex,
-                                    save_format=save_format, dpi=dpi)
+                                    save_format=save_format, dpi=dpi,
+                                    cache=cache)
+
     analyser.save_metadata(metadata, save=save)
 
     # Start with the analysis that does not require processing algorithms. That
@@ -220,6 +221,7 @@ def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
     analyser.plot_toffset_drift_hist(save=save)
     analyser.plot_mtie(show_raw = False, save=save)
     analyser.plot_max_te(show_raw=False, window_len = 1000, save=save)
+    analyser.plot_error_vs_window(save=save)
     analyser.toffset_err_stats(save=save)
     analyser.foffset_err_stats(save=save)
     analyser.toffset_drift_err_stats(save=save)
@@ -249,10 +251,6 @@ def parse_args():
                         default=False,
                         action='store_true',
                         help='Whether or not to optimize window length')
-    parser.add_argument('--no-optimizer-plots',
-                        default=False,
-                        action='store_true',
-                        help='Whether to disable window optimizer plots')
     parser.add_argument('--no-cache',
                         default=False,
                         action='store_true',
@@ -373,9 +371,7 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
         window_lengths = default_window_lengths
     else:
         window_lengths = _run_window_optimizer(ds['data'].data, T_ns,
-                                               ds['path'],
                                                args.optimizer_metric,
-                                               args.no_optimizer_plots,
                                                args.optimizer_fine,
                                                args.optimizer_force,
                                                args.optimizer_max_window,
@@ -400,7 +396,7 @@ def analyze(ds, args, no_processing=False, save=True):
     _run_analyzer(ds['data'].data, ds['data'].metadata, ds['path'],
                   ds['source'], no_processing=no_processing,
                   eps_format=args.eps, dpi=args.dpi, uselatex=args.latex,
-                  save=save)
+                  cache=ds['cache'], save=save)
 
 
 def main():

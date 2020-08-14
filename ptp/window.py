@@ -41,27 +41,22 @@ class Optimizer():
                            "N_best" : None}
     }
 
-    def __init__(self, data, T_ns, filename):
+    def __init__(self, data, T_ns):
         """Optimizes processing window lengths
 
         Args:
-            data: Array of objects with simulation or testbed data
-            T_ns: Nominal message period in nanoseconds
+            data : Array of objects with simulation or testbed data
+            T_ns : Nominal message period in nanoseconds
 
         """
         self.data     = data
         self.T_ns     = T_ns
-        self.filename = filename
+
+        # Number of samples
+        self.n_data   = len(data)
 
         # Window configuration
         self._sample_skip = None
-
-        # Define plot path
-        this_file      = os.path.realpath(__file__)
-        rootdir        = os.path.dirname(os.path.dirname(this_file))
-        self.plot_path = os.path.join(rootdir, 'plots')
-        no_ext_ds_name = os.path.splitext(os.path.basename(self.filename))[0]
-        self.ds_name   = no_ext_ds_name.replace("-comp", "")
 
     def _eval_error(self, window_vec, estimator, error_metric,
                     early_stopping=True, patience=5):
@@ -77,7 +72,7 @@ class Optimizer():
 
         Returns:
             N_best : Best evaluated window length
-            error  : vector with the error computed for all given window lengths
+            error  : Vector with the error computed for all given window lengths
             i_stop : Index where evaluation halted (if early stopping is active)
 
         """
@@ -157,40 +152,9 @@ class Optimizer():
 
         return N_best, error, i_iter
 
-    def _plot_error_vs_window(self, window_len, error, estimator, error_metric,
-                              plot_info, save):
-        """Plot error vs window"""
-
-        est_key  = self.est_op[estimator]['est_key']
-        est_name = self.est_op[estimator]['name']
-        N_best   = self.est_op[estimator]['N_best']
-
-        plt.figure()
-        plt.scatter(window_len, error)
-        plt.title(est_name)
-        plt.xlabel("window length (samples)")
-        plt.ylabel(f"{error_metric} (ns)")
-
-        if (plot_info):
-            plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
-                     transform=plt.gca().transAxes, va='top', ha='right')
-
-        if (save):
-            # Define path and create plot folder if it doesn't exist
-            fig_path = os.path.join(self.plot_path, self.ds_name)
-            if (not os.path.isdir(fig_path)):
-                os.makedirs(fig_path)
-
-            fig_filename = f"win_opt_{est_key}_{error_metric}_error_vs_window"
-            plt.savefig(os.path.join(fig_path, fig_filename), dpi=300)
-            logging.info(f"Saved figure at {fig_path}/{fig_filename}")
-        else:
-            plt.show()
-
     def _search_best_window(self, estimator, error_metric, early_stopping=True,
-                            save=True, plot=False, global_plot=False,
-                            plot_info=True, fine_pass=False, eval_all=False,
-                            log_max_window=13):
+                            fine_pass=False, eval_all=False, log_max_window=13,
+                            save_global=False):
         """Search the best window length that minimizes error
 
         Calculate the error for differents sizes of window length. Runs two
@@ -207,15 +171,13 @@ class Optimizer():
             estimator      : Select the estimator
             error_metric   : The error metric (max-te or mse)
             early_stopping : Whether to stop search when min{error} stalls
-            save           : Save plot
-            plot           : Plot error vs window
-            global_plot    : Plot global curve (not only the fine region)
-            plot_info      : Add window information in the plot
             fine_pass      : Enable fine pass
             eval_all       : Disable coarse/fine pass and instead evaluate all
                              window length values of a linear range
             log_max_window : Log2 of the upper limit set for window
                              lengths.
+            save_global    : Save global curve (not only the fine region) on
+                             cache file
 
         """
         est_key  = self.est_op[estimator]['est_key']
@@ -234,7 +196,7 @@ class Optimizer():
             # Evaluate power-of-2 window lengths. If using early stopping, use
             # the default patience.
             log_len_e = np.minimum(np.floor(np.log2(len(self.data)/2)),
-                                      log_max_window)
+                                   log_max_window)
             if (est_key == "pkts_mode"):
                 log_len_s = 2 # sample-mode needs window length > 2
             else:
@@ -266,14 +228,15 @@ class Optimizer():
         if (fine_pass and (not eval_all)):
             # Fine pass
             #
-            # Evaluate window lengths between the two best power-of-2 window lengths
-            # of the coarse pass. If using early stopping, use a relative high
-            # patience for the fine pass, as this region of the curve can be noisy.
+            # Evaluate window lengths between the two best power-of-2 window
+            # lengths of the coarse pass. If using early stopping, use a
+            # relative high patience for the fine pass, as this region of the
+            # curve can be noisy.
 
             # Sanity check
             if (np.abs(i_scnd_best - i_best) != 1):
-                logging.warning("Best (%d) and second-best (%d) windows are not \
-                consecutive" %(N_best, N_scnd_best))
+                logger.warning("Best (%d) and second-best (%d) windows are not "
+                               "consecutive" %(N_best, N_scnd_best))
 
             # Define the fine range of window lengths and run
             if (N_best > N_scnd_best):
@@ -295,64 +258,65 @@ class Optimizer():
             global_error   = np.concatenate((global_error, error))
             global_win_len = np.concatenate((global_win_len, window_len))
 
-        # Save the best window length
-        self.est_op[estimator]["N_best"] = int(N_best)
+        if (save_global):
+            plot_window_len = global_win_len
+            plot_error      = global_error
+        else:
+            plot_window_len = window_len[:i_stop]
+            plot_error      = error[:i_stop]
 
-        if (plot):
-            if (global_plot):
-                plot_window_len = global_win_len
-                plot_error      = global_error
-            else:
-                plot_window_len = window_len[:i_stop]
-                plot_error      = error[:i_stop]
-
-            self._plot_error_vs_window(plot_window_len, plot_error, estimator,
-                                       error_metric, plot_info, save)
+        # Save tunning information
+        self.est_op[estimator]["N_best"]       = int(N_best)
+        self.est_op[estimator]["window_len"]   = plot_window_len.tolist()
+        self.est_op[estimator]["window_error"] = plot_error.tolist()
+        self.est_op[estimator]["error_metric"] = error_metric
+        self.est_op[estimator]["n_samples"]    = self.n_data
 
         logger.info(f"Best evaluated window length for {est_name}: {N_best:d}")
 
-    def _is_cache_complete(self, data):
-        """Check if the cached configuration is complete, i.e. if it contains
-        the best window for all possible estimators.
+    def _is_cache_complete(self, data, metric):
+        """Check if the cached configuration is complete
+
+        The cache file is considered complete if it contains the optimal window
+        for all estimators computed based on the chosen error metric.
 
         Args:
-            data : Cached optimal windows configuration
+            data   : Cached optimal windows configuration
+            metric : Error metric (Max|TE| or MSE)
 
         Return:
-            bool : Returns 'True' if file is complete.
+            (bool) Whether the cached data is complete.
 
         """
-        # Check if the cached data is complete, i.e. have window configuration
-        # of all estimators
-        for k, v in data.items():
-            if (v["N_best"] is None):
-                print("Window configuration file is incomplete.")
+        for v in data.values():
+            if (v["N_best"] is None or \
+                v["error_metric"] != metric or \
+                v["n_samples"] != self.n_data):
+
+                logger.warning("Window configuration cache file is incomplete.")
                 return False
+
         return True
 
     def process(self, estimator, error_metric="max-te", cache=None,
-                sample_skip=0, early_stopping=True, force=False, plot=False,
-                save_plot=True, global_plot=False, plot_info=False,
-                fine_pass=False, max_window=8192):
+                sample_skip=0, early_stopping=True, force=False,
+                fine_pass=False, max_window=8192, save_global=False):
         """Process the observations
 
         Args:
             estimator       : Select the estimator
             error_metric    : Estimation error metric (Max|TE| or MSE)
-            file            : Path of the JSON file to save
-            save            : Save the best window length in a json file
+            cache           : Cache handler used to save the optimized
+                              configuration in a json file
             sample_skip     : Number of initial samples to skip
-            starting_window : Starting window size
             early_stopping  : Whether to stop search when min{error} stalls
             force           : Force processing even if already done previously
-            plot            : Plot error vs window
-            save_plot       : Save plot if plotting
-            global_plot     : Plot global curve (not only the fine region)
-            plot_info       : Add window information in the plot
             fine_pass       : Enable fine pass
             max_window      : Upper limit set for window length. This is mostly
                               to prevent excessive memory usage and slow
                               processing that occurs with very long windows.
+            save_global     : Save global curve (not only the fine region) on
+                              the cache file
 
         """
         self._sample_skip = sample_skip
@@ -360,7 +324,7 @@ class Optimizer():
         # Power-of-2 maximum window length
         log_max_window = np.floor(np.log2(max_window))
         if ((2**log_max_window) != max_window):
-            logging.warning("Max window length set to {} instead of {}".format(
+            logger.warning("Max window length set to {} instead of {}".format(
                 (2**log_max_window), max_window))
 
         # Is there a configuration file already? Is it complete (with all
@@ -371,30 +335,30 @@ class Optimizer():
 
             if (cached_cfg and not force):
                 self.est_op = cached_cfg
-                if (self._is_cache_complete(cached_cfg)):
+                logger.info("Found cached optimal window configurations")
+                if (self._is_cache_complete(cached_cfg, error_metric)):
                     return
         else:
-            logging.info("Unable to find existed configuration file")
+            logger.info("Unable to find existed configuration file")
 
         # Estimators to optimize
         if (estimator == 'all'):
             # All estimators, except the ones that are already optimized (within
             # the results that were loaded from cache)
             estimators = [k for k in self.est_op.keys() if
-                          self.est_op[k]["N_best"] is None]
+                          (self.est_op[k]["N_best"] is None or
+                           self.est_op[k]["error_metric"] != error_metric or
+                           self.est_op[k]["n_samples"] != self.n_data)]
         else:
             estimators = [estimator]
 
         for estimator in estimators:
             # Search the window length that minimizes the calculated error
-            if (not self.est_op[estimator]["N_best"] or force):
-                self._search_best_window(estimator, error_metric=error_metric,
-                                         plot=plot, save=save_plot,
-                                         early_stopping=early_stopping,
-                                         global_plot=global_plot,
-                                         plot_info=plot_info,
-                                         fine_pass=fine_pass,
-                                         log_max_window=log_max_window)
+            self._search_best_window(estimator, error_metric=error_metric,
+                                     early_stopping=early_stopping,
+                                     fine_pass=fine_pass,
+                                     log_max_window=log_max_window,
+                                     save_global=save_global)
 
             # Save results on JSON file
             if (cache is not None):
