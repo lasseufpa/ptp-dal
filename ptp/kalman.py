@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class KalmanFilter():
     def __init__(self, data, T, N=1, obs_model='scalar', s_0=None, P_0=None,
-                 R=None, Q=None):
+                 R=None, Q=None, skip_transitory=True):
         """Kalman Filter for Time/Frequency Offset Processing
 
         ---- Predict Step ----
@@ -131,19 +131,21 @@ class KalmanFilter():
             Sons, 2012.
 
         Args:
-            data : Array of objects with simulation data
-            T    : Nominal Sync period in sec
-            N    : Interval used for frequency offset estimations
-            s_0  : Initial state
-            P_0  : Initial state's covariance matrix
-            Q    : Process noise covariance matrix
-            R    : Measurement covariance matrix
+            data            : Array of objects with simulation data
+            T               : Nominal Sync period in sec
+            N               : Interval used for frequency offset estimations
+            s_0             : Initial state
+            P_0             : Initial state's covariance matrix
+            Q               : Process noise covariance matrix
+            R               : Measurement covariance matrix
+            skip_transitory : Whether to skip Kalman transitory
 
         """
-        self.data      = data
-        self.T         = T
-        self.N         = N
-        self.obs_model = obs_model
+        self.data            = data
+        self.T               = T
+        self.N               = N
+        self.obs_model       = obs_model
+        self.skip_transitory = skip_transitory
 
         assert(obs_model in ['scalar', 'vector']), \
             f"Unknow observation model {obs_model}"
@@ -427,10 +429,28 @@ class KalmanFilter():
         # Reset the initial state
         self._reset_state()
 
+        transitory_over = not self.skip_transitory
+        state_cov       = self.P_0
+
         # Iterate over observations
         for i,z in enumerate(self.z):
             self._predict()
             self._update(z)
+
+            # Keep track of state covariance in order to infer
+            # steady-state/transitory
+            last_state_cov = state_cov
+            state_cov      = self.P
+
+            if (not transitory_over and
+                (np.linalg.norm(state_cov - last_state_cov) > 1e-5)):
+                if (i > int(len(self.z)*0.5)):
+                    logger.warning("Transitory exceeded half the samples. "
+                                   "Disabling threshold track.")
+                    transitory_over = True
+                continue
+
+            transitory_over = True
 
             # Save time and frequency offset estimates on global data records
             self.data[i]['x_kf'] = self.s_post[0]

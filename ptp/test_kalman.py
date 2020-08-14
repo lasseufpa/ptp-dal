@@ -66,7 +66,7 @@ class TestKalman(unittest.TestCase):
         self.run_pykalman(data, z, s_0, P_0, A, H, Q, R)
 
         # Run our module
-        kf = KalmanFilter(data, T, obs_model='scalar',
+        kf = KalmanFilter(data, T, obs_model='scalar', skip_transitory=False,
                           s_0=s_0, P_0=P_0, R=R, Q=Q)
         kf.process()
 
@@ -109,7 +109,7 @@ class TestKalman(unittest.TestCase):
         self.run_pykalman(data, z, s_0, P_0, A, H, Q, R)
 
         # Run our module
-        kf = KalmanFilter(data, T, obs_model='vector',
+        kf = KalmanFilter(data, T, obs_model='vector', skip_transitory=False,
                           s_0=s_0, P_0=P_0, R=R, Q=Q)
         kf.process()
 
@@ -125,7 +125,8 @@ class TestKalman(unittest.TestCase):
 
         # The kalman filter performs the prediction by computing x[k+1] = Ax[k]
         s_0       = np.array([data[0]["x_est"], data[0]["y_est"]])
-        kf        = KalmanFilter(data, 1., obs_model='scalar', s_0=s_0)
+        kf        = KalmanFilter(data, 1., obs_model='scalar',
+                                 skip_transitory=False, s_0=s_0)
         kf._reset_state()
 
         for i in range(1,len(data)):
@@ -151,7 +152,8 @@ class TestKalman(unittest.TestCase):
         s_0   = np.array([data[0]["x_est"], 1e9*data[0]["y_est"]])
 
         # Filtering using the default Q matrix
-        kf = KalmanFilter(data, T, obs_model='scalar', s_0=s_0)
+        kf = KalmanFilter(data, T, obs_model='scalar', skip_transitory=False,
+                          s_0=s_0)
         kf.process()
 
         # MSE
