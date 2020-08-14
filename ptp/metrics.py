@@ -1727,7 +1727,7 @@ class Analyser():
             plt.figure(figsize=self.figsize)
             plt.hist(t_diff, bins=n_bins, density=True, cumulative=True,
                      histtype='step', alpha=0.8, color='k')
-            plt.xlabel('{0}[n] - {0}[n-1] (ms)'.format(t))
+            plt.xlabel('${0}[n] - {0}[n-1]$ (ms)'.format(t))
             plt.ylabel('CDF')
             plt.title('PTP exchange interval')
             plt.grid(color='k', linewidth=.5, linestyle=':')
@@ -1780,7 +1780,7 @@ class Analyser():
         plt.scatter(x_axis_vec, true_drift, s = 1.0, label="True")
         plt.scatter(x_axis_vec, drift_est, s = 1.0, label="Estimate")
         plt.xlabel(x_axis_label)
-        plt.ylabel('x[n] - x[n-1] (ns)')
+        plt.ylabel('$x[n] - x[n-1]$ (ns)')
         plt.title('Time offset drift')
         plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
@@ -1835,7 +1835,7 @@ class Analyser():
 
         plt.figure(figsize=self.figsize)
         plt.hist(np.diff(x), bins=n_bins, density=True)
-        plt.xlabel('x[n] - x[n-1] (ns)')
+        plt.xlabel('$x[n] - x[n-1]$ (ns)')
         plt.ylabel('Probability Density')
         plt.title('True time offset drift histogram')
         plt.grid(color='k', linewidth=.5, linestyle=':')
@@ -1978,7 +1978,7 @@ class Analyser():
                              label=value["label"], markersize=1)
 
         plt.xlabel(x_axis_label)
-        plt.ylabel('Max|TE| (ns)')
+        plt.ylabel('$\max|$TE$|$ (ns)')
         plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend(loc=0)
 
