@@ -1,6 +1,6 @@
 """PTP metrics
 """
-import math, logging, re, os, json
+import math, logging, re, os, json, itertools
 import ptp.cache
 from datetime import timedelta
 from scipy import stats
@@ -54,6 +54,9 @@ est_keys = {"raw"                : {"label": "Raw Measurements",
             "loop"               : {"label": "PI Loop",
                                     "marker": "v",
                                     "show": True}}
+g_markers = (".", "+", "o", "*", "v", "^", "<", ">", "8", "h",
+             "s", "p", "d")
+
 
 class Analyser():
     def __init__(self, data, file=None, prefix="", usetex=False,
@@ -64,6 +67,7 @@ class Analyser():
             data        : Array of objects with simulation data
             file        : Path of the file
             prefix      : Prefix to include on filenames when saving
+            usetex      : Whether to use latex interpreter
             save_format : Select image format: 'png' or 'eps'
             dpi         : Image resolution in dots per inch
 
@@ -74,6 +78,7 @@ class Analyser():
         self.prefix      = prefix
         self.save_format = save_format
         self.dpi         = dpi
+        self.usetex      = usetex
         self.cache       = cache
 
         if (cache is not None):
@@ -101,6 +106,12 @@ class Analyser():
             max_width    = rc_figsize[0]
 
         self.figsize  = (max_width, max_width/aspect_ratio)
+
+        # Save some metrics results
+        self.results  = {
+            "max_te" : {},
+            "mtie" : {}
+        }
 
 
     def _set_path(self, file):
@@ -647,29 +658,43 @@ class Analyser():
         ranking = dict()
         for suffix, value in est_keys.items():
             key   = "x_est" if (suffix == "raw") else "x_" + suffix
-            x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
+            x_err = np.array([r[key] - r["x"] for r in post_tran_data \
+                              if key in r])
             x_err = x_err[:n_samples]
 
-            if (len(x_err) > 0):
-                if (metric == "max-te"):
-                    max_te_est = self.max_te(x_err, max_te_win_len)
-                    res        = max_te_est.mean()
+            if (len(x_err) ==  0):
+                continue
 
-                elif (metric == "mtie"):
-                    _, mtie_est = self.mtie(x_err)
-                    res         = mtie_est.mean()
-
-                elif (metric == "rms"):
-                    res = np.sqrt(np.square(x_err).mean())
-
-                elif (metric == "std"):
-                    res = np.std(x_err)
-
+            if (metric == "max-te"):
+                if (key in self.results["max_te"]):
+                    max_te_est = self.results["max_te"][key][-n_samples:]
                 else:
-                    raise ValueError("Metric choice %s unknown" %(metric))
+                    max_te_est = self.max_te(x_err, max_te_win_len)
+                    self.results["max_te"][key] = max_te_est
 
-                # Save the result
-                ranking[key] = res
+                res = max_te_est.mean()
+
+            elif (metric == "mtie"):
+                if (key in self.results["mtie"]):
+                    _, mtie_est = self.results["mtie"][key]
+                    mtie_est    = mtie_est[-n_samples:]
+                else:
+                    tau_est, mtie_est = self.mtie(x_err)
+                    self.results["mtie"][key] = (tau_est, mtie_est)
+
+                res = mtie_est.mean()
+
+            elif (metric == "rms"):
+                res = np.sqrt(np.square(x_err).mean())
+
+            elif (metric == "std"):
+                res = np.std(x_err)
+
+            else:
+                raise ValueError("Metric choice %s unknown" %(metric))
+
+            # Save the result
+            ranking[key] = res
 
         # Print ranking in increasing order
         for key, value in sorted(ranking.items(), key=lambda x: x[1]):
@@ -715,12 +740,17 @@ class Analyser():
         if (len(non_rollover_gaps) > 0):
             raise ValueError("Dataset has sequenceId gaps")
 
-    def rolling_window_mtx(self, x, window_size):
+    def rolling_window_mtx(self, x, window_size, shift=1):
         """Compute all overlapping (rolling) observation windows in a matrix
 
         Args:
             x           : observation vector that is supposed to be split into
                           overlapping windows
+            shift       : Controls the shift between consecutive windows or,
+                          equivalently, the overlap. For instance, if shift=1,
+                          each window overlaps with N-1 samples of the previous
+                          window. If shift=window_size, the windows are
+                          completely disjoint.
             window_size : the target window size
 
         Returns:
@@ -739,7 +769,8 @@ class Analyser():
         shape   = x.shape[:-1] + (x.shape[-1] - window_size + 1, window_size)
         strides = x.strides + (x.strides[-1],)
 
-        return np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides)
+        return np.lib.stride_tricks.as_strided(x, shape=shape,
+                                               strides=strides)[0::shift]
 
     def mtie(self, te, window_step = 2, starting_window = 16):
         """Maximum time interval error (MTIE)
@@ -758,8 +789,9 @@ class Analyser():
             mtie_array : The calculated MTIE for each observation interval
 
         """
+        assert(isinstance(te, np.ndarray))
+
         n_samples = len(te) # total number of samples
-        te        = np.array(te)
 
         # Number of different intervals to be evaluated
         log_max_win_size   = math.floor(math.log2(n_samples/2))
@@ -809,27 +841,20 @@ class Analyser():
 
         Computes the max|TE| based on time error (TE) samples. The max|TE|
         metric compute the maximum among the absolute time error sample over
-        a sliding window.
+        a sliding non-overlapping window.
 
         Args:
-            window_len = Window length
-            te         = Vector of time error (TE) values
+            window_len : Window length
+            te         : Vector of time error (TE) values
 
         Returns:
-            max_te     = The calculated Max|TE| over a sliding window
+            max_te     : The calculated Max|TE| over a sliding window
 
         """
-        n_data = len(te)
-        max_te = np.zeros(n_data)
+        assert(isinstance(te, np.ndarray))
 
-        for i in range(0, (n_data - window_len)):
-            # Window start and end indexes
-            i_s = i
-            i_e = i + window_len
-
-            # Max|TE| within the observation window
-            max_te_w = np.amax(np.abs(te[i_s:i_e]))
-            max_te[i_e - 1] = max_te_w
+        te_mtx = self.rolling_window_mtx(te, window_len, shift=window_len)
+        max_te = np.amax(np.abs(te_mtx), axis=1)
 
         return max_te
 
@@ -1902,15 +1927,28 @@ class Analyser():
         post_tran_data = self.data[n_skip:]
 
         for suffix, value in est_keys.items():
-            if (value["show"]):
-                key   = "x_est" if (suffix == "raw") else "x_" + suffix
-                x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
+            if (not value["show"] or suffix == "true"):
+                continue
 
-                if (len(x_err) > 0):
-                    tau_est, mtie_est = self.mtie(x_err)
-                    plt.semilogx(tau_est, mtie_est,
-                                 label=value["label"], marker=value["marker"],
-                                 alpha=0.7, basex=2)
+            key = "x_est" if (suffix == "raw") else "x_" + suffix
+
+            if (key in self.results["mtie"]):
+                # Take mtie from cached results
+                tau_est, mtie_est = self.results["mtie"][key]
+            else:
+                x_err = np.array([r[key] - r["x"] for r in post_tran_data \
+                                  if key in r])
+
+                if (len(x_err) == 0):
+                    continue
+
+                tau_est, mtie_est = self.mtie(x_err)
+
+                # Add to cached results
+                self.results["mtie"][key] = (tau_est, mtie_est)
+
+            plt.semilogx(tau_est, mtie_est, label=value["label"],
+                         marker=value["marker"], alpha=0.7, basex=2)
 
         plt.xlabel('Observation interval (samples)')
         plt.ylabel('MTIE (ns)')
@@ -1963,29 +2001,59 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
+        # Dynamic markers
+        marker = itertools.cycle(g_markers)
+
         plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
-            if (value["show"]):
-                key   = "x_est" if (suffix == "raw") else "x_" + suffix
-                x_est = [r[key] - r["x"] for r in post_tran_data if key in r]
+            if (not value["show"] or suffix == "true"):
+                continue
 
-                # Define the x axis - either in time or in samples
-                if (x_unit == "time"):
-                    x_axis_vec   = [time_vec[i] for i, r in
-                                    enumerate(post_tran_data) if key in r]
-                elif (x_unit == "samples"):
-                    x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
+            key = "x_est" if (suffix == "raw") else "x_" + suffix
 
-                if (len(x_est) > 0):
-                    max_te_est = self.max_te(x_est, window_len)
-                    plt.plot(x_axis_vec, max_te_est,
-                             label=value["label"], markersize=1)
+            if (key in self.results["max_te"]):
+                # Take max|TE| from cached results
+                max_te_est = self.results["max_te"][key]
+            else:
+                te = np.array([r[key] - r["x"] for r in post_tran_data \
+                               if key in r])
+
+                if (len(te) == 0 or len(te) < window_len):
+                    continue
+
+                max_te_est = self.max_te(te, window_len)
+
+                # Add to cached results
+                self.results["max_te"][key] = max_te_est
+
+            # Define the x axis - either in time or in samples
+            if (x_unit == "time"):
+                x_axis_vec = [time_vec[i] for i, r in
+                              enumerate(post_tran_data) if key in r]
+            elif (x_unit == "samples"):
+                x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
+
+            # If the latex interpreter is being used, try to break the
+            # legends to fit in two lines. This approach will help to save
+            # spacing.
+            if (self.usetex):
+                label = value["label"].replace(' ', '\n').replace('-', '\n')
+            else:
+                label = value["label"]
+
+            plt.plot(x_axis_vec[window_len - 1::window_len], max_te_est,
+                     label=label, markersize=3, marker = next(marker))
 
         plt.xlabel(x_axis_label)
         plt.ylabel('$\max|$TE$|$ (ns)')
         plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend(loc=0)
+
+        if (self.usetex):
+            plt.legend(fontsize='small', bbox_to_anchor=(1.0, 1.02),
+                       loc='upper left', frameon=False, prop={'size': 5.})
+        else:
+            plt.legend(loc=0)
 
         if (save):
             img_name   = self.prefix + "max_te_vs_time."
