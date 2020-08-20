@@ -1108,7 +1108,7 @@ class Analyser():
 
                 if (len(x_err) > 0):
                     plt.hist(x_err, bins=50, density=True, alpha=0.7,
-                             label=value["label"])
+                             histtype='stepfilled', label=value["label"])
 
         plt.xlabel('Time offset Error (ns)')
         plt.ylabel('Probability Density')
@@ -1153,7 +1153,8 @@ class Analyser():
             if (show_raw):
                 d_est = np.array([r['d_est'] for r in self.data]) / 1e3
                 plt.figure(figsize=self.figsize)
-                plt.hist(d_est, bins=n_bins, density=True)
+                plt.hist(d_est, bins=n_bins, density=True,
+                         histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid(color='k', linewidth=.5, linestyle=':')
@@ -1166,7 +1167,7 @@ class Analyser():
                 d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
 
                 plt.figure(figsize=self.figsize)
-                plt.hist(d, bins=n_bins, density=True)
+                plt.hist(d, bins=n_bins, density=True, histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid(color='k', linewidth=.5, linestyle=':')
@@ -1175,7 +1176,7 @@ class Analyser():
                               "label": "m2s"})
 
                 plt.figure(figsize=self.figsize)
-                plt.hist(d_bw, bins=n_bins, density=True)
+                plt.hist(d_bw, bins=n_bins, density=True, histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid(color='k', linewidth=.5, linestyle=':')
@@ -1199,15 +1200,15 @@ class Analyser():
             if (show_raw):
                 d_est = np.array([r['d_est'] for r in self.data]) / 1e3
                 plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
-                         label="Two-way Measurements")
+                         histtype='stepfilled', label="Two-way Measurements")
 
             if (show_true):
                 d = np.array([r["d"] for r in self.data]) / 1e3
                 plt.hist(d, bins=n_bins, density=True, alpha=0.5,
-                         label="True master-to-slave")
+                         histtype='stepfilled', label="True master-to-slave")
                 d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
                 plt.hist(d_bw, bins=n_bins, density=True, alpha=0.5,
-                         label="True slave-to-master")
+                         histtype='stepfilled', label="True slave-to-master")
 
             plt.xlabel(x_label)
             plt.ylabel(y_label)
@@ -1372,7 +1373,7 @@ class Analyser():
 
         plt.figure(figsize=self.figsize)
         d_asym = np.array([r['asym'] for r in self.data]) / 1e3
-        plt.hist(d_asym, bins=n_bins, density=True)
+        plt.hist(d_asym, bins=n_bins, density=True, histtype='stepfilled')
         plt.xlabel('Delay asymmetry (us)')
         plt.ylabel('Probability Density')
         plt.grid(color='k', linewidth=.5, linestyle=':')
@@ -1616,7 +1617,7 @@ class Analyser():
 
                 if (len(y_err) > 0):
                     plt.hist(y_err, bins=50, density=True, alpha=0.7,
-                             label=value["label"])
+                             histtype='stepfilled', label=value["label"])
 
         plt.xlabel('Frequency Offset Error (ppb)')
         plt.ylabel('Probability Density')
@@ -1732,9 +1733,9 @@ class Analyser():
 
         plt.figure(figsize=self.figsize)
         plt.hist(diff_t2_1, bins=n_bins, density=True, alpha=0.7,
-                 label="m-to-s")
+                 histtype='stepfilled', label="m-to-s")
         plt.hist(diff_t4_3, bins=n_bins, density=True, alpha=0.7,
-                 label="s-to-m")
+                 histtype='stepfilled', label="s-to-m")
         plt.xlabel('Delay Variation (ns)')
         plt.ylabel('Probability Density')
         plt.grid(color='k', linewidth=.5, linestyle=':')
@@ -1871,7 +1872,7 @@ class Analyser():
         x = np.array([r["x"] for r in self.data])
 
         plt.figure(figsize=self.figsize)
-        plt.hist(np.diff(x), bins=n_bins, density=True)
+        plt.hist(np.diff(x), bins=n_bins, density=True, histtype='stepfilled')
         plt.xlabel('$x[n] - x[n-1]$ (ns)')
         plt.ylabel('Probability Density')
         plt.title('True time offset drift histogram')
@@ -2231,7 +2232,8 @@ class Analyser():
             if (len(y_vec) > 0):
                 bins  = np.arange(np.floor(y_vec.min()),
                                   np.ceil(y_vec.max()) + binwidth, binwidth)
-                plt.hist(y_vec, bins=bins, density=True, label=label)
+                plt.hist(y_vec, bins=bins, density=True, histtype='stepfilled',
+                         label=label)
 
         plt.xlabel(ylabel)
         plt.ylabel('Probability Density')
