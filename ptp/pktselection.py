@@ -394,8 +394,8 @@ class PktSelection():
         half_bin_width_bw = 0.5 * bin_width_bw
 
         # Quantize timestamp difference matrices
-        t2_minus_t1_q = np.round(t2_minus_t1_mtx / bin_width_fw)
-        t4_minus_t3_q = np.round(t4_minus_t3_mtx / bin_width_bw)
+        t2_minus_t1_q = np.around(t2_minus_t1_mtx / bin_width_fw).astype(np.int64)
+        t4_minus_t3_q = np.around(t4_minus_t3_mtx / bin_width_fw).astype(np.int64)
 
         # Find the mode
         t2_minus_t1_mode, mode_cnt_fw = stats.mode(t2_minus_t1_q, axis=1)
