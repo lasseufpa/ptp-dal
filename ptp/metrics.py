@@ -59,7 +59,7 @@ g_markers = (".", "+", "o", "*", "v", "^", "<", ">", "8", "h",
 
 
 class Analyser():
-    def __init__(self, data, file=None, prefix="", usetex=False,
+    def __init__(self, data, file=None, prefix=None, usetex=False,
                  save_format='png', dpi=300, cache=None):
         """PTP metrics analyser
 
@@ -75,7 +75,7 @@ class Analyser():
         self.data        = data
         self.path        = self._set_path(file)
         self.info        = os.path.join(self.path, 'info.txt')
-        self.prefix      = prefix
+        self.prefix      = "" if prefix is None else prefix + "_"
         self.save_format = save_format
         self.dpi         = dpi
         self.usetex      = usetex

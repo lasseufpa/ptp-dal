@@ -170,14 +170,15 @@ def _run_pktselection(data, window_len):
 
 
 def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
-                  uselatex, cache=None, save=True, no_processing=False):
+                  uselatex, prefix=None, cache=None, save=True,
+                  no_processing=False):
     """Analyze results"""
 
     save_format = 'eps' if eps_format else 'png'
 
-    analyser = ptp.metrics.Analyser(data, dataset_file, usetex=uselatex,
-                                    save_format=save_format, dpi=dpi,
-                                    cache=cache)
+    analyser = ptp.metrics.Analyser(data, dataset_file, prefix=prefix,
+                                    usetex=uselatex, save_format=save_format,
+                                    dpi=dpi, cache=cache)
 
     analyser.save_metadata(metadata, save=save)
 
@@ -308,6 +309,9 @@ def parse_args():
                         default=False,
                         action='store_true',
                         help='Render plots using LaTeX.')
+    parser.add_argument('--plot-prefix',
+                        default=None,
+                        help='Prefix to prepend to saved plot files.')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,
@@ -397,9 +401,9 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
 def analyze(ds, args, no_processing=False, save=True):
     """Analyze results"""
     _run_analyzer(ds['data'].data, ds['data'].metadata, ds['path'],
-                  ds['source'], no_processing=no_processing,
-                  eps_format=args.eps, dpi=args.dpi, uselatex=args.latex,
-                  cache=ds['cache'], save=save)
+                  ds['source'], eps_format=args.eps, dpi=args.dpi,
+                  uselatex=args.latex, prefix=args.plot_prefix,
+                  cache=ds['cache'], save=save, no_processing=no_processing)
 
 
 def main():
