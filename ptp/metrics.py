@@ -117,6 +117,9 @@ class Analyser():
             "mtie" : {}
         }
 
+        # State
+        self.current_plot = None # plot currently under processing
+        self.plot_cnt     = {}   # track how many times each plot is called
 
     def _set_path(self, file):
         """Define path to save plots
@@ -159,6 +162,66 @@ class Analyser():
                        loc='upper left', frameon=False, prop={'size': 5.})
         else:
             plt.legend()
+
+    def _plt_save(self, dpi, save_format, suffix=None, handler=plt):
+        """Wrapper for saving a plot
+
+        Args:
+            save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
+            suffix      : Arbitrary suffix to append to the output file
+            handler     : Figure handler
+
+        """
+        # The name of the output file includes the plot name and the plot
+        # count. If the same plot is called multiple times, the file is saved as
+        # "plot_name.xx", then "plot_name-1.xx", "plot_name-2.xx" and so on.
+        assert(self.current_plot is not None)
+        name     = self.current_plot
+        cnt      = self.plot_cnt[name]
+        img_name = self.prefix + name
+        if (cnt > 0):
+            img_name += "_" + str(cnt)
+
+        if (suffix is not None):
+            img_name += "_" + suffix
+
+        img_dpi    = dpi or self.dpi
+        img_format = save_format or self.save_format
+
+        handler.tight_layout()
+        handler.savefig(self.path + img_name + "." + img_format,
+                        format=img_format, dpi=img_dpi)
+
+    def _plot_filter(self, kwargs):
+        """Filter the results to be included/exclded from the plot
+
+        Processes 'show_' keyworded args from a plot function and saves the
+        choices (whether to show or not) on the global 'est_keys' dictionary.
+
+        Args:
+            kwargs : Keyworded arguments of a plot function
+
+        """
+        for k, v in kwargs.items():
+            if (not v):
+                # Extract the preffix_keys from 'show_' variables
+                prefix_re  = (re.search(r'(?<=show_).*', k))
+                if (prefix_re is None):
+                    continue
+                prefix_key = prefix_re.group(0)
+                # Find the dict keys that match with the preffix_keys
+                key_values  = [key for key in est_keys if
+                               re.match(r'^{}_*'.format(prefix_key), key)]
+                # Set show key to 'False' on global 'est_keys' dict
+                for suffix, v in est_keys.items():
+                    if (suffix in key_values):
+                        v["show"] = False
+
+    def _reset_plot_filter(self):
+        """Reset filters for plots to be showed or disabled"""
+        for v in est_keys.values():
+            v["show"] = True
 
     def save_metadata(self, metadata, save=False):
         """Save metadata info on the path where plots are saved
@@ -887,43 +950,42 @@ class Analyser():
 
         return max_te
 
-    def dec_plot_filter(func):
-        """Plot filter decorator
+    def analysis_plot(plot_name):
+        """Decorator factory for analysis plots
 
-        Filter the global 'est_keys' dict based on 'show_' args from
-        'plot_' functions.
-
-        Args:
-            func = Plot functions
+        Runs some common processing for plots and returns a decorator.
 
         """
-        def wrapper(*args, **kwargs):
-            for k, v in kwargs.items():
-                if (not v):
-                    # Extract the preffix_keys from 'show_' variables
-                    prefix_re  = (re.search(r'(?<=show_).*', k))
-                    if (prefix_re is None):
-                        continue
-                    prefix_key = prefix_re.group(0)
-                    # Find the dict keys that match with the preffix_keys
-                    key_values  = [key for key in est_keys if
-                                   re.match(r'^{}_*'.format(prefix_key), key)]
-                    # Set show key to 'False' on global 'est_keys' dict
-                    for suffix, v in est_keys.items():
-                        if (suffix in key_values):
-                            v["show"] = False
+        def decorator(func):
+            def wrapper(self, *args, **kwargs):
+                # Set current plot (used, e.g., when saving the plot file)
+                self.current_plot = plot_name
 
-            # Run plot function
-            plot_function = func(*args, **kwargs)
+                # Track how many times each plot was called
+                if (plot_name not in self.plot_cnt):
+                    self.plot_cnt[plot_name] = 0
+                else:
+                    self.plot_cnt[plot_name] += 1
 
-            # Clean-up global 'est_keys' dict after running the plot function
-            for k, v in est_keys.items():
-                v["show"] = True
+                # Filter curves to be showed/disabled
+                self._plot_filter(kwargs)
 
-            return plot_function
-        return wrapper
+                # Run plot function
+                plot_function = func(self, *args, **kwargs)
 
-    @dec_plot_filter
+                # Reset filters
+                self._reset_plot_filter()
+
+                # Reset current plot state
+                self.current_plot = None
+
+                return plot_function
+
+            return wrapper
+
+        return decorator
+
+    @analysis_plot("toffset_vs_time")
     def plot_toffset_vs_time(self, show_raw=True, show_best=True, show_ls=True,
                              show_pkts=True, show_kf=True, show_loop=True,
                              show_true=True, n_skip=None, x_unit='time',
@@ -1014,17 +1076,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "toffset_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
-    @dec_plot_filter
+    @analysis_plot("toffset_err_vs_time")
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
                                  show_pkts=True, show_kf=True, show_loop=True,
                                  n_skip=None, x_unit='time', save=True,
@@ -1088,17 +1145,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "toffset_err_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
-    @dec_plot_filter
+    @analysis_plot("toffset_err_hist")
     def plot_toffset_err_hist(self, show_raw=True, show_ls=True, show_pkts=True,
                               show_kf=True, show_loop=True, n_bins=50,
                               save=True, save_format=None, dpi=None):
@@ -1140,16 +1192,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "toffset_err_hist."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("delay_hist")
     def plot_delay_hist(self, show_raw=True, show_true=True, n_bins=50,
                         split=False, save=True, save_format=None, dpi=None):
         """Plot delay histogram
@@ -1210,12 +1258,8 @@ class Analyser():
 
             for p in plots:
                 if (save):
-                    img_name   = self.prefix + "delay_hist_" + p["label"] + "."
-                    img_format = save_format or self.save_format
-                    img_dpi    = dpi or self.dpi
-                    p["plt"].tight_layout()
-                    p["plt"].savefig(self.path + img_name + img_format,
-                                     format=img_format, dpi=img_dpi)
+                    self._plt_save(dpi, save_format, suffix=p["label"],
+                                   handler=p["plt"])
                 else:
                     p["plt"].show()
         else:
@@ -1243,16 +1287,12 @@ class Analyser():
             self._plt_legend()
 
             if (save):
-                img_name   = self.prefix + "delay_hist."
-                img_format = save_format or self.save_format
-                img_dpi    = dpi or self.dpi
-                plt.tight_layout()
-                plt.savefig(self.path + img_name + img_format,
-                            format=img_format, dpi=img_dpi)
+                self._plt_save(dpi, save_format)
             else:
                 plt.show()
             plt.close()
 
+    @analysis_plot("delay_vs_time")
     def plot_delay_vs_time(self, x_unit='time', show_raw=True, split=False,
                            save=True, save_format=None, dpi=None):
         """Plot delay estimations vs time
@@ -1294,12 +1334,7 @@ class Analyser():
             plt.grid()
 
             if (save):
-                img_name   = self.prefix + "delay_m2s_vs_time."
-                img_format = save_format or self.save_format
-                img_dpi    = dpi or self.dpi
-                plt.tight_layout()
-                plt.savefig(self.path + img_name + img_format,
-                            format=img_format, dpi=img_dpi)
+                self._plt_save(dpi, save_format, suffix="m2s")
             else:
                 plt.show()
             plt.close()
@@ -1311,12 +1346,7 @@ class Analyser():
             plt.grid()
 
             if (save):
-                img_name   = self.prefix + "delay_s2m_vs_time."
-                img_format = save_format or self.save_format
-                img_dpi    = dpi or self.dpi
-                plt.tight_layout()
-                plt.savefig(self.path + img_name + img_format,
-                            format=img_format, dpi=img_dpi)
+                self._plt_save(dpi, save_format, suffix="s2m")
             else:
                 plt.show()
             plt.close()
@@ -1331,16 +1361,12 @@ class Analyser():
             plt.legend()
 
             if (save):
-                img_name   = self.prefix + "delay_vs_time."
-                img_format = save_format or self.save_format
-                img_dpi    = dpi or self.dpi
-                plt.tight_layout()
-                plt.savefig(self.path + img_name + img_format,
-                            format=img_format, dpi=img_dpi)
+                self._plt_save(dpi, save_format)
             else:
                 plt.show()
             plt.close()
 
+    @analysis_plot("delay_est_err_vs_time")
     def plot_delay_est_err_vs_time(self, x_unit='time', save=True,
                                    save_format=None, dpi=None):
         """Plot delay estimations error vs time
@@ -1375,16 +1401,12 @@ class Analyser():
         plt.grid()
 
         if (save):
-            img_name   = self.prefix + "delay_est_err_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name  + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("delay_asym_hist")
     def plot_delay_asym_hist(self, n_bins=50, save=True, save_format=None,
                              dpi=None):
         """Plot delay asymmetry histogram
@@ -1406,16 +1428,12 @@ class Analyser():
         plt.grid()
 
         if (save):
-            img_name   = self.prefix + "delay_asym_hist."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("delay_asym_vs_time")
     def plot_delay_asym_vs_time(self, save=True, x_unit='time',
                                 save_format=None, dpi=None):
         """Plot delay asymmetry over time
@@ -1449,17 +1467,12 @@ class Analyser():
         plt.grid()
 
         if (save):
-            img_name   = self.prefix + "delay_asym_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
-    @dec_plot_filter
+    @analysis_plot("foffset_vs_time")
     def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
                              show_true=True, n_skip=None, x_unit='time',
                              save=True, save_format=None, dpi=None):
@@ -1527,17 +1540,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "foffset_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
-    @dec_plot_filter
+    @analysis_plot("foffset_err_vs_time")
     def plot_foffset_err_vs_time(self, show_raw=True, show_ls=True,
                                  show_kf=True, n_skip_kf=0, x_unit='time',
                                  save=True, save_format=None, dpi=None):
@@ -1603,17 +1611,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "foffset_err_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
-    @dec_plot_filter
+    @analysis_plot("foffset_err_hist")
     def plot_foffset_err_hist(self, show_raw=True, show_ls=True, show_kf=True,
                               n_bins=50, save=True, save_format=None, dpi=None):
         """Plot frequency offset error histogram
@@ -1653,16 +1656,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "foffset_err_hist."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("pdv_vs_time")
     def plot_pdv_vs_time(self, x_unit='time', save=True, save_format=None,
                          dpi=None):
         """Plot PDV over time
@@ -1727,16 +1726,12 @@ class Analyser():
         plt.legend()
 
         if (save):
-            img_name   = self.prefix + "pdv_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("pdv_hist")
     def plot_pdv_hist(self, n_bins=50, save=True, save_format=None, dpi=None):
         """Plot PDV histogram
 
@@ -1770,16 +1765,12 @@ class Analyser():
         plt.legend()
 
         if (save):
-            img_name   = self.prefix + "pdv_hist."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("ptp_exchange_interval_vs_time")
     def plot_ptp_exchange_interval_vs_time(self, n_bins=200, save=True,
                                            save_format=None, dpi=None):
         """Plot CDF of the interval between PTP exchanges
@@ -1799,16 +1790,12 @@ class Analyser():
             plt.grid()
 
             if (save):
-                img_name   = self.prefix + f"{t}_delta_vs_time."
-                img_format = save_format or self.save_format
-                img_dpi    = dpi or self.dpi
-                plt.tight_layout()
-                plt.savefig(self.path + img_name+ img_format,
-                            format=img_format, dpi=img_dpi)
+                self._plt_save(dpi, save_format, suffix=t)
             else:
                 plt.show()
             plt.close()
 
+    @analysis_plot("toffset_drift_vs_time")
     def plot_toffset_drift_vs_time(self, x_unit='time', save=True,
                                    save_format=None, dpi=None):
         """Plot time offset drift vs. time
@@ -1852,12 +1839,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            img_name   = self.prefix + "toffset_drift_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name  + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
@@ -1872,16 +1854,12 @@ class Analyser():
         plt.title('Cumulative time offset drift error')
 
         if (save):
-            img_name   = self.prefix + "toffset_drift_cum_err_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format, suffix="cumulative")
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("toffset_drift_hist")
     def plot_toffset_drift_hist(self, n_bins=50, save=True, save_format=None,
                                 dpi=None):
         """Plot time offset drift histogram
@@ -1908,18 +1886,13 @@ class Analyser():
         plt.grid()
 
         if (save):
-            img_name   = self.prefix + "toffset_drift_hist."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
-    @dec_plot_filter
-    def plot_mtie(self, show_raw=True, show_ls=True, show_pkts=True,
+    @analysis_plot("mtie")
+    def plot_mtie(self, show_raw=True, show_ls=True, show_pkts_mode=True,
                   show_kf=True, show_loop=True, save=True, save_format=None,
                   dpi=None):
         """Plot MTIE versus the observation interval(Tau)
@@ -1995,17 +1968,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "mtie_vs_tau."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
-    @dec_plot_filter
+    @analysis_plot("max_te")
     def plot_max_te(self, window_len, show_raw=True, show_ls=True,
                     show_pkts=True, show_kf=True, show_loop=True, n_skip=None,
                     x_unit='time', save=True, save_format=None, dpi=None):
@@ -2080,16 +2048,12 @@ class Analyser():
         self._plt_legend()
 
         if (save):
-            img_name   = self.prefix + "max_te_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("temperature")
     def plot_temperature(self, x_unit='time', save=True, save_format=None,
                          dpi=None):
         """Plot temperature vs time
@@ -2128,16 +2092,12 @@ class Analyser():
         plt.legend()
 
         if (save):
-            img_name   = self.prefix + "temperature_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("occupancy")
     def plot_occupancy(self, x_unit='time', save=True, save_format=None,
                        dpi=None):
         """Plot BBU/RRU DAC interface buffer occupancy vs time
@@ -2181,12 +2141,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            img_name   = self.prefix + "occupancy_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
@@ -2231,12 +2186,7 @@ class Analyser():
         plt.legend()
 
         if (save):
-            img_name   = self.prefix + name + "_vs_time."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format)
         else:
             plt.show()
         plt.close()
@@ -2257,16 +2207,12 @@ class Analyser():
         plt.legend()
 
         if (save):
-            img_name   = self.prefix + name + "_hist."
-            img_format = save_format or self.save_format
-            img_dpi    = dpi or self.dpi
-            plt.tight_layout()
-            plt.savefig(self.path + img_name + img_format,
-                        format=img_format, dpi=img_dpi)
+            self._plt_save(dpi, save_format, suffix="hist")
         else:
             plt.show()
         plt.close()
 
+    @analysis_plot("pps_err")
     def plot_pps_err(self, x_unit='time', binwidth=0.5, save=True,
                      save_format=None, dpi=None):
         """Plot PPS synchronization error vs time and histogram
@@ -2286,6 +2232,7 @@ class Analyser():
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
                                   save, save_format, dpi)
 
+    @analysis_plot("pps_rtc_foffset_est")
     def plot_pps_rtc_foffset_est(self, x_unit='time', binwidth=0.5, save=True,
                                  save_format=None, dpi=None):
         """Plot frequency offset estimates according to the PPS RTC
@@ -2308,6 +2255,7 @@ class Analyser():
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
                                   save, save_format, dpi)
 
+    @analysis_plot("error_vs_window")
     def plot_error_vs_window(self, plot_info=False, save=True, save_format=None,
                              dpi=None):
         """Plot error vs window"""
@@ -2340,13 +2288,8 @@ class Analyser():
                          transform=plt.gca().transAxes, va='top', ha='right')
 
             if (save):
-                img_name   = self.prefix + "win_opt_" + \
-                             f"{est_key}_{error_metric}_error_vs_window."
-                img_format = save_format or self.save_format
-                img_dpi    = dpi or self.dpi
-                plt.tight_layout()
-                plt.savefig(self.path + img_name + img_format,
-                            format=img_format, dpi=img_dpi)
+                self._plt_save(dpi, save_format,
+                               suffix=f"{est_key}_{error_metric}")
             else:
                 plt.show()
             plt.close()
