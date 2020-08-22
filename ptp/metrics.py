@@ -194,10 +194,13 @@ class Analyser():
                         format=img_format, dpi=img_dpi)
 
     def _plot_filter(self, kwargs):
-        """Filter the results to be included/exclded from the plot
+        """Filter the results to be included/excluded from the plot
 
-        Processes 'show_' keyworded args from a plot function and saves the
-        choices (whether to show or not) on the global 'est_keys' dictionary.
+        Most plot methods support kwargs dictionaries. These are meant to
+        contain "show_x" args to control whether metric "x" is supposed to be
+        included in the plot or not. This decorator processes such 'show_x'
+        keyworded args and saves the choices (whether to show or not) on the
+        global 'est_keys' dictionary.
 
         Args:
             kwargs : Keyworded arguments of a plot function
@@ -986,27 +989,20 @@ class Analyser():
         return decorator
 
     @analysis_plot("toffset_vs_time")
-    def plot_toffset_vs_time(self, show_raw=True, show_best=True, show_ls=True,
-                             show_pkts=True, show_kf=True, show_loop=True,
-                             show_true=True, n_skip=None, x_unit='time',
-                             save=True, save_format=None, dpi=None):
+    def plot_toffset_vs_time(self, n_skip=None, x_unit='time', save=True,
+                             save_format=None, dpi=None, show_best=True,
+                             **kwargs):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
 
         Args:
-            show_raw    : Show raw measurements
-            show_best   : Enable to highlight the best measurements.
-            show_ls     : Show least-squares fit
-            show_pkts   : Show Packet Selection fit
-            show_kf     : Show Kalman filtering results
-            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
-            show_true   : Show true values
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
             dpi         : Image resolution in dots per inch
+            show_best   : Enable to highlight the best measurements.
 
         """
         # To facilitate inspection, it is better to skip the transitory
@@ -1082,20 +1078,13 @@ class Analyser():
         plt.close()
 
     @analysis_plot("toffset_err_vs_time")
-    def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
-                                 show_pkts=True, show_kf=True, show_loop=True,
-                                 n_skip=None, x_unit='time', save=True,
-                                 save_format=None, dpi=None):
+    def plot_toffset_err_vs_time(self, n_skip=None, x_unit='time', save=True,
+                                 save_format=None, dpi=None, **kwargs):
         """Plot time offset error vs Time
 
         A comparison between the measured time offset and the true time offset.
 
         Args:
-            show_raw    : Show raw measurements
-            show_ls     : Show least-squares fit
-            show_pkts   : Show packet selection fit
-            show_kf     : Show Kalman filtering results
-            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
@@ -1151,17 +1140,11 @@ class Analyser():
         plt.close()
 
     @analysis_plot("toffset_err_hist")
-    def plot_toffset_err_hist(self, show_raw=True, show_ls=True, show_pkts=True,
-                              show_kf=True, show_loop=True, n_bins=50,
-                              save=True, save_format=None, dpi=None):
+    def plot_toffset_err_hist(self, n_bins=50, save=True, save_format=None,
+                              dpi=None, **kwargs):
         """Plot time offset error histogram
 
         Args:
-            show_raw    : Show raw measurements
-            show_ls     : Show least-squares fit
-            show_pkts   : Show packet selection fit
-            show_kf     : Show Kalman filtering results
-            show_loop   : Show PI loop fit
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1473,17 +1456,12 @@ class Analyser():
         plt.close()
 
     @analysis_plot("foffset_vs_time")
-    def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
-                             show_true=True, n_skip=None, x_unit='time',
-                             save=True, save_format=None, dpi=None):
+    def plot_foffset_vs_time(self, n_skip=None, x_unit='time', save=True,
+                             save_format=None, dpi=None, **kwargs):
         """Plot freq. offset vs time
 
         Args:
-            show_raw    : Show raw measurements
-            show_ls     : Show least-squares estimations
-            show_kf     : Show Kalman filtering results
             n_skip      : Number of initial samples to skip
-            show_true   : Show true values
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1546,15 +1524,11 @@ class Analyser():
         plt.close()
 
     @analysis_plot("foffset_err_vs_time")
-    def plot_foffset_err_vs_time(self, show_raw=True, show_ls=True,
-                                 show_kf=True, n_skip_kf=0, x_unit='time',
-                                 save=True, save_format=None, dpi=None):
+    def plot_foffset_err_vs_time(self, n_skip_kf=0, x_unit='time', save=True,
+                                 save_format=None, dpi=None, **kwargs):
         """Plot freq. offset estimation error vs time
 
         Args:
-            show_raw    : Show raw measurements
-            show_ls     : Show least-squares estimations
-            show_kf     : Show Kalman filtering results
             n_skip_kf   : Number of initial Kalman filter samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
@@ -1617,14 +1591,11 @@ class Analyser():
         plt.close()
 
     @analysis_plot("foffset_err_hist")
-    def plot_foffset_err_hist(self, show_raw=True, show_ls=True, show_kf=True,
-                              n_bins=50, save=True, save_format=None, dpi=None):
+    def plot_foffset_err_hist(self, n_bins=50, save=True, save_format=None,
+                              dpi=None, **kwargs):
         """Plot frequency offset error histogram
 
         Args:
-            show_raw    : Show raw measurements
-            show_ls     : Show least-squares fit
-            show_kf     : Show Kalman filtering results
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1892,9 +1863,7 @@ class Analyser():
         plt.close()
 
     @analysis_plot("mtie")
-    def plot_mtie(self, show_raw=True, show_ls=True, show_pkts_mode=True,
-                  show_kf=True, show_loop=True, save=True, save_format=None,
-                  dpi=None):
+    def plot_mtie(self, save=True, save_format=None, dpi=None, **kwargs):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time error (TE) samples are assumed to be equal to the
@@ -1917,11 +1886,6 @@ class Analyser():
         simpler to implement.
 
         Args:
-            show_raw    : Show raw measurements
-            show_ls     : Show least-squares fit
-            show_pkts   : Show Packet Selection fit
-            show_kf     : Show Kalman filtering results
-            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1974,18 +1938,12 @@ class Analyser():
         plt.close()
 
     @analysis_plot("max_te")
-    def plot_max_te(self, window_len, show_raw=True, show_ls=True,
-                    show_pkts=True, show_kf=True, show_loop=True, n_skip=None,
-                    x_unit='time', save=True, save_format=None, dpi=None):
+    def plot_max_te(self, window_len, n_skip=None, x_unit='time', save=True,
+                    save_format=None, dpi=None, **kwargs):
         """Plot Max|TE| vs time.
 
         Args:
             window_len  : Window lengths
-            show_raw    : Show raw measurements
-            show_ls     : Show least-squares fit
-            show_pkts   : Show Packet Selection fit
-            show_kf     : Show Kalman filtering results
-            show_loop   : Show PI loop fit
             n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
