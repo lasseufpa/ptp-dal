@@ -163,6 +163,17 @@ class Analyser():
         else:
             plt.legend()
 
+    def _plt_title(self, title):
+        """Wrapper for setting the plot title
+
+        When plots a rendered using LaTeX, don't add any plot title. The
+        assumption is that the plot is going to be formatted for a publication,
+        in which case the title goes in the caption.
+
+        """
+        if (not self.usetex):
+            plt.title(title)
+
     def _plt_save(self, dpi, save_format, suffix=None, handler=plt):
         """Wrapper for saving a plot
 
@@ -1236,7 +1247,7 @@ class Analyser():
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid()
-                plt.title("Two-way Measurements")
+                self._plt_title("Two-way Measurements")
                 plots.append({"plt" : plt.gcf(),
                               "label" : "raw"})
 
@@ -1249,7 +1260,7 @@ class Analyser():
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid()
-                plt.title("True master-to-slave")
+                self._plt_title("True master-to-slave")
                 plots.append({"plt": plt.gcf(),
                               "label": "m2s"})
 
@@ -1258,7 +1269,7 @@ class Analyser():
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid()
-                plt.title("True slave-to-master")
+                self._plt_title("True slave-to-master")
                 plots.append({"plt": plt.gcf(),
                               "label": "s2m"})
 
@@ -1780,7 +1791,7 @@ class Analyser():
                      histtype='step', alpha=0.8, color='k')
             plt.xlabel('${0}[n] - {0}[n-1]$ (ms)'.format(t))
             plt.ylabel('CDF')
-            plt.title('PTP exchange interval')
+            self._plt_title('PTP exchange interval')
             plt.grid()
 
             if (save):
@@ -1828,7 +1839,7 @@ class Analyser():
         plt.scatter(x_axis_vec, drift_est, s = 1.0, label="Estimate")
         plt.xlabel(x_axis_label)
         plt.ylabel('$x[n] - x[n-1]$ (ns)')
-        plt.title('Time Offset Drift')
+        self._plt_title('Time Offset Drift')
         plt.grid()
         plt.legend()
 
@@ -1845,7 +1856,7 @@ class Analyser():
         plt.xlabel(x_axis_label)
         plt.ylabel('Error (ns)')
         plt.grid()
-        plt.title('Cumulative time offset drift error')
+        self._plt_title('Cumulative time offset drift error')
 
         if (save):
             self._plt_save(dpi, save_format, suffix="cumulative")
@@ -1876,7 +1887,7 @@ class Analyser():
         plt.hist(np.diff(x), bins=n_bins, density=True, histtype='stepfilled')
         plt.xlabel('$x[n] - x[n-1]$ (ns)')
         plt.ylabel('Probability Density')
-        plt.title('True time offset drift histogram')
+        self._plt_title('True time offset drift histogram')
         plt.grid()
 
         if (save):
@@ -2259,7 +2270,7 @@ class Analyser():
 
             plt.figure(figsize=self.figsize)
             plt.scatter(win_len, win_error, s=3.0)
-            plt.title(est_name)
+            self._plt_title(est_name)
             plt.xlabel("window length (samples)")
             plt.ylabel(f"{error_metric} (ns)")
             plt.grid()
