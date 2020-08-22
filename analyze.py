@@ -56,7 +56,7 @@ def _run_drift_estimation(data, cache, cache_id='loop'):
 
 
 def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
-                          cache):
+                          early_stopping, cache):
     """Run tuner of window lengths"""
 
     window_optimizer = ptp.window.Optimizer(data, T_ns)
@@ -65,6 +65,7 @@ def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
                              fine_pass = en_fine,
                              force = force,
                              max_window = max_window,
+                             early_stopping = early_stopping,
                              cache=cache)
     window_optimizer.print_results()
     return window_optimizer.get_results()
@@ -278,6 +279,10 @@ def parse_args():
                         type=int,
                         help='Maximum window length that the window optimizer \
                         can return for any algorithm.')
+    parser.add_argument('--optimizer-no-stop',
+                        default=False,
+                        action='store_true',
+                        help='Do not apply early stopping on window optimizer')
     parser.add_argument('--infer-secs',
                         default=False,
                         action='store_true',
@@ -382,6 +387,7 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                                                args.optimizer_fine,
                                                args.optimizer_force,
                                                args.optimizer_max_window,
+                                               (not args.optimizer_no_stop),
                                                ds['cache'])
 
     if (ls):
