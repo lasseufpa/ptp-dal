@@ -1,6 +1,6 @@
 """PTP metrics
 """
-import math, logging, re, os, json, itertools
+import math, logging, re, os, json
 import ptp.cache
 from datetime import timedelta
 from scipy import stats
@@ -12,50 +12,48 @@ logger = logging.getLogger(__name__)
 
 
 NS_PER_MIN = (60 * 1e9)
-est_keys = {"raw"                : {"label": "Raw Measurements",
-                                    "marker": None,
+est_keys = {"raw"                : {"label": "Raw",
+                                    "marker": "*",
                                     "show": True},
             "true"               : {"label": "True Values",
-                                    "marker": None,
+                                    "marker": ".",
                                     "show": True},
-            "pkts_avg_recursive" : {"label": "Sample-average (recursive)",
-                                    "marker": "v",
+            "pkts_avg_recursive" : {"label": "Sample average",
+                                    "marker": "o",
                                     "show": True},
-            "pkts_avg_normal"    : {"label": "Sample-average (normal)",
-                                    "marker": "v",
+            "pkts_avg_normal"    : {"label": "Sample average (normal)",
+                                    "marker": "1",
                                     "show": True},
             "pkts_ewma"          : {"label": "EWMA",
                                     "marker": "v",
                                     "show": True},
-            "pkts_median"        : {"label": "Sample-median",
-                                    "marker": "v",
+            "pkts_median"        : {"label": "Sample median",
+                                    "marker": "^",
                                     "show": True},
-            "pkts_min"           : {"label": "Sample-min",
-                                    "marker": "v",
+            "pkts_min"           : {"label": "Sample min",
+                                    "marker": "h",
                                     "show": True},
-            "pkts_max"           : {"label": "Sample-max",
-                                    "marker": "v",
+            "pkts_max"           : {"label": "Sample max",
+                                    "marker": "s",
                                     "show": True},
-            "pkts_mode"          : {"label": "Sample-mode",
-                                    "marker": "v",
-                                    "show": True},
-            "ls_t2"              : {"label": "LSE (t2)",
+            "pkts_mode"          : {"label": "Sample mode",
                                     "marker": "x",
                                     "show": True},
-            "ls_t1"              : {"label": "LSE (t1)",
-                                    "marker": "x",
+            "ls_t2"              : {"label": "LS (t2)",
+                                    "marker": ">",
+                                    "show": True},
+            "ls_t1"              : {"label": "LS (t1)",
+                                    "marker": "<",
                                     "show": True},
             "ls_eff"             : {"label": "LS",
-                                    "marker": "x",
+                                    "marker": "p",
                                     "show": True},
             "kf"                 : {"label": "KF",
                                     "marker": "d",
                                     "show": True},
-            "loop"               : {"label": "PI Loop",
-                                    "marker": "v",
+            "loop"               : {"label": "TLL",
+                                    "marker": ",",
                                     "show": True}}
-g_markers = (".", "+", "o", "*", "v", "^", "<", ">", "8", "h",
-             "s", "p", "d")
 
 
 class Analyser():
@@ -95,12 +93,18 @@ class Analyser():
                 'legend.fontsize': 8,
                 'xtick.labelsize': 8,
                 'ytick.labelsize': 8,
+                'grid.color'     : 'grey',
+                'grid.linestyle' : ':',
+                'grid.linewidth' : 0.25
+            }
+            matplotlib.rcParams.update(params)
+        else:
+            params = {
                 'grid.color'     : 'k',
                 'grid.linestyle' : ':',
                 'grid.linewidth' : 0.5
             }
             matplotlib.rcParams.update(params)
-        else:
             rc_figsize   = matplotlib.rcParams["figure.figsize"]
             aspect_ratio = rc_figsize[0]/rc_figsize[1]
             max_width    = rc_figsize[0]
@@ -137,6 +141,24 @@ class Analyser():
             os.makedirs(path)
 
         return path
+
+    def _format_label(self, label):
+        """Format plot label
+
+        If the latex interpreter is being used, try to break the legends to fit
+        in two lines. This approach will help to save spacing.
+
+        """
+        label = label.replace(' ', '\n') if (self.usetex) else label
+        return label
+
+    def _plt_legend(self):
+        """Wrapper to enable the plot legend"""
+        if (self.usetex):
+            plt.legend(fontsize='small', bbox_to_anchor=(1.0, 1.02),
+                       loc='upper left', frameon=False, prop={'size': 5.})
+        else:
+            plt.legend()
 
     def save_metadata(self, metadata, save=False):
         """Save metadata info on the path where plots are saved
@@ -965,8 +987,8 @@ class Analyser():
 
                 if (len(x_est) > 0):
                     plt.scatter(x_axis_vec, x_est,
-                                label=value["label"], marker=value["marker"],
-                                s=1.0)
+                                label=self._format_label(value["label"]),
+                                marker=value["marker"], s=1.0)
 
         # Best raw measurements
         if (show_best):
@@ -984,12 +1006,12 @@ class Analyser():
                 x_axis_vec   = best_idx + n_skip
 
             plt.scatter(x_axis_vec, x_tilde[best_idx], s=1.0,
-                        label="Accurate Measurements")
+                        label=self._format_label("Accurate Raw"))
 
         plt.xlabel(x_axis_label)
-        plt.ylabel('Time offset (ns)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend()
+        plt.ylabel('Time Offset (ns)')
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "toffset_vs_time."
@@ -1056,13 +1078,14 @@ class Analyser():
                     x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(x_err) > 0):
-                    plt.scatter(x_axis_vec, x_err, label=value["label"],
-                                marker=value["marker"], s=20.0, alpha=0.7)
+                    plt.scatter(x_axis_vec, x_err,
+                                label=self._format_label(value["label"]),
+                                marker=value["marker"], s=1.0, alpha=0.7)
 
         plt.xlabel(x_axis_label)
-        plt.ylabel('Time offset Error (ns)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend()
+        plt.ylabel('Time Offset Error (ns)')
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "toffset_err_vs_time."
@@ -1108,12 +1131,13 @@ class Analyser():
 
                 if (len(x_err) > 0):
                     plt.hist(x_err, bins=50, density=True, alpha=0.7,
-                             histtype='stepfilled', label=value["label"])
+                             histtype='stepfilled',
+                             label=self._format_label(value["label"]))
 
-        plt.xlabel('Time offset Error (ns)')
+        plt.xlabel('Time Offset Error (ns)')
         plt.ylabel('Probability Density')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend()
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "toffset_err_hist."
@@ -1157,7 +1181,7 @@ class Analyser():
                          histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
-                plt.grid(color='k', linewidth=.5, linestyle=':')
+                plt.grid()
                 plt.title("Two-way Measurements")
                 plots.append({"plt" : plt.gcf(),
                               "label" : "raw"})
@@ -1170,7 +1194,7 @@ class Analyser():
                 plt.hist(d, bins=n_bins, density=True, histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
-                plt.grid(color='k', linewidth=.5, linestyle=':')
+                plt.grid()
                 plt.title("True master-to-slave")
                 plots.append({"plt": plt.gcf(),
                               "label": "m2s"})
@@ -1179,7 +1203,7 @@ class Analyser():
                 plt.hist(d_bw, bins=n_bins, density=True, histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
-                plt.grid(color='k', linewidth=.5, linestyle=':')
+                plt.grid()
                 plt.title("True slave-to-master")
                 plots.append({"plt": plt.gcf(),
                               "label": "s2m"})
@@ -1200,20 +1224,23 @@ class Analyser():
             if (show_raw):
                 d_est = np.array([r['d_est'] for r in self.data]) / 1e3
                 plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
-                         histtype='stepfilled', label="Two-way Measurements")
+                         histtype='stepfilled',
+                         label=self._format_label("Two-way Measurements"))
 
             if (show_true):
                 d = np.array([r["d"] for r in self.data]) / 1e3
                 plt.hist(d, bins=n_bins, density=True, alpha=0.5,
-                         histtype='stepfilled', label="True master-to-slave")
+                         histtype='stepfilled',
+                         label=self._format_label("True m-to-s"))
                 d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
                 plt.hist(d_bw, bins=n_bins, density=True, alpha=0.5,
-                         histtype='stepfilled', label="True slave-to-master")
+                         histtype='stepfilled',
+                         label=self._format_label("True s-to-m"))
 
             plt.xlabel(x_label)
             plt.ylabel(y_label)
-            plt.grid(color='k', linewidth=.5, linestyle=':')
-            plt.legend()
+            plt.grid()
+            self._plt_legend()
 
             if (save):
                 img_name   = self.prefix + "delay_hist."
@@ -1264,7 +1291,7 @@ class Analyser():
             plt.scatter(x_axis_vec, d, s = 1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('m-to-s delay (ns)')
-            plt.grid(color='k', linewidth=.5, linestyle=':')
+            plt.grid()
 
             if (save):
                 img_name   = self.prefix + "delay_m2s_vs_time."
@@ -1281,7 +1308,7 @@ class Analyser():
             plt.scatter(x_axis_vec, d_bw, s = 1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('s-to-m delay (ns)')
-            plt.grid(color='k', linewidth=.5, linestyle=':')
+            plt.grid()
 
             if (save):
                 img_name   = self.prefix + "delay_s2m_vs_time."
@@ -1300,7 +1327,7 @@ class Analyser():
             plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('Delay Estimation (ns)')
-            plt.grid(color='k', linewidth=.5, linestyle=':')
+            plt.grid()
             plt.legend()
 
             if (save):
@@ -1344,8 +1371,8 @@ class Analyser():
         plt.figure(figsize=self.figsize)
         plt.scatter(x_axis_vec, d_est_err, s = 1.0)
         plt.xlabel(x_axis_label)
-        plt.ylabel('Delay Estimation Error (ns)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.ylabel('Error (ns)')
+        plt.grid()
 
         if (save):
             img_name   = self.prefix + "delay_est_err_vs_time."
@@ -1374,9 +1401,9 @@ class Analyser():
         plt.figure(figsize=self.figsize)
         d_asym = np.array([r['asym'] for r in self.data]) / 1e3
         plt.hist(d_asym, bins=n_bins, density=True, histtype='stepfilled')
-        plt.xlabel('Delay asymmetry (us)')
+        plt.xlabel('Delay Asymmetry (us)')
         plt.ylabel('Probability Density')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
 
         if (save):
             img_name   = self.prefix + "delay_asym_hist."
@@ -1419,7 +1446,7 @@ class Analyser():
         plt.scatter(time_vec, d_asym, s=1.0)
         plt.xlabel(x_axis_label)
         plt.ylabel('Delay asymmetry (us)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
 
         if (save):
             img_name   = self.prefix + "delay_asym_vs_time."
@@ -1491,13 +1518,13 @@ class Analyser():
 
                 if (len(y_est_ppb) > 0):
                     plt.scatter(x_axis_vec, y_est_ppb,
-                                label=value["label"], marker=value["marker"],
-                                s=1.0)
+                                label=self._format_label(value["label"]),
+                                marker=value["marker"], s=1.0)
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset (ppb)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend()
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "foffset_vs_time."
@@ -1567,13 +1594,13 @@ class Analyser():
 
                 if (len(y_est_err_ppb) > 0):
                     plt.scatter(x_axis_vec, y_est_err_ppb,
-                                label=value["label"], marker=value["marker"],
-                                s=1.0)
+                                label=self._format_label(value["label"]),
+                                marker=value["marker"], s=1.0)
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset Error (ppb)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend()
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "foffset_err_vs_time."
@@ -1617,12 +1644,13 @@ class Analyser():
 
                 if (len(y_err) > 0):
                     plt.hist(y_err, bins=50, density=True, alpha=0.7,
-                             histtype='stepfilled', label=value["label"])
+                             histtype='stepfilled',
+                             label=self._format_label(value["label"]))
 
         plt.xlabel('Frequency Offset Error (ppb)')
         plt.ylabel('Probability Density')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend()
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "foffset_err_hist."
@@ -1695,7 +1723,7 @@ class Analyser():
         plt.scatter(x_axis_vec[1:], diff_t4_3, s = 1.0, label="s-to-m")
         plt.xlabel(x_axis_label)
         plt.ylabel('Delay Variation (ns)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
         plt.legend()
 
         if (save):
@@ -1738,7 +1766,7 @@ class Analyser():
                  histtype='stepfilled', label="s-to-m")
         plt.xlabel('Delay Variation (ns)')
         plt.ylabel('Probability Density')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
         plt.legend()
 
         if (save):
@@ -1768,7 +1796,7 @@ class Analyser():
             plt.xlabel('${0}[n] - {0}[n-1]$ (ms)'.format(t))
             plt.ylabel('CDF')
             plt.title('PTP exchange interval')
-            plt.grid(color='k', linewidth=.5, linestyle=':')
+            plt.grid()
 
             if (save):
                 img_name   = self.prefix + f"{t}_delta_vs_time."
@@ -1819,8 +1847,8 @@ class Analyser():
         plt.scatter(x_axis_vec, drift_est, s = 1.0, label="Estimate")
         plt.xlabel(x_axis_label)
         plt.ylabel('$x[n] - x[n-1]$ (ns)')
-        plt.title('Time offset drift')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.title('Time Offset Drift')
+        plt.grid()
         plt.legend()
 
         if (save):
@@ -1839,7 +1867,8 @@ class Analyser():
         plt.figure(figsize=self.figsize)
         plt.scatter(x_axis_vec, cum_drift_err, s = 1.0)
         plt.xlabel(x_axis_label)
-        plt.ylabel('(ns)')
+        plt.ylabel('Error (ns)')
+        plt.grid()
         plt.title('Cumulative time offset drift error')
 
         if (save):
@@ -1876,7 +1905,7 @@ class Analyser():
         plt.xlabel('$x[n] - x[n-1]$ (ns)')
         plt.ylabel('Probability Density')
         plt.title('True time offset drift histogram')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
 
         if (save):
             img_name   = self.prefix + "toffset_drift_hist."
@@ -1955,13 +1984,15 @@ class Analyser():
                 # Add to cached results
                 self.results["mtie"][key] = (tau_est, mtie_est)
 
-            plt.semilogx(tau_est, mtie_est, label=value["label"],
-                         marker=value["marker"], alpha=0.7, basex=2)
+            plt.semilogx(tau_est, mtie_est,
+                         label=self._format_label(value["label"]),
+                         marker=value["marker"], markersize=3, alpha=0.7,
+                         basex=2)
 
         plt.xlabel('Observation interval (samples)')
         plt.ylabel('MTIE (ns)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-        plt.legend(loc=0)
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "mtie_vs_tau."
@@ -2009,9 +2040,6 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
-        # Dynamic markers
-        marker = itertools.cycle(g_markers)
-
         plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
@@ -2042,26 +2070,14 @@ class Analyser():
             elif (x_unit == "samples"):
                 x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
-            # If the latex interpreter is being used, try to break the
-            # legends to fit in two lines. This approach will help to save
-            # spacing.
-            if (self.usetex):
-                label = value["label"].replace(' ', '\n').replace('-', '\n')
-            else:
-                label = value["label"]
-
             plt.plot(x_axis_vec[window_len - 1::window_len], max_te_est,
-                     label=label, markersize=3, marker = next(marker))
+                     label=self._format_label(value["label"]), markersize=3,
+                     marker = value['marker'])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('$\max|$TE$|$ (ns)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
-
-        if (self.usetex):
-            plt.legend(fontsize='small', bbox_to_anchor=(1.0, 1.02),
-                       loc='upper left', frameon=False, prop={'size': 5.})
-        else:
-            plt.legend(loc=0)
+        plt.grid()
+        self._plt_legend()
 
         if (save):
             img_name   = self.prefix + "max_te_vs_time."
@@ -2108,7 +2124,7 @@ class Analyser():
         plt.scatter(x_axis_vec, temp2, s = 1.0, label="MCP9808")
         plt.xlabel(x_axis_label)
         plt.ylabel('Temperature (C)')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
         plt.legend()
 
         if (save):
@@ -2161,7 +2177,7 @@ class Analyser():
         plt.xlabel(x_axis_label)
         plt.ylim((0, 8191))
         plt.ylabel('Occupancy')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
         plt.legend()
 
         if (save):
@@ -2211,7 +2227,7 @@ class Analyser():
 
         plt.xlabel(x_axis_label)
         plt.ylabel(ylabel)
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
         plt.legend()
 
         if (save):
@@ -2237,7 +2253,7 @@ class Analyser():
 
         plt.xlabel(ylabel)
         plt.ylabel('Probability Density')
-        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.grid()
         plt.legend()
 
         if (save):
@@ -2287,7 +2303,7 @@ class Analyser():
         logger.info("Plot frequency offset estimates of the PPS RTC")
         keys   = ["y_pps", "y_pps2"]
         labels = ["RRU1", "RRU2"]
-        ylabel = "PPS frequency offset (ppb)"
+        ylabel = "PPS Frequency Offset (ppb)"
         name   = "pps_foffset"
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
                                   save, save_format, dpi)
@@ -2317,7 +2333,7 @@ class Analyser():
             plt.title(est_name)
             plt.xlabel("window length (samples)")
             plt.ylabel(f"{error_metric} (ns)")
-            plt.grid(color='k', linewidth=.5, linestyle=':')
+            plt.grid()
 
             if (plot_info):
                 plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
