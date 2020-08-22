@@ -2249,7 +2249,7 @@ class Analyser():
 
     @analysis_plot("error_vs_window")
     def plot_error_vs_window(self, plot_info=False, save=True, save_format=None,
-                             dpi=None):
+                             dpi=None, **kwargs):
         """Plot error vs window"""
 
         if (self.cache):
@@ -2259,20 +2259,27 @@ class Analyser():
                             "optimization parameters")
             return
 
+        # Plot each estimator individually
         for estimator in window_cfg.keys():
 
             est_key      = window_cfg[estimator]['est_key']
             est_name     = window_cfg[estimator]['name']
             N_best       = window_cfg[estimator]['N_best']
             error_metric = window_cfg[estimator]['error_metric']
-            win_len      = window_cfg[estimator]['window_len']
-            win_error    = window_cfg[estimator]['window_error']
+            win_len      = np.array(window_cfg[estimator]['window_len'])
+            win_error    = np.array(window_cfg[estimator]['window_error'])
+
+            # Convert to RMSE
+            if (error_metric == "mse"):
+                win_error = np.sqrt(win_error)
 
             plt.figure(figsize=self.figsize)
-            plt.scatter(win_len, win_error, s=3.0)
+            plt.semilogx(win_len, win_error, markersize=3, basex=2)
             self._plt_title(est_name)
-            plt.xlabel("window length (samples)")
-            plt.ylabel(f"{error_metric} (ns)")
+            plt.xlabel("Window Length $N$ (samples)")
+            plt.ylabel("{} (ns)".format(
+                "$\max|$TE$|$" if error_metric == "max-te" else "RMSE"
+            ))
             plt.grid()
 
             if (plot_info):
@@ -2285,4 +2292,43 @@ class Analyser():
             else:
                 plt.show()
             plt.close()
+
+        # Plot all estimators at once
+        plt.figure(figsize=self.figsize)
+        for estimator, cfg in sorted(window_cfg.items(),
+                                     key=lambda x: min(x[1]['window_error']),
+                                     reverse=True):
+            est_key      = window_cfg[estimator]['est_key']
+
+            if (not est_keys[est_key]["show"]):
+                continue
+
+            est_name     = window_cfg[estimator]['name']
+            N_best       = window_cfg[estimator]['N_best']
+            error_metric = window_cfg[estimator]['error_metric']
+            win_len      = np.array(window_cfg[estimator]['window_len'])
+            win_error    = np.array(window_cfg[estimator]['window_error'])
+
+            # Convert to RMSE
+            if (error_metric == "mse"):
+                win_error = np.sqrt(win_error)
+
+            plt.semilogx(win_len, win_error,
+                         label=self._format_label(est_keys[est_key]['label']),
+                         marker = est_keys[est_key]['marker'], markersize=3,
+                         basex=2)
+
+        plt.xlabel("Window Length $N$ (samples)")
+        plt.ylabel("{} (ns)".format(
+            "$\max|$TE$|$" if error_metric == "max-te" else "RMSE"
+        ))
+        plt.grid()
+        self._plt_legend()
+
+        if (save):
+            self._plt_save(dpi, save_format,
+                           suffix=f"all_{error_metric}")
+        else:
+            plt.show()
+        plt.close()
 
