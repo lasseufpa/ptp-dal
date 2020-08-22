@@ -17,9 +17,10 @@ def _append_key_val(cmd, key, val):
         cmd.append(str(val))
 
 
-def _run(args, dry_run=False):
+def _run(action, args, dry_run=False):
     """Run the acquisition"""
-    cmd = ["python3", "capture.py"]
+    script = action + ".py"
+    cmd    = ["python3", script]
     cmd.extend(args)
 
     if (dry_run):
@@ -33,10 +34,14 @@ def _run(args, dry_run=False):
 
 
 def parser():
-    p = ArgumentParser(description="Run a batch of acquisitions",
+    p = ArgumentParser(description="Run a batch of actions",
                        formatter_class=ArgumentDefaultsHelpFormatter)
     p.add_argument('filename',
-                   help='JSON file describing the target acquisitions')
+                   help='JSON file describing the target action batch')
+    p.add_argument('-a','--action',
+                   choices=["capture", "analyze"],
+                   default="capture",
+                   help="Action to run in batch (capture or analyze).")
     p.add_argument('--verbose', '-v',
                    action='count',
                    default=1,
@@ -44,7 +49,7 @@ def parser():
     p.add_argument('--dry-run',
                    action='store_true',
                    default=False,
-                   help="Print all capture commands but do not run them")
+                   help="Print all commands but do not run them")
     return p.parse_args()
 
 
@@ -62,7 +67,7 @@ def main():
     # The root of the dictionary should contain the 'global' and 'batch'
     # keys. The 'global' entry should be a dictionary holding the global
     # command-line arguments. The 'batch' entry should be a list of
-    # dictionaries, each describing the specific parameters of the acquisition.
+    # dictionaries, each describing the specific parameters of the action.
     assert('global' in cfg)
     assert('batch' in cfg)
     assert(isinstance(cfg['global'], dict))
@@ -70,23 +75,22 @@ def main():
     assert(all([isinstance(x, dict) for x in cfg['batch']]))
 
     # Global command-line arguments
-    log_level_arg = "-" + ((args.verbose - 1) * "v")
+    log_level_arg = "-" + ((args.verbose - 1) * "v") if args.verbose > 1 else ""
     global_args   = [log_level_arg]
     for param in cfg['global']:
         _append_key_val(global_args, param, cfg['global'][param])
 
+    for i, action in enumerate(cfg['batch']):
+        # Specific command-line arguments
+        action_args = []
+        action_args.extend(global_args)
+        for param in action:
+            _append_key_val(action_args, param, action[param])
 
-    for i, capture in enumerate(cfg['batch']):
-        # Acquisition-specific command-line arguments
-        capture_args = []
-        capture_args.extend(global_args)
-        for param in capture:
-            _append_key_val(capture_args, param, capture[param])
+        logging.info("Running {} {}".format(args.action + ".py", i))
 
-        logging.info("Running acquisition {}".format(i))
-
-        # Run the acquisition
-        _run(capture_args, args.dry_run)
+        # Run the action
+        _run(args.action, action_args, args.dry_run)
 
 
 if __name__ == "__main__":
