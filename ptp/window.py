@@ -41,16 +41,18 @@ class Optimizer():
                            "N_best" : None}
     }
 
-    def __init__(self, data, T_ns):
+    def __init__(self, data, T_ns, pkts_opts={}):
         """Optimizes processing window lengths
 
         Args:
-            data : Array of objects with simulation or testbed data
-            T_ns : Nominal message period in nanoseconds
+            data      : Array of objects with simulation or testbed data
+            T_ns      : Nominal message period in nanoseconds
+            pkts_opts : Packet selection algorithm options
 
         """
-        self.data     = data
-        self.T_ns     = T_ns
+        self.data      = data
+        self.T_ns      = T_ns
+        self.pkts_opts = pkts_opts
 
         # Number of samples
         self.n_data   = len(data)
@@ -103,7 +105,7 @@ class Optimizer():
                 ls.process(impl=est_impl)
             else:
                 pkts    = ptp.pktselection.PktSelection(N, data)
-                pkts.process(strategy=est_impl)
+                pkts.process(strategy=est_impl, **self.pkts_opts)
 
             # The recursive moving average methods have transitories. Try to
             # skip them by throwing away an arbitrary number of initial values.

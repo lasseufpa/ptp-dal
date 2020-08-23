@@ -56,10 +56,13 @@ def _run_drift_estimation(data, cache, cache_id='loop'):
 
 
 def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
-                          early_stopping, cache):
+                          early_stopping, cache, drift_comp):
     """Run tuner of window lengths"""
 
-    window_optimizer = ptp.window.Optimizer(data, T_ns)
+    window_optimizer = ptp.window.Optimizer(data, T_ns,
+                                            pkts_opts = {
+                                                'drift_comp' : drift_comp
+                                            })
     window_optimizer.process('all',
                              error_metric = metric,
                              fine_pass = en_fine,
@@ -142,32 +145,32 @@ def _run_post_bias_compensation(data):
         logging.warning("Can't compensate asymmetry of mode")
 
 
-def _run_pktselection(data, window_len):
+def _run_pktselection(data, window_len, drift_comp=True):
     """Run packet selection algorithms"""
 
     # Moving average
     pkts = ptp.pktselection.PktSelection(window_len['movavg'], data)
-    pkts.process("avg-recursive")
+    pkts.process("avg-recursive", drift_comp=drift_comp)
 
     # Sample-median
     pkts.set_window_len(window_len['median'])
-    pkts.process("median")
+    pkts.process("median", drift_comp=drift_comp)
 
     # Sample-minimum
     pkts.set_window_len(window_len['min'])
-    pkts.process("min")
+    pkts.process("min", drift_comp=drift_comp)
 
     # Sample-maximum
     pkts.set_window_len(window_len['max'])
-    pkts.process("max")
+    pkts.process("max", drift_comp=drift_comp)
 
     # Exponentially weighted moving average
     pkts.set_window_len(window_len['ewma'])
-    pkts.process("ewma")
+    pkts.process("ewma", drift_comp=drift_comp)
 
     # Sample-mode
     pkts.set_window_len(window_len['mode'])
-    pkts.process("mode")
+    pkts.process("mode", drift_comp=drift_comp)
 
 
 def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
@@ -294,6 +297,11 @@ def parse_args():
                         help="Compensate the bias prior to any post-processing \
                         (pre), after post-processing (post), both pre and \
                         post post-processing (both) or disable it ('none').")
+    parser.add_argument('--pkts-no-drift-comp',
+                        default=False,
+                        action='store_true',
+                        help='Whether to disable the drift compensation step '
+                        'applied within packet selection algorithms.')
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
@@ -379,6 +387,10 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
     _run_foffset_estimation(ds['data'].data)
     _run_drift_estimation(ds['data'].data, cache=ds['cache'])
 
+    # Drift compensation applied on packet selection algorithms during the main
+    # processing and the window optimization processing
+    drift_comp = not args.pkts_no_drift_comp
+
     if (args.no_optimizer):
         window_lengths = default_window_lengths
     else:
@@ -388,7 +400,8 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                                                args.optimizer_force,
                                                args.optimizer_max_window,
                                                (not args.optimizer_no_stop),
-                                               ds['cache'])
+                                               ds['cache'],
+                                               drift_comp)
 
     if (ls):
         _run_ls(ds['data'].data, window_lengths['ls'], T_ns)
@@ -398,7 +411,8 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                     force=args.optimizer_force)
 
     if (pktselection):
-        _run_pktselection(ds['data'].data, window_lengths)
+        _run_pktselection(ds['data'].data, window_lengths,
+                          drift_comp = drift_comp)
 
     if (args.bias == 'post' or args.bias == 'both'):
         _run_post_bias_compensation(ds['data'].data)
