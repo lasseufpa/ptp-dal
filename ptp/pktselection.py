@@ -410,58 +410,53 @@ class PktSelection():
 
         return x_est.reshape(x_est.size)
 
-    def _sample_by_sample(self, strategy, drift_comp, drift_est):
+    def _sample_by_sample(self, strategy, drift_comp):
         """Sample-by-sample processing
 
         Args:
-            strategy   : Selection strategy of interest (recursive moving
-                         average or exponentially-weighted moving average)
-            drift_comp : Whether to compensate drift of timestamp differences or
-                         time offset measuremrents prior to computing packet
-                         selection operators.
-            drift_est  : Vector with time offset incremental drifts due to
-                         frequency offset.
+            strategy      : Selection strategy of interest (recursive moving
+                            average or exponentially-weighted moving average).
+            drift_comp    : Whether to compensate drift of timestamp differences
+                            or time offset measuremrents prior to computing
+                            packet selection operators.
 
         """
-        # Select vector of noisy time offset observations and delay measurements
-        x_obs  = np.array([res["x_est"] for res in self.data])
-        n_data = len(x_obs)
-
-        # Assume that all elements of self.data contain "x_est" and "d_est"
-        assert(len(x_obs) == len(self.data))
+        # Assume that all elements of self.data contain "x_est". If drift
+        # compensation is enabled, assume all elements contain "cum_drift".
+        assert(all([("x_est" in r) for r in self.data]))
+        if (drift_comp):
+            assert(all([("cum_drift" in r) for r in self.data]))
 
         # Key for save data on global data records
         key = strategy.replace('-', '_')
 
-        drift_accum = 0
-        for i in range(0, n_data):
+        drift_correction = 0
+        for i in range(len(self.data)):
             if (drift_comp):
-                # Accumulate drift continuously and try to average out
-                # drift-removed time offset estimates
-                drift_accum += drift_est[i]
+                drift_correction = self.data[i]["cum_drift"]
+
+            x_obs = self.data[i]["x_est"]
 
             if (strategy == 'avg-recursive'):
-                x_est = self._sample_avg_recursive(x_obs[i] - drift_accum)
+                x_est = self._sample_avg_recursive(x_obs - drift_correction)
             elif (strategy == 'ewma'):
-                x_est = self._ewma.step(x_obs[i] - drift_accum)
+                x_est = self._ewma.step(x_obs - drift_correction)
             else:
                 raise ValueError("Strategy choice %s unknown" %(strategy))
 
             # Re-add cumulative drift and save on global data records after the
-            # averaging transitory:
+            # averaging transitory of (N-1) samples:
             if (i >= (self.N - 1)):
-                self.data[i][f"x_pkts_{key}"] = x_est + drift_accum
+                self.data[i][f"x_pkts_{key}"] = x_est + drift_correction
 
-    def _window_by_window(self, strategy, drift_comp, drift_est):
+    def _window_by_window(self, strategy, drift_comp):
         """Window-by-window processing
 
         Args:
-            strategy   : Window-based packet selection strategy of interest
-            drift_comp : Whether to compensate drift of timestamp differences or
-                         time offset measuremrents prior to computing packet
-                         selection operators.
-            drift_est  : Vector with time offset incremental drifts due to
-                         frequency offset.
+            strategy      : Window-based packet selection strategy of interest.
+            drift_comp    : Whether to compensate drift of timestamp differences
+                            or time offset measuremrents prior to computing
+                            packet selection operators.
 
         """
         for i in range(0, (len(self.data) - self.N) + 1):
@@ -469,13 +464,10 @@ class PktSelection():
             i_s = i
             i_e = i + self.N
 
-            # Drift vector is the cumulative time offset drift due to
-            # frequency offset relative to the beginning of the observation
-            # window. Say if first sample of the window has an incremental
-            # drift of 5 ns and second sample has a drift of 6 ns, the first
-            # two elements of the drift vector below will be 5 and 11 ns.
+            # Drift correction based on cumulative time offset drift estimates
             if (drift_comp):
-                drift_w = drift_est[i_s:i_e].cumsum()
+                cum_drift_w = np.array([r["cum_drift"] for r in
+                                        self.data[i_s:i_e]])
 
             # Operator that processes time offset measurement windows
             if (strategy == 'avg-normal'):
@@ -484,7 +476,7 @@ class PktSelection():
 
                 # Remove drift from observed time offset
                 if (drift_comp):
-                    x_obs_w = x_obs_w - drift_w
+                    x_obs_w = x_obs_w - cum_drift_w
 
                 x_est = self._sample_avg_normal(x_obs_w)
 
@@ -497,8 +489,8 @@ class PktSelection():
 
                 # Remove drift from observed timestamp differences
                 if (drift_comp):
-                    t2_minus_t1_w = t2_minus_t1_w - drift_w
-                    t4_minus_t3_w = t4_minus_t3_w + drift_w
+                    t2_minus_t1_w = t2_minus_t1_w - cum_drift_w
+                    t4_minus_t3_w = t4_minus_t3_w + cum_drift_w
 
                 if (strategy == 'median'):
                     x_est = self._sample_median(t2_minus_t1_w,
@@ -521,7 +513,7 @@ class PktSelection():
             # Re-add the drift that was accumulated during this observation
             # window to the estimate that was produced by the selection operator
             if (drift_comp):
-                x_est = x_est + drift_w[-1]
+                x_est = x_est + cum_drift_w[-1]
 
             # Save on global data records
             key = strategy.replace('-', '_')
@@ -532,8 +524,7 @@ class PktSelection():
             logger.info("Sample-mode bin was increased to %d" %(
                 self._sample_mode_bin))
 
-    def _matrix_by_matrix(self, strategy, drift_comp, drift_est, batch,
-                          batch_size):
+    def _matrix_by_matrix(self, strategy, drift_comp, batch, batch_size):
         """Matrix-by-matrix processing
 
         This only processes window-based algorithms when vectorization is
@@ -542,14 +533,12 @@ class PktSelection():
         correponds to the length of observation windows.
 
         Args:
-            strategy   : Window-based packet selection strategy of interest
-            drift_comp : Whether to compensate drift of timestamp differences or
-                         time offset measuremrents prior to computing packet
-                         selection operators.
-            drift_est  : Vector with time offset incremental drifts due to
-                         frequency offset.
-            batch      : Whether to split dataset into batches.
-            batch_size : Number of observation windows on each batch.
+            strategy      : Window-based packet selection strategy of interest.
+            drift_comp    : Whether to compensate drift of timestamp differences
+                            or time offset measuremrents prior to computing
+                            packet selection operators.
+            batch         : Whether to split dataset into batches.
+            batch_size    : Number of observation windows on each batch.
 
         """
         win_overlap = self.N - 1 # samples repeated on a window from past window
@@ -573,15 +562,21 @@ class PktSelection():
             i_s = i_w_s * new_per_win                       # 1st of the 1st window
             i_e = i_s + (batch_size-1)*new_per_win + self.N # last of the last
 
-            # Calculate the drift windows
-            drift_est_w = self._window(drift_est[i_s:i_e], self.N,
-                                       shift=new_per_win)
-            # NOTE: it is OK to let _window use copy = False here, i.e. it is OK if
-            # the values change in the original drift_est vector.
+            # Calculate the drift correction windows
+            if (drift_comp):
+                cum_drift_est   = np.array([r["cum_drift"] for r in
+                                            self.data[i_s:i_e]])
+                cum_drift_est_w = self._window(cum_drift_est, self.N,
+                                               shift=new_per_win)
+            else:
+                cum_drift_est_w = []
+            # NOTE: it is OK to let _window use copy = False here. We don't
+            # mutate these values (they are only read, but not written).
 
             if (strategy == 'avg-normal'):
                 # Time offset measurements:
-                x_obs = np.array([res["x_est"] for res in self.data[i_s:i_e]])
+                x_obs = np.array([res["x_est"] for res in self.data[i_s:i_e]],
+                                 dtype='float64')
 
                 # Stacked windows with time offset measurements
                 x_obs_w  = self._window(x_obs, self.N,
@@ -592,7 +587,7 @@ class PktSelection():
 
                 x_est = self._vectorized(strategy=strategy,
                                          drift_comp=drift_comp,
-                                         drift_est=drift_est_w,
+                                         cum_drift_est=cum_drift_est_w,
                                          x_obs=x_obs_w)
             else:
                 # Timestamps differences
@@ -615,7 +610,7 @@ class PktSelection():
                 # Otherwise, process all observation windows at once.
                 x_est = self._vectorized(strategy=strategy,
                                          drift_comp=drift_comp,
-                                         drift_est=drift_est_w,
+                                         cum_drift_est=cum_drift_est_w,
                                          t2_minus_t1=t2_minus_t1_w,
                                          t4_minus_t3=t4_minus_t3_w)
 
@@ -630,22 +625,22 @@ class PktSelection():
                 last_idx_in_window  = first_idx_in_window + self.N - 1
                 self.data[last_idx_in_window][f"x_pkts_{key}"] = x_est[i]
 
-    def _vectorized(self, strategy, drift_comp, drift_est=None, \
-                    x_obs=None, t2_minus_t1=None, t4_minus_t3=None):
+    def _vectorized(self, strategy, drift_comp, cum_drift_est=None, x_obs=None,
+                    t2_minus_t1=None, t4_minus_t3=None):
         """Vectorized processing
 
         All observation windows are stacked as lines of a matrix
 
         Args:
-            strategy    : Select the strategy of interest.
-            drift_comp  : Whether to compensate drift of timestamp differences or
-                          time offset measuremrents prior to computing packet
-                          selection operators.
-            drift_est   : Matrix with time offset incremental drifts due to
-                          frequency offset.
-            x_obs       : Matrix with time offset observations windows
-            t2_minus_t1 : Matrix of (t2 - t1) differences
-            t4_minus_t3 : Matrix of (t4 - t3) differences
+            strategy      : Select the strategy of interest.
+            drift_comp    : Whether to compensate drift of timestamp differences
+                            or time offset measuremrents prior to computing
+                            packet selection operators.
+            cum_drift_est : Matrix with the estimates of the cumulative time
+                            offset drift due to frequency offset.
+            x_obs         : Matrix with time offset observations windows.
+            t2_minus_t1   : Matrix of (t2 - t1) differences.
+            t4_minus_t3   : Matrix of (t4 - t3) differences.
 
         Returns:
             Vector with the time offset estimates corresponding to each
@@ -657,11 +652,10 @@ class PktSelection():
             # Time offset measurement
             assert(x_obs.any()), "Time offset measurement not available"
 
-            # Remove drift
+            # Remove cumulative drift
             if (drift_comp):
-                drift_cum_mtx  = drift_est.cumsum(axis=1)
-                x_obs         -= drift_cum_mtx
-                drift_offsets  = drift_cum_mtx[:,-1]
+                x_obs         -= cum_drift_est
+                drift_offsets  = cum_drift_est[:,-1]
 
             # Sample-average operator
             x_est = self._sample_avg_normal_vec(x_obs)
@@ -674,10 +668,9 @@ class PktSelection():
 
             # Remove drift
             if (drift_comp):
-                drift_cum_mtx  = drift_est.cumsum(axis=1)
-                t2_minus_t1   -= drift_cum_mtx
-                t4_minus_t3   += drift_cum_mtx
-                drift_offsets  = drift_cum_mtx[:,-1]
+                t2_minus_t1   -= cum_drift_est
+                t4_minus_t3   += cum_drift_est
+                drift_offsets  = cum_drift_est[:,-1]
 
             # Apply Selection operator
             if (strategy == 'median'):
@@ -696,7 +689,7 @@ class PktSelection():
             else:
                 raise ValueError("Strategy choice %s unknown" %(strategy))
 
-        # Re-add "quasi-deterministic" drift to estimates
+        # Re-add "quasi-deterministic" cumulative drift to estimates
         if (drift_comp):
             x_est += drift_offsets
 
@@ -711,8 +704,8 @@ class PktSelection():
         """
         self._set_window_len(N)
 
-    def process(self, strategy, drift_comp=True, vectorize=True, batch=True, \
-                batch_size=4096):
+    def process(self, strategy, drift_comp=True, vectorize=True, batch=True,
+                batch_size=4096, calc_drift=True):
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
@@ -807,6 +800,13 @@ class PktSelection():
                          required for processing all windows.
             batch_size : Define the size of each batch, that is, the number of
                          observation windows that will be processed at once.
+            calc_drift : Compute the cumulative time offset drift estimates and
+                         save them on self.data before running the algorithms.
+                         In the end, remove the results from self.data. On
+                         multiprocessing worker objects, set this to false given
+                         that the parent object will already calculate the
+                         cumulative drifts and make them available to all
+                         workers through the shared self.data.
 
         """
         if (drift_comp):
@@ -827,8 +827,8 @@ class PktSelection():
 
         # If drift compensation is to be used, find where drift estimates start
         # and restrict the dataset to be processed by packet selection such that
-        # all of its entries contain drift estimates
-        if (drift_comp):
+        # all of its entries contain cumulative time offset drift estimates.
+        if (drift_comp and calc_drift):
             for i, r in enumerate(self._original_data):
                 if ("drift" in r):
                     i_drift_start = i
@@ -836,24 +836,26 @@ class PktSelection():
             self.data = self._original_data[i_drift_start:]
             assert(all([("drift" in r) for r in self.data]))
 
-        # Vector of time offset incremental drifts due to freq. offset:
-        n_data    = len(self.data)
-        drift_est = np.zeros(n_data)
-
-        if (drift_comp):
-            for i in range(0, n_data):
-                if ("drift" in self.data[i]):
-                    drift_est[i] = self.data[i]["drift"]
-
-            assert(drift_est.any()), "Drift estimations not available"
+            # Place cumulative time offset drifts within the dataset. These
+            # values are accessed later by the packet-selection algorithms.
+            cum_drift = 0
+            for r in self.data:
+                cum_drift += r["drift"]
+                r["cum_drift"] = cum_drift
 
         if (strategy == 'avg-recursive' or strategy == 'ewma'):
             # Sample-by-Sample processing
-            self._sample_by_sample(strategy, drift_comp, drift_est)
+            self._sample_by_sample(strategy, drift_comp)
         elif (vectorize):
             # Matrix-by-matrix processing
-            self._matrix_by_matrix(strategy, drift_comp, drift_est, batch,
-                                   batch_size)
+            self._matrix_by_matrix(strategy, drift_comp, batch, batch_size)
         else:
             # Window-by-window processing
-            self._window_by_window(strategy, drift_comp, drift_est)
+            self._window_by_window(strategy, drift_comp)
+
+        # Remove cumulative time offset drifts from the dataset. They are not
+        # used elsewhere.
+        if (drift_comp and calc_drift):
+            for r in self.data:
+                r.pop("cum_drift", None)
+
