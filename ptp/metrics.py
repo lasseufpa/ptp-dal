@@ -98,6 +98,7 @@ class Analyser():
         # State
         self.current_plot = None # plot currently under processing
         self.plot_cnt     = {}   # track how many times each plot is called
+        self.ranking      = {}   # performance ranking of estimators
 
     def _init_est_plot_configs(self):
         """Initialize the plot configurations for each estimator
@@ -735,7 +736,7 @@ class Analyser():
                 self._print_err_stats(f, "Drift", drift_err, "ns")
                 self._print_err_stats(f, "Cumulative Drift", cum_drif_err, "ns")
 
-    def ranking(self, metric, max_te_win_len=1000, save=False):
+    def _rank_algorithms(self, metric, max_te_win_len=1000):
         """Rank algorithms based on a chosen performance metric
 
         Args:
@@ -743,7 +744,6 @@ class Analyser():
             max_te_win_len : Window length used for the max|TE| computation
 
         """
-        logger.info(f"Rank algorithm performances based on {metric}")
 
         # Find index where drift estimates start (if any)
         i_drift_start = 0
@@ -772,15 +772,7 @@ class Analyser():
                 n_samples = min(len(x_err), n_samples)
         assert(not np.isinf(n_samples))
 
-        # Print to stdout and, if so desired, to info.txt
-        files = [None]
-        if (save):
-            files.append(open(self.info, 'a'))
-
-        for f in files:
-            print(f"\nPerformance ranking based on {metric}:\n", file=f)
-
-        ranking = dict()
+        self.ranking[metric] = dict()
         for suffix, value in est_keys.items():
             key   = "x_est" if (suffix == "raw") else "x_" + suffix
             x_err = np.array([r[key] - r["x"] for r in post_tran_data \
@@ -819,10 +811,31 @@ class Analyser():
                 raise ValueError("Metric choice %s unknown" %(metric))
 
             # Save the result
-            ranking[key] = res
+            self.ranking[metric][suffix] = res
+
+    def rank_algorithms(self, metric, max_te_win_len=1000, save=False):
+        """Rank algorithms based on a chosen performance metric
+
+        Args:
+            metric         : Metric used for ranking: max-te, mtie, rms or std
+            max_te_win_len : Window length used for the max|TE| computation
+
+        """
+        logger.info(f"Rank algorithm performances based on {metric}")
+
+        if (metric not in self.ranking):
+            self._rank_algorithms(metric, max_te_win_len)
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(self.info, 'a'))
+
+        for f in files:
+            print(f"\nPerformance ranking based on {metric}:\n", file=f)
 
         # Print ranking in increasing order
-        for key, value in sorted(ranking.items(), key=lambda x: x[1]):
+        for key, value in sorted(self.ranking[metric].items(), key=lambda x: x[1]):
             for f in files:
                 print("{:20s}".format(key),
                       "Mean: {: 8.3f} ns".format(value), file=f)
@@ -1924,34 +1937,27 @@ class Analyser():
             dpi         : Image resolution in dots per inch
 
         """
+        # Rank the MTIE performance to plot curves in order. This step will
+        # calculate all MTIE curves and save them on self.results.
+        if ("mtie" not in self.ranking):
+            self._rank_algorithms(metric="mtie")
+
         logger.info("Plot MTIE")
         plt.figure(figsize=self.figsize)
 
-        # To facilitate inspection, it is better to skip the transitory
-        # (e.g. due to Kalman)
-        n_skip         = int(0.2*len(self.data))
-        post_tran_data = self.data[n_skip:]
 
-        for suffix, value in est_keys.items():
+        # Plot MTIE curves in ascending order of performance
+        for suffix, _ in sorted(self.ranking['mtie'].items(),
+                                key=lambda x: x[1], reverse=True):
+            value = est_keys[suffix]
             if (not value["show"] or suffix == "true"):
                 continue
 
             key = "x_est" if (suffix == "raw") else "x_" + suffix
 
-            if (key in self.results["mtie"]):
-                # Take mtie from cached results
-                tau_est, mtie_est = self.results["mtie"][key]
-            else:
-                x_err = np.array([r[key] - r["x"] for r in post_tran_data \
-                                  if key in r])
-
-                if (len(x_err) == 0):
-                    continue
-
-                tau_est, mtie_est = self.mtie(x_err)
-
-                # Add to cached results
-                self.results["mtie"][key] = (tau_est, mtie_est)
+            # Take MTIE from cached results
+            assert(key in self.results["mtie"])
+            tau_est, mtie_est = self.results["mtie"][key]
 
             plt.semilogx(tau_est, mtie_est, basex=2, markersize=3, alpha=0.7,
                          label=self._format_label(value["label"]),
@@ -1970,21 +1976,25 @@ class Analyser():
         plt.close()
 
     @analysis_plot("max_te")
-    def plot_max_te(self, window_len, n_skip=None, x_unit='time', save=True,
+    def plot_max_te(self, window_len, x_unit='time', save=True,
                     save_format=None, dpi=None, **kwargs):
         """Plot Max|TE| vs time.
 
         Args:
             window_len  : Window lengths
-            n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
             dpi         : Image resolution in dots per inch
 
         """
+        # Rank the max|TE| performance to plot curves in order. This step will
+        # calculate all max|TE| curves and save them on self.results.
+        if ("max-te" not in self.ranking):
+            self._rank_algorithms(metric="max-te", max_te_win_len = window_len)
+
         logger.info("Plot max|TE| vs. time")
-        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
+        n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
 
         # Time axis
@@ -2000,26 +2010,18 @@ class Analyser():
 
         plt.figure(figsize=self.figsize)
 
-        for suffix, value in est_keys.items():
+        # Plot max|TE| curves in ascending order of performance
+        for suffix, _ in sorted(self.ranking['max-te'].items(),
+                                key=lambda x: x[1], reverse=True):
+            value = est_keys[suffix]
             if (not value["show"] or suffix == "true"):
                 continue
 
             key = "x_est" if (suffix == "raw") else "x_" + suffix
 
-            if (key in self.results["max_te"]):
-                # Take max|TE| from cached results
-                max_te_est = self.results["max_te"][key]
-            else:
-                te = np.array([r[key] - r["x"] for r in post_tran_data \
-                               if key in r])
-
-                if (len(te) == 0 or len(te) < window_len):
-                    continue
-
-                max_te_est = self.max_te(te, window_len)
-
-                # Add to cached results
-                self.results["max_te"][key] = max_te_est
+            # Take max|TE| from cached results
+            assert(key in self.results["max_te"])
+            max_te_est = self.results["max_te"][key]
 
             # Define the x axis - either in time or in samples
             if (x_unit == "time"):

@@ -254,10 +254,11 @@ def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
     analyser.toffset_err_stats(save=save)
     analyser.foffset_err_stats(save=save)
     analyser.toffset_drift_err_stats(save=save)
-    analyser.ranking(metric="max-te", max_te_win_len = int(60/T), save=save)
-    analyser.ranking(metric="mtie", save=save)
-    analyser.ranking(metric="rms", save=save)
-    analyser.ranking(metric="std", save=save)
+    analyser.rank_algorithms(metric="max-te", max_te_win_len = int(60/T),
+                             save=save)
+    analyser.rank_algorithms(metric="mtie", save=save)
+    analyser.rank_algorithms(metric="rms", save=save)
+    analyser.rank_algorithms(metric="std", save=save)
 
 
 def parse_args():
