@@ -72,8 +72,8 @@ class Analyser():
         """
         self.data        = data
         self.path        = self._set_path(file)
-        self.info        = os.path.join(self.path, 'info.txt')
         self.prefix      = "" if prefix is None else prefix + "_"
+        self.info        = os.path.join(self.path, self.prefix + 'info.txt')
         self.save_format = save_format
         self.dpi         = dpi
         self.usetex      = usetex
