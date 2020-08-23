@@ -745,46 +745,23 @@ class Analyser():
 
         """
 
-        # Find index where drift estimates start (if any)
-        i_drift_start = 0
-        for i,r in enumerate(self.data):
-            if ("drift" in r):
-                i_drift_start = i
-                break
-
-        # When drift correction is used, packet selection estimates start only
-        # after drift estimate start. Hence, the post-transient dataset must
-        # start after drift estimates start. Also, for Kalman filtering results,
-        # as a rule of thumb we skip about 20% of the dataset. To accomodate the
-        # two requirements, skip the largest of the two:
-        n_skip = max(i_drift_start, int(0.2*len(self.data)))
+        # As a rule of thumb, we skip 20% of the dataset to ignore transients on
+        # the comparison.
+        n_skip = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
-
-        # Find the largest number of samples that is guaranteed to be available
-        # for all post-processing algorithms that are present in the
-        # dataset. For fairness, we will compare all algorithms based on the
-        # same number of samples.
-        n_samples = np.inf
-        for suffix, value in est_keys.items():
-            key   = "x_est" if (suffix == "raw") else "x_" + suffix
-            x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
-            if (len(x_err) > 0):
-                n_samples = min(len(x_err), n_samples)
-        assert(not np.isinf(n_samples))
 
         self.ranking[metric] = dict()
         for suffix, value in est_keys.items():
             key   = "x_est" if (suffix == "raw") else "x_" + suffix
             x_err = np.array([r[key] - r["x"] for r in post_tran_data \
                               if key in r])
-            x_err = x_err[:n_samples]
 
             if (len(x_err) ==  0):
                 continue
 
             if (metric == "max-te"):
                 if (key in self.results["max_te"]):
-                    max_te_est = self.results["max_te"][key][-n_samples:]
+                    max_te_est = self.results["max_te"][key]
                 else:
                     max_te_est = self.max_te(x_err, max_te_win_len)
                     self.results["max_te"][key] = max_te_est
@@ -794,7 +771,6 @@ class Analyser():
             elif (metric == "mtie"):
                 if (key in self.results["mtie"]):
                     _, mtie_est = self.results["mtie"][key]
-                    mtie_est    = mtie_est[-n_samples:]
                 else:
                     tau_est, mtie_est = self.mtie(x_err)
                     self.results["mtie"][key] = (tau_est, mtie_est)
