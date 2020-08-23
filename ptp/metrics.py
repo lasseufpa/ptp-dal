@@ -603,6 +603,29 @@ class Analyser():
 
         return np.mean(d_asym)
 
+    def window_optimizer_results(self, save=False):
+        """Print window optimizer results from cache file"""
+        logger.info("Window optimizer results")
+
+        if (self.cache):
+            window_cfg = self.cache.load('window')
+        else:
+            logger.warning("Unable to find cached file with window"
+                            "optimization parameters")
+            return
+
+        # Print to stdout and, if so desired, to info.txt
+        files = [None]
+        if (save):
+            files.append(open(self.info, 'a'))
+
+        for f in files:
+            print("\nTuned window lengths:\n", file=f)
+            for estimator in window_cfg.keys():
+                est_name = window_cfg[estimator]['name']
+                N_best   = window_cfg[estimator]['N_best']
+                print("{:20s} {}".format(est_name, N_best), file=f)
+
     def _print_err_stats(self, f, key, e, unit):
 
         mean = np.mean(e)
