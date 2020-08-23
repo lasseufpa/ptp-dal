@@ -1864,12 +1864,13 @@ class Analyser():
         plt.close()
 
     @analysis_plot("mtie")
-    def plot_mtie(self, save=True, save_format=None, dpi=None, **kwargs):
+    def plot_mtie(self, period=1, save=True, save_format=None, dpi=None,
+                  **kwargs):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time error (TE) samples are assumed to be equal to the
-        time offset estimation errors. The underlying assumption is that in
-        practice these estimations would be used to correct the clock and thus
+        time offset estimation errors. The underlying assumption is that, in
+        practice, these estimations would be used to correct the clock and thus
         the resulting TE would correspond to the residual error of the imperfect
         (noisy) time offset estimation. The time interval error (TIE), in turn,
         is the difference between TE samples over a given interval. Essentially,
@@ -1881,13 +1882,15 @@ class Analyser():
         measurements are noisy and, thus, there is TIE.
 
         In our implementation, the observation window durations of the
-        associated TIE samples are assumed to be given in terms of number of
-        samples that they contain, rather than their actual time durations. This
-        is not strictly how MTIE is computed, but useful for the evaluation and
-        simpler to implement.
+        associated TIE samples are taken in terms of number of samples that they
+        contain, rather than their actual durations. This is not strictly how
+        MTIE is computed, but useful for the evaluation and simpler to
+        implement. In the end, we simply multiply the number of samples in each
+        window by the nominal period between samples, so that we can plot the
+        horizontal MTIE axis in units of time.
 
         Args:
-            n_skip      : Number of initial samples to skip
+            period      : Nominal period between time offset samples
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
             dpi         : Image resolution in dots per inch
@@ -1902,6 +1905,14 @@ class Analyser():
         plt.figure(figsize=self.figsize)
 
 
+        # Find the largest number of MTIE samples (windows) that has been
+        # evaluated for **all** algorithms. Use this to restrict the horizontal
+        # axis range such that it covers a range evaluated for all algorithms.
+        i_max = np.inf
+        for key in self.results['mtie']:
+            i_max = min(i_max, len(self.results['mtie'][key][0]))
+        assert(not np.isinf(i_max))
+
         # Plot MTIE curves in ascending order of performance
         for suffix, _ in sorted(self.ranking['mtie'].items(),
                                 key=lambda x: x[1], reverse=True):
@@ -1915,12 +1926,13 @@ class Analyser():
             assert(key in self.results["mtie"])
             tau_est, mtie_est = self.results["mtie"][key]
 
-            plt.semilogx(tau_est, mtie_est, basex=2, markersize=3, alpha=0.7,
+            plt.semilogx(period * tau_est[:i_max], mtie_est[:i_max], basex=2,
+                         markersize=3, alpha=0.7,
                          label=self._format_label(value["label"]),
                          marker=value["marker"], c=value["color"],
                          linestyle=value["linestyle"])
 
-        plt.xlabel('Observation interval (samples)')
+        plt.xlabel('Observation interval (sec)')
         plt.ylabel('MTIE (ns)')
         plt.grid()
         self._plt_legend()
