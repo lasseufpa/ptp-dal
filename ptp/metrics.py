@@ -7,53 +7,28 @@ from scipy import stats
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+from cycler import cycler
 import numpy as np
 logger = logging.getLogger(__name__)
 
 
 NS_PER_MIN = (60 * 1e9)
-est_keys = {"raw"                : {"label": "Raw",
-                                    "marker": "*",
-                                    "show": True},
-            "true"               : {"label": "True Values",
-                                    "marker": ".",
-                                    "show": True},
-            "pkts_avg_recursive" : {"label": "Sample average",
-                                    "marker": "o",
-                                    "show": True},
-            "pkts_avg_normal"    : {"label": "Sample average (normal)",
-                                    "marker": "1",
-                                    "show": True},
-            "pkts_ewma"          : {"label": "EWMA",
-                                    "marker": "v",
-                                    "show": True},
-            "pkts_median"        : {"label": "Sample median",
-                                    "marker": "^",
-                                    "show": True},
-            "pkts_min"           : {"label": "Sample min",
-                                    "marker": "h",
-                                    "show": True},
-            "pkts_max"           : {"label": "Sample max",
-                                    "marker": "s",
-                                    "show": True},
-            "pkts_mode"          : {"label": "Sample mode",
-                                    "marker": "x",
-                                    "show": True},
-            "ls_t2"              : {"label": "LS (t2)",
-                                    "marker": ">",
-                                    "show": True},
-            "ls_t1"              : {"label": "LS (t1)",
-                                    "marker": "<",
-                                    "show": True},
-            "ls_eff"             : {"label": "LS",
-                                    "marker": "p",
-                                    "show": True},
-            "kf"                 : {"label": "KF",
-                                    "marker": "d",
-                                    "show": True},
-            "loop"               : {"label": "TLL",
-                                    "marker": ",",
-                                    "show": True}}
+est_keys = {
+    "raw"                : {"label": "Raw"},
+    "true"               : {"label": "True Values"},
+    "pkts_avg_recursive" : {"label": "Sample average"},
+    "pkts_median"        : {"label": "Sample median"},
+    "pkts_min"           : {"label": "Sample min"},
+    "pkts_max"           : {"label": "Sample max"},
+    "pkts_mode"          : {"label": "Sample mode"},
+    "ls_eff"             : {"label": "LS"},
+    "kf"                 : {"label": "KF"},
+    "loop"               : {"label": "TLL"},
+    "pkts_ewma"          : {"label": "EWMA"},
+    "pkts_avg_normal"    : {"label": "Sample average (normal)"},
+    "ls_t2"              : {"label": "LS (t2)"},
+    "ls_t1"              : {"label": "LS (t1)"}
+}
 
 
 class Analyser():
@@ -111,6 +86,9 @@ class Analyser():
 
         self.figsize  = (max_width, max_width/aspect_ratio)
 
+        # Initialize plot configurations for each estimator
+        self._init_est_plot_configs()
+
         # Save some metrics results
         self.results  = {
             "max_te" : {},
@@ -120,6 +98,24 @@ class Analyser():
         # State
         self.current_plot = None # plot currently under processing
         self.plot_cnt     = {}   # track how many times each plot is called
+
+    def _init_est_plot_configs(self):
+        """Initialize the plot configurations for each estimator
+
+        The configurations include the estimator's plot visibility, color, line
+        style, and marker.
+
+        """
+        color_cycle     = plt.rcParams['axes.prop_cycle']()
+        linestyle_cycle = cycler('linestyle', ['-','--',':','-.'])()
+        marker_cycle    = cycler('marker',
+                                 ['*', 'o', 'v', '^', 'h', 's', 'x',
+                                  'p', 'd', ',', '.', '1', '>', '<'])()
+        for k in est_keys:
+            est_keys[k]['show']      = True
+            est_keys[k]['color']     = next(color_cycle)['color']
+            est_keys[k]['linestyle'] = next(linestyle_cycle)['linestyle']
+            est_keys[k]['marker']    = next(marker_cycle)['marker']
 
     def _set_path(self, file):
         """Define path to save plots
@@ -1078,9 +1074,9 @@ class Analyser():
                                     if key in r]
 
                 if (len(x_est) > 0):
-                    plt.scatter(x_axis_vec, x_est,
+                    plt.scatter(x_axis_vec, x_est, s=1.0,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], s=1.0)
+                                marker=value["marker"], c=value["color"])
 
         # Best raw measurements
         if (show_best):
@@ -1158,9 +1154,9 @@ class Analyser():
                     x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(x_err) > 0):
-                    plt.scatter(x_axis_vec, x_err,
+                    plt.scatter(x_axis_vec, x_err, s=1.0, alpha=0.7,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], s=1.0, alpha=0.7)
+                                marker=value["marker"], c=value["color"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time Offset Error (ns)')
@@ -1201,7 +1197,8 @@ class Analyser():
                 if (len(x_err) > 0):
                     plt.hist(x_err, bins=50, density=True, alpha=0.7,
                              histtype='stepfilled',
-                             label=self._format_label(value["label"]))
+                             label=self._format_label(value["label"]),
+                             color=value["color"])
 
         plt.xlabel('Time Offset Error (ns)')
         plt.ylabel('Probability Density')
@@ -1542,9 +1539,9 @@ class Analyser():
                     x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(y_est_ppb) > 0):
-                    plt.scatter(x_axis_vec, y_est_ppb,
+                    plt.scatter(x_axis_vec, y_est_ppb, s=1.0,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], s=1.0)
+                                marker=value["marker"], c=value["color"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset (ppb)')
@@ -1609,9 +1606,9 @@ class Analyser():
                     x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(y_est_err_ppb) > 0):
-                    plt.scatter(x_axis_vec, y_est_err_ppb,
+                    plt.scatter(x_axis_vec, y_est_err_ppb, s=1.0,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], s=1.0)
+                                marker=value["marker"], c=value["color"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset Error (ppb)')
@@ -1653,7 +1650,8 @@ class Analyser():
                 if (len(y_err) > 0):
                     plt.hist(y_err, bins=50, density=True, alpha=0.7,
                              histtype='stepfilled',
-                             label=self._format_label(value["label"]))
+                             label=self._format_label(value["label"]),
+                             color=value["color"])
 
         plt.xlabel('Frequency Offset Error (ppb)')
         plt.ylabel('Probability Density')
@@ -1955,10 +1953,10 @@ class Analyser():
                 # Add to cached results
                 self.results["mtie"][key] = (tau_est, mtie_est)
 
-            plt.semilogx(tau_est, mtie_est,
+            plt.semilogx(tau_est, mtie_est, basex=2, markersize=3, alpha=0.7,
                          label=self._format_label(value["label"]),
-                         marker=value["marker"], markersize=3, alpha=0.7,
-                         basex=2)
+                         marker=value["marker"], c=value["color"],
+                         linestyle=value["linestyle"])
 
         plt.xlabel('Observation interval (samples)')
         plt.ylabel('MTIE (ns)')
@@ -2032,7 +2030,8 @@ class Analyser():
 
             plt.plot(x_axis_vec[window_len - 1::window_len], max_te_est,
                      label=self._format_label(value["label"]), markersize=3,
-                     marker = value['marker'])
+                     marker=value['marker'], c=value["color"],
+                     linestyle=value["linestyle"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('$\max|$TE$|$ (ns)')
@@ -2313,10 +2312,11 @@ class Analyser():
             if (error_metric == "mse"):
                 win_error = np.sqrt(win_error)
 
-            plt.semilogx(win_len, win_error,
+            plt.semilogx(win_len, win_error, basex=2, markersize=3,
                          label=self._format_label(est_keys[est_key]['label']),
-                         marker = est_keys[est_key]['marker'], markersize=3,
-                         basex=2)
+                         marker=est_keys[est_key]['marker'],
+                         c=est_keys[est_key]["color"],
+                         linestyle=est_keys[est_key]["linestyle"])
 
         plt.xlabel("Window Length $N$ (samples)")
         plt.ylabel("{} (ns)".format(
