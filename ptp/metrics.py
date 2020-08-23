@@ -1009,8 +1009,7 @@ class Analyser():
 
     @analysis_plot("toffset_vs_time")
     def plot_toffset_vs_time(self, n_skip=None, x_unit='time', save=True,
-                             save_format=None, dpi=None, show_best=True,
-                             **kwargs):
+                             save_format=None, dpi=None, **kwargs):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -1021,7 +1020,6 @@ class Analyser():
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
             dpi         : Image resolution in dots per inch
-            show_best   : Enable to highlight the best measurements.
 
         """
         # To facilitate inspection, it is better to skip the transitory
@@ -1066,24 +1064,6 @@ class Analyser():
                     plt.scatter(x_axis_vec, x_est, s=1.0,
                                 label=self._format_label(value["label"]),
                                 marker=value["marker"], c=value["color"])
-
-        # Best raw measurements
-        if (show_best):
-            x_tilde  = np.array([r["x_est"] for r in post_tran_data])
-            x        = np.array([r["x"] for r in post_tran_data])
-
-            # Find best raw measurements (with error under 10 ns)
-            err      = x_tilde - x
-            best_idx = np.squeeze(np.where(abs(err) < 10))
-
-            # Define the x axis - either in time or in samples
-            if (x_unit == "time"):
-                x_axis_vec   = time_vec[best_idx]
-            elif (x_unit == "samples"):
-                x_axis_vec   = best_idx + n_skip
-
-            plt.scatter(x_axis_vec, x_tilde[best_idx], s=1.0,
-                        label=self._format_label("Accurate Raw"))
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time Offset (ns)')
