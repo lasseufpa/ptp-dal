@@ -449,7 +449,7 @@ class PktSelection():
 
             # Re-add cumulative drift and save on global data records after the
             # averaging transitory:
-            if (i >= self.N):
+            if (i >= (self.N - 1)):
                 self.data[i][f"x_pkts_{key}"] = x_est + drift_accum
 
     def _window_by_window(self, strategy, drift_comp, drift_est):
