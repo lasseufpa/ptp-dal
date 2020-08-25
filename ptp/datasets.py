@@ -27,6 +27,10 @@ class Datasets():
         self.cfg_path   = os.path.join(home, ".ptp")
         self.cfg_file   = os.path.join(self.cfg_path, "config.json")
 
+        # Create local repo if it does not exist
+        if not os.path.isdir(self.local_repo):
+            os.makedirs(self.local_repo)
+
     def _get_all_ds_variations(self, dataset):
         """Get all possible variations to the dataset name"""
         self.ds_name    = os.path.basename(dataset)
