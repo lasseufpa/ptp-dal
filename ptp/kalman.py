@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class KalmanFilter():
     def __init__(self, data, T, N=1, obs_model='scalar', s_0=None, P_0=None,
-                 R=None, Q=None, skip_transitory=True):
+                 R=None, Q=None):
         """Kalman Filter for Time/Frequency Offset Processing
 
         ---- Predict Step ----
@@ -131,21 +131,20 @@ class KalmanFilter():
             Sons, 2012.
 
         Args:
-            data            : Array of objects with simulation data
-            T               : Nominal Sync period in sec
-            N               : Interval used for frequency offset estimations
-            s_0             : Initial state
-            P_0             : Initial state's covariance matrix
-            Q               : Process noise covariance matrix
-            R               : Measurement covariance matrix
-            skip_transitory : Whether to skip Kalman transitory
+            data : Array of objects with simulation data
+            T    : Nominal Sync period in sec
+            N    : Interval used for frequency offset estimations
+            s_0  : Initial state
+            P_0  : Initial state's covariance matrix
+            Q    : Process noise covariance matrix
+            R    : Measurement covariance matrix
 
         """
-        self.data            = data
-        self.T               = T
-        self.N               = N
-        self.obs_model       = obs_model
-        self.skip_transitory = skip_transitory
+        self.data           = data # this pointer could be changed
+        self._original_data = data # this pointer should be immutable
+        self.T              = T
+        self.N              = N
+        self.obs_model      = obs_model
 
         assert(obs_model in ['scalar', 'vector']), \
             f"Unknow observation model {obs_model}"
@@ -199,8 +198,8 @@ class KalmanFilter():
         # Estimate frequency offset based on the first two exchanges
         t1           = np.array([float(r["t1"]) for r in self.data[:2]])
         t2           = np.array([float(r["t2"]) for r in self.data[:2]])
-        delta_slave  = np.diff(t1)
-        delta_master = np.diff(t2)
+        delta_master = float(np.diff(t1))
+        delta_slave  = float(np.diff(t2))
         y_est        = (delta_slave - delta_master) / delta_master
 
         # First time offset raw estimate
@@ -227,7 +226,6 @@ class KalmanFilter():
         The scalar-observation model processes the time offset measurements.
 
         """
-
         # Vector containing all scalar measurements (time offset measurements)
         # to be processed throughout the filtering:
         self.z = np.array([r["x_est"] for r in self.data])
@@ -262,17 +260,25 @@ class KalmanFilter():
         The vector-observation model processes both time and frequency offsets.
 
         """
-
         # Matrix containing all vector measurements to be processed throughout
         # the filtering. Each row is one vector measurement z[n] = [x_est[n],
         # y_est[n]], i.e., containing time and frequency offsets:
-        x_ns = np.array([r["x_est"] for r in self.data if "y_est" in r])
-        y    = np.array([r["y_est"]*1e9 for r in self.data if "y_est" in r])
+        x_ns   = np.array([r["x_est"] for r in self.data if "y_est" in r])
+        y      = np.array([r["y_est"]*1e9 for r in self.data if "y_est" in r])
         self.z = np.vstack((x_ns, y)).T
         assert(len(self.z) > 0)
         # NOTE: in the recursive time offset model (repeated below), x[n] is in
         # ns, while T is in seconds. Hence, y[n] must be in ppb (ns/sec), so
         # that y[n]*T yields ns.
+
+        # Find where the frequency estimation starts
+        for i, r in enumerate(self.data):
+            if ("y_est" in r):
+                i_obs_start = i
+                break
+
+        self.data = self._original_data[i_obs_start:]
+        assert(all([("y_est" in r) for r in self.data]))
 
         # Observation matrix
         self.H = np.eye(2)
@@ -293,13 +299,17 @@ class KalmanFilter():
         assert(self.H.shape == (2,2))
         assert(self.R.shape == (2,2))
 
-    def _eval_error(self, q_vec, error_metric, early_stopping, patience=15):
+    def _eval_error(self, q_vec, error_metric, early_stopping, n_samples,
+                    patience=15):
         """Evaluate error for a given process noise covariance matrix
 
         Args:
             q_vec          : Vector with covariance matrix to evaluate
             error_metric   : Chosen error metric: 'max-te' or 'mse'
             early_stopping : Whether to stop search when min{erro} stalls
+            n_samples      : Number of samples to consider for the analysis,
+                             so that the acceptable transient phase is neglected
+                             on the error assessment.
             patience       : Number of consecutive iterations without
                              improvement to wait before signaling an early stop
 
@@ -331,8 +341,12 @@ class KalmanFilter():
             self.process()
 
             # Get time offset estimation errors
+            #
+            # NOTE: use only the last n_samples, given that this is the subset
+            # of samples that is targeted for analysis (after the acceptable
+            # transient).
             x_err = np.array([r["x_kf"] - r["x"] for r in
-                              self.data if "x_kf" in r])
+                              self.data if "x_kf" in r])[-n_samples:]
 
             # Compute error based on different metrics. Note that the entire
             # "x_err" time series are used to compute the final error.
@@ -364,50 +378,7 @@ class KalmanFilter():
 
         return Q_best, error
 
-    def _predict(self):
-        """Predict the next state of the system (a priori)
-        """
-        # A priori prediction of the state at the next time step
-        self.s_prior = np.dot(self.A, self.s_post)
-
-        # A priori state estimate's covariance matrix
-        self.P = np.dot(np.dot(self.A, self.P), self.A.T) + self.Q
-
-    def _update(self, z):
-        """Update the next state estimate based on a new measurement
-
-        Args:
-            z : New measurement
-
-        """
-        # Residual error between the new measurement and the a priori prediction
-        self.y = z - np.dot(self.H, self.s_prior)
-
-        # Kalman gain
-        PHT    = np.dot(self.P, self.H.T)
-        self.S = np.linalg.pinv(np.dot(self.H, PHT) + self.R)
-        self.K = np.dot(PHT, self.S)
-
-        # Update the state prediction (x) considering the new measurement:
-        self.s_post = self.s_prior + np.dot(self.K, self.y)
-
-        # Update the state prediction's covariance matrix
-        #
-        # The formulation usually seen in the literature is a "short form":
-        #
-        # P = (I - KH)P
-        #
-        # However, here we implement a "long form", also named as Joseph
-        # update equation, that as showed in [3] is more numerically stable and
-        # works for non-optimal K:
-        #
-        # P = (I-KH)P(I-KH)' + KRK'
-        #
-        I_KH   = self.I - np.dot(self.K, self.H)
-        KRK    = np.dot(np.dot(self.K, self.R), self.K.T)
-        self.P = np.dot(np.dot(I_KH, self.P), I_KH.T) + KRK
-
-    def process(self):
+    def process(self, save_aux=False):
         """Process the observations"""
         logger.info("Processing Kalman Filter")
 
@@ -429,43 +400,66 @@ class KalmanFilter():
         # Reset the initial state
         self._reset_state()
 
-        transitory_over = not self.skip_transitory
-        state_cov       = self.P_0
-
         # Iterate over observations
-        for i,z in enumerate(self.z):
-            self._predict()
-            self._update(z)
+        for i, z in enumerate(self.z):
+            ##### Prediction #####
 
-            # Keep track of state covariance in order to infer
-            # steady-state/transitory
-            last_state_cov = state_cov
-            state_cov      = self.P
+            # Predict the next state of the system (a priori)
 
-            if (not transitory_over and
-                (np.linalg.norm(state_cov - last_state_cov) > 1e-5)):
-                if (i > int(len(self.z)*0.5)):
-                    logger.warning("Transitory exceeded half the samples. "
-                                   "Disabling threshold track.")
-                    transitory_over = True
-                continue
+            # A priori prediction of the state at the next time step
+            self.s_prior = np.dot(self.A, self.s_post)
 
-            transitory_over = True
+            # A priori state estimate's covariance matrix
+            self.P = np.dot(np.dot(self.A, self.P), self.A.T) + self.Q
+
+            ##### Update #####
+
+            # Update the next state estimate based on a new measurement
+
+            # Residual error between the new measurement and the a priori
+            # prediction
+            self.y = z - np.dot(self.H, self.s_prior)
+
+            # Kalman gain
+            PHT     = np.dot(self.P, self.H.T)
+            self.S  = np.dot(self.H, PHT) + self.R
+            SI      = np.linalg.pinv(self.S)
+            self.K  = np.dot(PHT, SI)
+
+            # Update the state prediction (x) considering the new measurement:
+            self.s_post = self.s_prior + np.dot(self.K, self.y)
+
+            # Update the state prediction's covariance matrix
+            #
+            # The formulation usually seen in the literature is a "short form":
+            #
+            # P = (I - KH)P
+            #
+            # However, here we implement a "long form", also named as Joseph
+            # update equation, that as showed in [3] is more numerically stable
+            # and works for non-optimal K:
+            #
+            # P = (I-KH)P(I-KH)' + KRK'
+            #
+            I_KH   = self.I - np.dot(self.K, self.H)
+            KRK    = np.dot(np.dot(self.K, self.R), self.K.T)
+            self.P = np.dot(np.dot(I_KH, self.P), I_KH.T) + KRK
 
             # Save time and frequency offset estimates on global data records
             self.data[i]['x_kf'] = self.s_post[0]
             self.data[i]['y_kf'] = self.s_post[1]*1e-9
 
             # Additional information useful for analysis
-            self.data[i]['kf']         = {}
-            self.data[i]['x_kf_prior'] = self.s_prior[0]
-            self.data[i]['y_kf_prior'] = self.s_prior[1]*1e-9
-            self.data[i]['kf']['P']    = self.P
-            self.data[i]['kf']['K']    = self.K
-            self.data[i]['kf']['S']    = self.S
+            if (save_aux):
+                self.data[i]['kf']         = {}
+                self.data[i]['x_kf_prior'] = self.s_prior[0]
+                self.data[i]['y_kf_prior'] = self.s_prior[1]*1e-9
+                self.data[i]['kf']['P']    = self.P
+                self.data[i]['kf']['K']    = self.K
+                self.data[i]['kf']['S']    = self.S
 
     def optimize(self, cache=None, error_metric='mse', early_stopping=True,
-                 force=False):
+                 force=False, skip=0.2):
         """Optimize the process noise covariance matrix
 
         Tries the filtering with several state noise covariance matrices and
@@ -478,6 +472,9 @@ class KalmanFilter():
             early_stopping : Whether to stop the search when min{erro} stalls
             patience       : Number of consecutive iterations without
                              improvement to wait before signaling an early stop
+            skip           : Fraction of the dataset to skip during the error
+                             assessment. Should be set to an acceptable
+                             transient for analysis.
 
         Returns:
 
@@ -493,9 +490,14 @@ class KalmanFilter():
         var_state_vec = np.array([1e-18, 1e-16, 1e-14, 1e-12, 1e-10,
                                   1e-8, 1e-6, 1e-4, 1e-2, 1e-1])
 
+        # Number of samples to consider when evaluating the error of each KF
+        # configuration
+        n_samples = int((1 - skip) * len(self.data))
+
         Q_best, _ = self._eval_error(var_state_vec,
                                      error_metric=error_metric,
-                                     early_stopping=early_stopping)
+                                     early_stopping=early_stopping,
+                                     n_samples=n_samples)
 
         logger.info("Optimal process noise covariance mtx: {}".format(Q_best))
 
