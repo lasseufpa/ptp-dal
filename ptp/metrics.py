@@ -1926,7 +1926,7 @@ class Analyser():
             assert(key in self.results["mtie"])
             tau_est, mtie_est = self.results["mtie"][key]
 
-            plt.semilogx(period * tau_est[:i_max], mtie_est[:i_max], basex=2,
+            plt.semilogx(period * tau_est[:i_max], mtie_est[:i_max], base=2,
                          markersize=3, alpha=0.7,
                          label=self._format_label(value["label"]),
                          marker=value["marker"], c=value["color"],
@@ -2243,7 +2243,7 @@ class Analyser():
                 win_error = np.sqrt(win_error)
 
             plt.figure(figsize=self.figsize)
-            plt.semilogx(win_len, win_error, markersize=3, basex=2)
+            plt.semilogx(win_len, win_error, markersize=3, base=2)
             self._plt_title(est_name)
             plt.xlabel("Window Length $N$ (samples)")
             plt.ylabel("{} (ns)".format(
@@ -2282,7 +2282,7 @@ class Analyser():
             if (error_metric == "mse"):
                 win_error = np.sqrt(win_error)
 
-            plt.semilogx(win_len, win_error, basex=2, markersize=3,
+            plt.semilogx(win_len, win_error, base=2, markersize=3,
                          label=self._format_label(est_keys[est_key]['label']),
                          marker=est_keys[est_key]['marker'],
                          c=est_keys[est_key]["color"],
