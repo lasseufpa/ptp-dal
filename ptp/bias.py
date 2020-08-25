@@ -58,17 +58,17 @@ class Bias():
         """
         self.data = data
 
-    def calc_true_asymmetry(self, target='estimates', operator='mean'):
+    def calc_true_asymmetry(self, target='estimates', metric='avg'):
         """Calculate the delay asymmetry of interest for bias compensation
 
         Processes the true m-to-s and s-to-m delays in the dataset in order to
         compute the delay asymmetry of interest. For example, the asymmetry
         between the minimum m-to-s and the minimum s-to-m delays.
 
-        In practice, a PTP slave would not be able to compute such values, as it
-        wouldn't know the true m-to-s and s-to-m delays. Hence, this function is
-        supposed to be used solely for assessment of other practical delay
-        asymmetry estimations.
+        In practice, a PTP slave can only compute such values if locked to
+        another accurate time source, such as GNSS. The slave needs to measure
+        the true m-to-s and s-to-m delays of PTP messages to compute the true
+        asymmetries that are computed in this function.
 
         Args:
 
@@ -77,11 +77,9 @@ class Bias():
                        Valid options are ["timestamps", "estimates"]
                        (default: "estimates").
 
-            operator : When calculating the true bias of estimates, define the
-                       operator that is going to be used to post-process
-                       timestamp differences, which determines the asymmetry of
-                       interest. Select among 'mean', 'min', 'max', 'median' or
-                       'raw' (default: 'mean').
+            metric   : When calculating the true bias of estimates, define the
+                       asymmetry metric of interest. Select among 'avg', 'min',
+                       'max', 'median', or 'mode' (default: 'avg').
 
         Returns:
             The true delay asymmetry of interest
@@ -96,20 +94,20 @@ class Bias():
 
         # Correction value for post-processed or raw time offset estimates
         elif (target == 'estimates'):
-            if (operator == 'mean' or operator == 'raw'):
+            if (metric == 'avg'):
                 corr = (np.mean(d_ms) - np.mean(d_sm)) / 2
-            elif (operator == 'min'):
+            elif (metric == 'min'):
                 corr = (np.amin(d_ms) - np.amin(d_sm)) / 2
-            elif (operator == 'max'):
+            elif (metric == 'max'):
                 corr = (np.amax(d_ms) - np.amax(d_sm)) / 2
-            elif (operator == 'median'):
+            elif (metric == 'median'):
                 corr = (np.median(d_ms) - np.median(d_sm)) / 2
-            elif (operator == 'mode'):
+            elif (metric == 'mode'):
                 d_ms_mode,_ = stats.mode(np.round(d_ms))
                 d_sm_mode,_ = stats.mode(np.round(d_sm))
                 corr      = (d_ms_mode[0] - d_sm_mode[0]) / 2
             else:
-                raise ValueError('Unknown operator')
+                raise ValueError('Unknown metric {}'.format(metric))
         else:
             raise ValueError("Unknown target")
 

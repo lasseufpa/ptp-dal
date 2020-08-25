@@ -107,8 +107,8 @@ def _compute_ideal_bias_estimates(data):
     bias = ptp.bias.Bias(data)
 
     bias_est = {}
-    for op in ['raw', 'median', 'min', 'max', 'mode']:
-        bias_est[op] = bias.calc_true_asymmetry(operator=op)
+    for metric in ['avg', 'min', 'max', 'median', 'mode']:
+        bias_est[metric] = bias.calc_true_asymmetry(metric=metric)
 
     return bias_est
 
