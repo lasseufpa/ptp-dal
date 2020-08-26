@@ -1927,7 +1927,7 @@ class Analyser():
             tau_est, mtie_est = self.results["mtie"][key]
 
             plt.semilogx(period * tau_est[:i_max], mtie_est[:i_max], base=2,
-                         markersize=3, alpha=0.7,
+                         markersize=2, alpha=0.7,
                          label=self._format_label(value["label"]),
                          marker=value["marker"], c=value["color"],
                          linestyle=value["linestyle"])
@@ -1999,7 +1999,7 @@ class Analyser():
                 x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
             plt.plot(x_axis_vec[window_len - 1::window_len], max_te_est,
-                     label=self._format_label(value["label"]), markersize=3,
+                     label=self._format_label(value["label"]), markersize=2,
                      marker=value['marker'], c=value["color"],
                      linestyle=value["linestyle"])
 
