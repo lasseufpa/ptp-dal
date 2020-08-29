@@ -154,11 +154,14 @@ def _run_window_optimizer(data, disable_list, T_ns, metric, en_fine, force,
     return window_optimizer.get_results()
 
 
-def _run_kalman(data, T_ns, cache, force):
+def _run_kalman(data, T_ns, error_metric, cache, force, no_optimizer,
+                early_stopping, skip):
     """Run Kalman Filtering"""
 
     kf = ptp.kalman.KalmanFilter(data, T_ns/1e9)
-    kf.optimize(error_metric='mse', cache=cache, force=force)
+    if (not no_optimizer):
+        kf.optimize(error_metric=error_metric, cache=cache, force=force,
+                    early_stopping=early_stopping, skip=skip)
     kf.process()
 
 
@@ -373,7 +376,7 @@ def parse_args():
     parser.add_argument('--no-optimizer',
                         default=False,
                         action='store_true',
-                        help='Whether or not to optimize window length')
+                        help='Whether to optimize estimators\' parameters.')
     parser.add_argument('--no-cache',
                         default=False,
                         action='store_true',
@@ -429,16 +432,17 @@ def parse_args():
     o_opts.add_argument('--optimizer-fine',
                         default=False,
                         action='store_true',
-                        help='Whether to enable window optimizer fine pass')
+                        help='Whether to enable fine pass optimization (only \
+                        available for window-based estimators).')
     o_opts.add_argument('--optimizer-force',
                         default=False,
                         action='store_true',
-                        help='Force window optimizer processing even if \
-                        already done previously')
+                        help='Force optimizer processing even if already \
+                        done previously.')
     o_opts.add_argument('--optimizer-metric',
                         default='max-te',
-                        help='Estimation error metric for window tuning',
-                        choices=['max-te', 'mse'])
+                        choices=['max-te', 'mse'],
+                        help='Estimation error metric for parameter tuning.')
     o_opts.add_argument('--optimizer-max-window',
                         default=8192,
                         type=int,
@@ -447,7 +451,8 @@ def parse_args():
     o_opts.add_argument('--optimizer-no-stop',
                         default=False,
                         action='store_true',
-                        help='Do not apply early stopping on window optimizer')
+                        help='Do not apply early stopping on the \
+                        optimization process.')
 
     d_opts = parser.add_argument_group('Drift Estimation Options')
     d_opts.add_argument('--drift-est-strategy',
@@ -637,7 +642,11 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
 
     if ("kalman" not in args.disable):
         _run_kalman(ds['data'].data, T_ns, cache=ds['cache'],
-                    force=args.optimizer_force)
+                    force=args.optimizer_force,
+                    error_metric=args.optimizer_metric,
+                    no_optimizer=args.no_optimizer,
+                    early_stopping=(not args.optimizer_no_stop),
+                    skip=args.skip)
 
     if (pktselection):
         _run_pktselection(ds['data'].data, window_lengths, args.batch_size,
