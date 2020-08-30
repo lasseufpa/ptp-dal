@@ -379,12 +379,13 @@ class Estimator():
         else:
             logging.info("Unable to find cached configuration file")
 
-        damping_vec  = [0.707, 1.0]
+        damping_vec  = [0.5, 0.707, 1.0, 1.2, 1.5, 1.8, 2.0]
         loopbw_vec   = np.concatenate((
             np.arange(0.1, 1.0, 0.1),
             np.arange(0.01, 0.1, 0.01),
             np.arange(0.001, 0.01, 0.001),
-            np.arange(0.0001, 0.001, 0.0001)))
+            np.arange(0.0001, 0.001, 0.0001),
+            np.arange(0.00001, 0.0001, 0.00001)))
         m_error      = np.inf
         m_cum_error  = np.inf
         best_damping = None
