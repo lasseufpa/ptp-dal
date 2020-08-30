@@ -636,14 +636,16 @@ class Analyser():
 
     def _print_err_stats(self, f, key, e, unit):
 
-        mean = np.mean(e)
-        sdev = np.std(e)
-        rms  = np.sqrt(np.square(e).mean())
+        mean   = np.mean(e)
+        sdev   = np.std(e)
+        rms    = np.sqrt(np.square(e).mean())
+        maxabs = np.amax(np.abs(e))
 
         print("{:20s} ".format(key),
               "Mean: {: 8.3f} {} ".format(mean, unit),
               "Sdev: {: 8.3f} {} ".format(sdev, unit),
-              "RMS:  {: 8.3f} {}".format(rms, unit), file=f)
+              "RMS:  {: 8.3f} {}".format(rms, unit),
+              "MaxAbs: {: 8.3f} {}".format(maxabs, unit), file=f)
 
     def toffset_err_stats(self, save=False):
         """Print the time offset estimation error statistics

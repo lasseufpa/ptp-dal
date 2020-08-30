@@ -25,13 +25,14 @@ class Estimator():
         self.data  = data
         self.delta = delta
 
-    def _eval_drift_err(self, n_samples=None):
+    def _eval_drift_err(self, loss, n_samples=None):
         """Evaluate RMS error of drift estimates with respect to true drift
 
         Use drift estimates and true time offset values that are available
         internally on self.data.
 
         Args:
+            loss      : Loss function (mse or max-error)
             n_samples : Number of drift samples to consider
 
         Returns:
@@ -39,23 +40,29 @@ class Estimator():
            of the cumulative drift.
 
         """
+        assert(loss in ["mse", "max-error"])
 
         # Absolute drift
-        true_drift    = np.array([(r["x"] - self.data[i-1]["x"])
+        true_drift = np.array([(r["x"] - self.data[i-1]["x"])
                                for i,r in enumerate(self.data)
                                if "drift" in r])[:n_samples]
-        drift_est     = np.array([r["drift"] for r in self.data
+        drift_est  = np.array([r["drift"] for r in self.data
                                if "drift" in r])[:n_samples]
-        drift_err     = drift_est - true_drift
-        rms_drift_err = np.sqrt(np.square(drift_err).mean())
+        drift_err  = drift_est - true_drift
 
         # Cumulative drift
-        true_cum_drift    = true_drift.cumsum()
-        cum_drif_est      = drift_est.cumsum()
-        cum_drif_err      = cum_drif_est - true_cum_drift
-        rms_cum_drift_err = np.sqrt(np.square(cum_drif_err).mean())
+        true_cum_drift = true_drift.cumsum()
+        cum_drif_est   = drift_est.cumsum()
+        cum_drif_err   = cum_drif_est - true_cum_drift
 
-        return rms_drift_err, rms_cum_drift_err
+        if (loss == "mse"):
+            drift_err     = np.sqrt(np.square(drift_err).mean())
+            cum_drift_err = np.sqrt(np.square(cum_drif_err).mean())
+        elif (loss == "max-error"):
+            drift_err     = np.amax(np.abs(drift_err))
+            cum_drift_err = np.amax(np.abs(cum_drif_err))
+
+        return drift_err, cum_drift_err
 
     def process(self):
         """Process the data
@@ -82,7 +89,7 @@ class Estimator():
         for i,r in enumerate(self.data[self.delta:]):
             r["y_est"] = y_est[i]
 
-    def optimize_to_y(self):
+    def optimize_to_y(self, loss="mse"):
         """Optimize delta for minimum MSE of y estimation w.r.t true y
 
         Optimizes the window length used for unbiased frequency offset
@@ -94,6 +101,7 @@ class Estimator():
         compensation.
 
         """
+        assert(loss in ["mse", "max-error"])
 
         log_min_window = 1
         log_max_window = int(np.log2(len(self.data) / 2))
@@ -108,8 +116,8 @@ class Estimator():
         logger.info("Try from N = %d to N = %d" %(
             2**log_min_window, 2**log_max_window))
 
-        mmse  = np.inf
-        N_opt = 0
+        min_error = np.inf
+        N_opt     = 0
 
         for N in window_len:
             for r in self.data:
@@ -121,19 +129,24 @@ class Estimator():
             y_err = np.array([ 1e9*(r["y_est"] - r["rtc_y"])
                                for r in self.data[self.delta:]
                                if ("y_est" in r and "rtc_y" in r) ])
-            y_mse = np.square(y_err[:n_samples]).mean()
-            # Only use `n_samples` out of y_err. This way, all window lengths
-            # are compared based on the same number of samples.
 
-            if (y_mse < mmse):
-                N_opt = N
-                mmse  = y_mse
+            if (loss == "mse"):
+                error = np.square(y_err[:n_samples]).mean()
+                # Only use `n_samples` out of y_err. This way, all window
+                # lengths are compared based on the same number of samples.
+            elif (loss == "max-error"):
+                error = np.amax(np.abs(y_err[:n_samples]))
 
-        logger.info("Minimum MSE: %f ppb" %(mmse))
-        logger.info("Optimum N:   %d" %(N_opt))
+            if (error < min_error):
+                N_opt     = N
+                min_error = error
+
+        loss_label = "MSE" if loss == "mse" else "Max|Error|"
+        logger.info("Minimum {}: {} ppb".format(loss_label, error))
+        logger.info("Optimum N: {}".format(N_opt))
         self.delta = N_opt
 
-    def optimize_to_drift(self):
+    def optimize_to_drift(self, loss="mse"):
         """Optimize delta for minimum RMSE of cumulative drift estimations
 
         This can lead to better performance than the other optimization routine
@@ -141,6 +154,7 @@ class Estimator():
         accurately.
 
         """
+        assert(loss in ["mse", "max-error"])
 
         log_min_window = 1
         log_max_window = int(np.log2(len(self.data) / 2))
@@ -155,10 +169,10 @@ class Estimator():
         logger.info("Try from N = %d to N = %d" %(
             2**log_min_window, 2**log_max_window))
 
-        m_rms     = np.inf
-        m_cum_rms = np.inf
-        N_opt     = 0
-        N_opt_cum = 0
+        m_error     = np.inf
+        m_cum_error = np.inf
+        N_opt       = 0
+        N_opt_cum   = 0
 
         for N in window_len:
             for r in self.data:
@@ -169,26 +183,28 @@ class Estimator():
             self.process()
             self.estimate_drift()
 
-            rms, cum_rms = self._eval_drift_err(n_samples)
+            error, cum_error = self._eval_drift_err(loss, n_samples)
 
-            if (rms < m_rms):
-                m_rms     = rms
-                N_opt     = N
+            if (error < m_error):
+                m_error = error
+                N_opt   = N
 
-            if (cum_rms < m_cum_rms):
-                m_cum_rms = cum_rms
-                N_opt_cum = N
+            if (cum_error < m_cum_error):
+                m_cum_error = cum_error
+                N_opt_cum   = N
 
+        loss_label = "RMSE" if loss == "mse" else "Max|Error|"
         if (N_opt != N_opt_cum):
-            logger.info("Window of {} leads to best absolute drift RMSE "
+            logger.info("Window of {} leads to best absolute drift {} "
                         "(of {:.2f}), whereas a window of "
-                        "{} leads to best cumulative drift RMSE "
+                        "{} leads to best cumulative drift {} "
                         "(of {:.2f})".format(
-                            N_opt, m_rms, N_opt_cum, m_cum_rms
+                            N_opt, loss_label, m_error, N_opt_cum, loss_label,
+                            m_cum_error
                         ))
 
-        logger.info("Minimum RMS: %f ppb" %(m_rms))
-        logger.info("Optimum N:   %d" %(N_opt))
+        logger.info("Minimum {}: {} ppb".format(loss_label, m_error))
+        logger.info("Optimum N: {}".format(N_opt))
 
         # NOTE: The window length is being tunned using the cumulative drift
         # instead of the absolute. This is because the latter leads to an window
@@ -327,22 +343,24 @@ class Estimator():
 
         return is_valid
 
-    def optimize_loop(self, error='cumulative', cache=None, cache_id='loop',
-                      force=False):
+    def optimize_loop(self, criterion='cumulative', loss="mse", cache=None,
+                      cache_id='loop', force=False):
         """Find loop parameters that minimize the RMSE of drift estimates
 
         Try some pre-defined damping factor and loop bandwidth values.
 
         Args:
-            error    : Error criterion used for tuning: cumulative or absolute
-            cache    : Cache handler used to save the optimized configuration in
-                       a json file
-            cache_id : Cache object identifier
-            force    : Force processing even if a configuration file with the
-                       optimized parameters already exists in cache.
+            criterion : Error criterion used for tuning: cumulative or absolute
+            loss      : Loss function (mse or max-error)
+            cache     : Cache handler used to save the optimized configuration
+                        in a json file
+            cache_id  : Cache object identifier
+            force     : Force processing even if a configuration file with the
+                        optimized parameters already exists in cache.
 
         """
-        assert(error in ['cumulative', 'absolute'])
+        assert(criterion in ['cumulative', 'absolute'])
+        assert(loss in ["mse", "max-error"])
 
         # Check if a cached configuration file exists and is valid
         if (cache is not None):
@@ -350,7 +368,7 @@ class Estimator():
             cached_loop_cfg = cache.load(cache_id)
 
             if (cached_loop_cfg and not force):
-                if (self._is_cfg_loop_valid(cached_loop_cfg, error)):
+                if (self._is_cfg_loop_valid(cached_loop_cfg, criterion)):
                     best_damping = cached_loop_cfg['damping']
                     best_loopbw  = cached_loop_cfg['loopbw']
 
@@ -364,8 +382,8 @@ class Estimator():
             np.arange(0.01, 0.1, 0.01),
             np.arange(0.001, 0.01, 0.001),
             np.arange(0.0001, 0.001, 0.0001)))
-        m_rms        = np.inf
-        m_cum_rms    = np.inf
+        m_error      = np.inf
+        m_cum_error  = np.inf
         best_damping = None
         best_loopbw  = None
 
@@ -398,25 +416,25 @@ class Estimator():
                                        damping, loopbw))
                     continue
 
-                rms, cum_rms = self._eval_drift_err(n_samples)
+                error, cum_error = self._eval_drift_err(loss, n_samples)
 
                 # NOTE: By default the damping factor and loop bandwidth are
                 # tuned using the cumulative drift instead of the absolute. This
                 # is because the latter leads to a time offset drift estimation
                 # that is very close to the 'optimize_to_y', while the former
                 # yield the best estimation performance.
-                if (error == 'cumulative'):
-                    if (cum_rms < m_cum_rms):
-                        m_cum_rms    = cum_rms
+                if (criterion == 'cumulative'):
+                    if (cum_error < m_cum_error):
+                        m_cum_error  = cum_error
                         best_damping = damping
                         best_loopbw  = loopbw
-                elif (error == 'absolute'):
-                    if (rms < m_rms):
-                        m_rms        = rms
+                elif (criterion == 'absolute'):
+                    if (error < m_error):
+                        m_error      = error
                         best_damping = damping
                         best_loopbw  = loopbw
                 else:
-                    raise ValueError("Unknown error criterion %s" %(error))
+                    raise ValueError("Unknown error criterion %s" %(criterion))
 
         logger.info("PI loop optimization")
         logger.info("Damping factor: {:f}".format(best_damping))
@@ -425,7 +443,7 @@ class Estimator():
         if (cache is not None):
             # Save optimal configuration
             cache.save({'n_samples' : len(self.data),
-                        'error'     : error,
+                        'error'     : criterion,
                         'damping'   : best_damping,
                         'loopbw'    : best_loopbw},
                        identifier=cache_id)
