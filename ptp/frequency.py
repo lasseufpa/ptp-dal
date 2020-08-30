@@ -212,7 +212,7 @@ class Estimator():
         # yield the best estimation performance.
         self.delta = N_opt_cum
 
-    def set_truth(self, delta=4):
+    def set_truth(self, delta=None):
         """Set "true" frequency offset based on "true" time offset measurements
 
         Args:
@@ -220,17 +220,20 @@ class Estimator():
                     estimates the frequency offsets based on consecutive data
                     entries.  When set to 2, estimates frequency offset i based
                     on timestamps from the i-th iteration and from iteration
-                    'i-2', and so on (default: 4)
+                    'i-2', and so on. When set to None, use the delta value
+                    set in self.delta (default: None)
         """
+        for r in self.data:
+            r.pop("rtc_y", None)
 
-        t1  = np.array([float(r["t1"]) for r in self.data])
-        x   = np.array([r["x"] for r in self.data])
-        dx  = x[self.delta:] - x[:-self.delta]
-        dt1 = t1[self.delta:] - t1[:-self.delta]
-        y   = dx / dt1
+        delta = delta or self.delta
+        t1    = np.array([float(r["t1"]) for r in self.data])
+        x     = np.array([r["x"] for r in self.data])
+        dx    = x[delta:] - x[:-delta]
+        dt1   = t1[delta:] - t1[:-delta]
+        y     = dx / dt1
 
-        for i,r in enumerate(self.data[self.delta:]):
-            # Add to dataset
+        for i,r in enumerate(self.data[delta:]):
             r["rtc_y"] = y[i]
 
     def estimate_drift(self):
