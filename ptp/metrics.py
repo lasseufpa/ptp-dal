@@ -59,34 +59,8 @@ class Analyser():
         if (cache is not None):
             assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
 
-        if (usetex):
-            aspect_ratio = 1.4
-            max_width    = 3.39
-            params = {
-                'text.usetex'    : True,
-                'axes.labelsize' : 8,
-                'axes.titlesize' : 8,
-                'font.size'      : 8,
-                'legend.fontsize': 8,
-                'xtick.labelsize': 8,
-                'ytick.labelsize': 8,
-                'grid.color'     : 'grey',
-                'grid.linestyle' : ':',
-                'grid.linewidth' : 0.25
-            }
-            matplotlib.rcParams.update(params)
-        else:
-            params = {
-                'grid.color'     : 'k',
-                'grid.linestyle' : ':',
-                'grid.linewidth' : 0.5
-            }
-            matplotlib.rcParams.update(params)
-            rc_figsize   = matplotlib.rcParams["figure.figsize"]
-            aspect_ratio = rc_figsize[0]/rc_figsize[1]
-            max_width    = rc_figsize[0]
-
-        self.figsize  = (max_width, max_width/aspect_ratio)
+        # Configure matplotlib plot parameters
+        self._set_matplotlib_params(usetex)
 
         # Initialize plot configurations for each estimator
         self._init_est_plot_configs()
@@ -101,6 +75,31 @@ class Analyser():
         self.current_plot = None # plot currently under processing
         self.plot_cnt     = {}   # track how many times each plot is called
         self.ranking      = {}   # performance ranking of estimators
+
+    def _set_matplotlib_params(self, usetex):
+        """Set matplotlib plot parameters
+
+        Args:
+            usetex : Whether to render plot texts using LaTeX.
+
+        """
+        params = {
+            'axes.labelsize' : 8,
+            'axes.titlesize' : 8,
+            'font.size'      : 8,
+            'legend.fontsize': 8,
+            'xtick.labelsize': 8,
+            'ytick.labelsize': 8,
+            'grid.color'     : 'grey',
+            'grid.linestyle' : ':',
+            'grid.linewidth' : 0.25
+        }
+        aspect_ratio = 1.4
+        max_width    = 3.39
+        if (usetex):
+            params['text.usetex'] = True
+        matplotlib.rcParams.update(params)
+        self.figsize = (max_width, max_width/aspect_ratio)
 
     def _init_est_plot_configs(self):
         """Initialize the plot configurations for each estimator
@@ -147,20 +146,16 @@ class Analyser():
     def _format_label(self, label):
         """Format plot label
 
-        If the latex interpreter is being used, try to break the legends to fit
-        in two lines. This approach will help to save spacing.
+        Try to break each legend such that it fits in two lines. The goal is to
+        save space on legend boxes that are put outside the main plotting box.
 
         """
-        label = label.replace(' ', '\n') if (self.usetex) else label
-        return label
+        return label.replace(' ', '\n')
 
     def _plt_legend(self):
         """Wrapper to enable the plot legend"""
-        if (self.usetex):
-            plt.legend(fontsize='small', bbox_to_anchor=(1.0, 1.02),
-                       loc='upper left', frameon=False, prop={'size': 5.})
-        else:
-            plt.legend()
+        plt.legend(fontsize='small', bbox_to_anchor=(1.0, 1.02),
+                   loc='upper left', frameon=False, prop={'size': 5.})
 
     def _plt_title(self, title):
         """Wrapper for setting the plot title
