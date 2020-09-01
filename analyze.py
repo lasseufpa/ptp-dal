@@ -53,11 +53,12 @@ def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop'):
     freq_estimator  = ptp.frequency.Estimator(data)
 
     if (strategy == "loop"):
-        damping, loopbw = freq_estimator.optimize_loop(cache=cache,
+        damping, loopbw = freq_estimator.optimize_loop(loss="max-error",
+                                                       cache=cache,
                                                        cache_id=cache_id)
         freq_estimator.loop(damping = damping, loopbw = loopbw)
     else:
-        freq_estimator.optimize_to_drift()
+        freq_estimator.optimize_to_drift(loss="max-error")
         freq_estimator.process()
         freq_estimator.estimate_drift()
 
