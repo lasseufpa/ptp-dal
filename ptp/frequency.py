@@ -146,7 +146,7 @@ class Estimator():
         logger.info("Optimum N: {}".format(N_opt))
         self.delta = N_opt
 
-    def optimize_to_drift(self, loss="mse"):
+    def optimize_to_drift(self, loss="mse", criterion='cumulative'):
         """Optimize delta for minimum RMSE of cumulative drift estimations
 
         This can lead to better performance than the other optimization routine
@@ -154,6 +154,7 @@ class Estimator():
         accurately.
 
         """
+        assert(criterion in ['cumulative', 'absolute'])
         assert(loss in ["mse", "max-error"])
 
         log_min_window = 1
@@ -210,7 +211,7 @@ class Estimator():
         # instead of the absolute. This is because the latter leads to an window
         # configuration is very close to the 'optimize_to_y', while the former
         # yield the best estimation performance.
-        self.delta = N_opt_cum
+        self.delta = N_opt_cum if criterion == "cumulative" else N_opt
 
     def set_truth(self, delta=None):
         """Set "true" frequency offset based on "true" time offset measurements
