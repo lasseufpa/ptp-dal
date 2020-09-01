@@ -37,11 +37,10 @@ def _run_outlier_detection(data):
 def _run_foffset_estimation(data, N=64, optimize=True):
     """Run frequency offset estimations"""
 
-    freq_delta     = N
     freq_estimator = ptp.frequency.Estimator(data, delta=N)
 
     if (optimize):
-        freq_estimator.set_truth(delta=freq_delta)
+        freq_estimator.set_truth()
         freq_estimator.optimize_to_y()
 
     freq_estimator.process()
@@ -414,6 +413,8 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
 
     # Nominal message period in nanoseconds
     T_ns = ds['data'].metadata["sync_period"]*1e9
+    # Message rate
+    ptp_rate = 1 / ds['data'].metadata["sync_period"]
 
     if (detect_outliers):
         _run_outlier_detection(ds['data'].data)
@@ -426,7 +427,15 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
         # contrast, the post-compensation stage below does not. Hence, the
         # window optimizer includes its post-compensation stage internally.
 
-    _run_foffset_estimation(ds['data'].data)
+    # Estimate the frequency offset throughout the acquisition
+    #
+    # NOTE: the truth values are accurate within +-8ns, so the difference
+    # between two timestamps can contain an error within +-16ns. Use a window of
+    # at least 32 seconds so that this error falls into the sub-ppb region.
+    _run_foffset_estimation(ds['data'].data, N=int(ptp_rate*32))
+
+    # Estimate the time offset drifts used for drift compensation on packet
+    # selection algorithms.
     _run_drift_estimation(ds['data'].data, strategy=args.drift_est_strategy,
                           cache=ds['cache'])
 
