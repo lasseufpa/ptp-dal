@@ -580,10 +580,7 @@ class PktSelection():
 
                 # Stacked windows with time offset measurements
                 x_obs_w  = self._window(x_obs, self.N,
-                                        shift=new_per_win,
-                                        copy=True)
-                # NOTE: copy is required because the values will changed/written
-                # in place within the vectorized processing
+                                        shift=new_per_win)
 
                 x_est = self._vectorized(strategy=strategy,
                                          drift_comp=drift_comp,
@@ -598,13 +595,9 @@ class PktSelection():
 
                 # Form observation windows with timestamps differences
                 t2_minus_t1_w = self._window(t2_minus_t1, self.N,
-                                             shift=new_per_win,
-                                             copy=True)
+                                             shift=new_per_win)
                 t4_minus_t3_w = self._window(t4_minus_t3, self.N,
-                                             shift=new_per_win,
-                                             copy=True)
-                # NOTE: copy is required because the values will be
-                # changed/written in place within the vectorized processing
+                                             shift=new_per_win)
 
                 # If batch processing is enabled, process each batch separately.
                 # Otherwise, process all observation windows at once.
