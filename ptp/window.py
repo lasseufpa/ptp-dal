@@ -118,11 +118,13 @@ class Optimizer():
             # Run estimator
             if (estimator == "ls"):
                 ls = ptp.ls.Ls(N, data, self.T_ns)
-                ls.process(impl=est_impl)
+                ls.process(impl=est_impl,
+                           batch_size=self.pkts_opts['batch_size'])
             else:
                 pkts    = ptp.pktselection.PktSelection(N, data)
                 pkts.process(strategy=est_impl,
-                             drift_comp=self.pkts_opts['drift_comp'])
+                             drift_comp=self.pkts_opts['drift_comp'],
+                             batch_size=self.pkts_opts['batch_size'])
 
             # Correct bias if bias correction is enabled for packet selection
             # algorithms

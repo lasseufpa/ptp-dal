@@ -64,8 +64,10 @@ def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop',
         freq_estimator.process()
         freq_estimator.estimate_drift()
 
+
 def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
-                          early_stopping, cache, drift_comp, bias, bias_est):
+                          early_stopping, cache, drift_comp, bias, bias_est,
+                          batch_size):
     """Run tuner of window lengths"""
 
     # Options for packet selection algorithms executed internally within the
@@ -73,7 +75,8 @@ def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
     pkts_opts = {
         'drift_comp' : drift_comp, # whether to apply drift compensation
         'bias_corr_mode' : bias,   # bias correction mode
-        'bias_est' : bias_est      # bias estimates
+        'bias_est' : bias_est,     # bias estimates
+        'batch_size' : batch_size  # batch size
     }
 
     window_optimizer = ptp.window.Optimizer(data, T_ns, pkts_opts)
@@ -96,11 +99,11 @@ def _run_kalman(data, T_ns, cache, force):
     kf.process()
 
 
-def _run_ls(data, N_ls, T_ns):
+def _run_ls(data, N_ls, T_ns, batch_size):
     """Run Least-squares estimator"""
 
     ls = ptp.ls.Ls(N_ls, data, T_ns)
-    ls.process("eff")
+    ls.process("eff", batch_size=batch_size)
 
 
 def _compute_ideal_bias_estimates(data):
@@ -171,32 +174,32 @@ def _run_post_bias_compensation(data, corr):
             logging.warning(f"Can't compensate asymmetry of {metric}")
 
 
-def _run_pktselection(data, window_len, drift_comp=True):
+def _run_pktselection(data, window_len, batch_size, drift_comp=True):
     """Run packet selection algorithms"""
 
     # Moving average
     pkts = ptp.pktselection.PktSelection(window_len['movavg'], data)
-    pkts.process("avg-recursive", drift_comp=drift_comp)
+    pkts.process("avg-recursive", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-median
     pkts.set_window_len(window_len['median'])
-    pkts.process("median", drift_comp=drift_comp)
+    pkts.process("median", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-minimum
     pkts.set_window_len(window_len['min'])
-    pkts.process("min", drift_comp=drift_comp)
+    pkts.process("min", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-maximum
     pkts.set_window_len(window_len['max'])
-    pkts.process("max", drift_comp=drift_comp)
+    pkts.process("max", drift_comp=drift_comp, batch_size=batch_size)
 
     # Exponentially weighted moving average
     pkts.set_window_len(window_len['ewma'])
-    pkts.process("ewma", drift_comp=drift_comp)
+    pkts.process("ewma", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-mode
     pkts.set_window_len(window_len['mode'])
-    pkts.process("mode", drift_comp=drift_comp)
+    pkts.process("mode", drift_comp=drift_comp, batch_size=batch_size)
 
 
 def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
@@ -341,6 +344,11 @@ def parse_args():
                         action='store_true',
                         help='Whether to disable the drift compensation step '
                         'applied within packet selection algorithms.')
+    parser.add_argument('--batch-size',
+                        default=4096,
+                        type=int,
+                        help='Maximum number of observation windows processed \
+                        at once on window-based algorithms.')
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
@@ -458,17 +466,18 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                                                ds['cache'],
                                                drift_comp,
                                                args.bias,
-                                               bias_est)
+                                               bias_est,
+                                               args.batch_size)
 
     if (ls):
-        _run_ls(ds['data'].data, window_lengths['ls'], T_ns)
+        _run_ls(ds['data'].data, window_lengths['ls'], T_ns, args.batch_size)
 
     if (kalman):
         _run_kalman(ds['data'].data, T_ns, cache=ds['cache'],
                     force=args.optimizer_force)
 
     if (pktselection):
-        _run_pktselection(ds['data'].data, window_lengths,
+        _run_pktselection(ds['data'].data, window_lengths, args.batch_size,
                           drift_comp = drift_comp)
 
     if (args.bias == 'post' or args.bias == 'both'):
