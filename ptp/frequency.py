@@ -64,7 +64,7 @@ class Estimator():
 
         return drift_err, cum_drift_err
 
-    def process(self):
+    def process(self, strategy="two-way"):
         """Process the data
 
         Estimate the frequency offset relative to the reference over all the
@@ -72,19 +72,40 @@ class Estimator():
         master. This is equivalent to differentiating the time offset
         measurements.
 
-        """
+        Args:
+            strategy : Select between one-way, one-way-reversed, and two-way.
+                       The one-way strategy uses the m-to-s timestamps (t1 and
+                       t2) only. The two-way strategy relies on the two-way time
+                       offset measurements (x_est), namely on all timestamps
+                       (t1, t2, t3, and t4). The reversed one-way strategy
+                       uses the s-to-m timestamps (t3 and t4) only.
 
+        """
+        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
         logger.info("Processing with N=%d" %(self.delta))
 
         # Remove previous estimates in case they already exist
         for r in self.data:
             r.pop("y_est", None)
 
-        t1           = np.array([float(r["t1"]) for r in self.data])
-        t2           = np.array([float(r["t2"]) for r in self.data])
-        delta_slave  = t2[self.delta:] - t2[:-self.delta]
-        delta_master = t1[self.delta:] - t1[:-self.delta]
-        y_est        = (delta_slave - delta_master) / delta_master
+        if (strategy == "one-way"):
+            t1           = np.array([float(r["t1"]) for r in self.data])
+            t2           = np.array([float(r["t2"]) for r in self.data])
+            delta_slave  = t2[self.delta:] - t2[:-self.delta]
+            delta_master = t1[self.delta:] - t1[:-self.delta]
+            y_est        = (delta_slave - delta_master) / delta_master
+        elif (strategy == "one-way-reversed"):
+            t3           = np.array([float(r["t3"]) for r in self.data])
+            t4           = np.array([float(r["t4"]) for r in self.data])
+            delta_slave  = t3[self.delta:] - t3[:-self.delta]
+            delta_master = t4[self.delta:] - t4[:-self.delta]
+            y_est        = (delta_slave - delta_master) / delta_master
+        elif (strategy == "two-way"):
+            t1           = np.array([float(r["t1"]) for r in self.data])
+            x_est        = np.array([float(r["x_est"]) for r in self.data])
+            delta_x      = x_est[self.delta:] - x_est[:-self.delta]
+            delta_master = t1[self.delta:] - t1[:-self.delta]
+            y_est        = delta_x / delta_master
 
         for i,r in enumerate(self.data[self.delta:]):
             r["y_est"] = y_est[i]
