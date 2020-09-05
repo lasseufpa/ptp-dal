@@ -227,6 +227,7 @@ class Optimizer():
                              cache file
 
         """
+        t_start  = time.time()
         est_key  = self.est_op[estimator]['est_key']
         est_name = self.est_op[estimator]['name']
 
@@ -320,6 +321,9 @@ class Optimizer():
         self.est_op[estimator]["n_samples"]    = self.n_data
 
         logger.info(f"Best evaluated window length for {est_name}: {N_best:d}")
+        t_end = time.time()
+        logger.info("{} optimization took {:.2f} secs".format(
+            est_name, t_end - t_start))
 
     def _is_cache_complete(self, data, metric):
         """Check if the cached configuration is complete
