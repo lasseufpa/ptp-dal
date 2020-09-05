@@ -23,56 +23,42 @@ immutable_data = [
 
 class TestPktSelection(unittest.TestCase):
 
-    def test_sample_avg_normal(self):
-        """Window-based sample-average"""
+    def _run_sample_avg_normal(self, drift_comp=False, vectorize=False,
+                               batch=False):
+        """Window-based sample-average test runner"""
         data = copy.deepcopy(immutable_data)
         N    = 2
         pkts = PktSelection(N, data)
-        pkts.process('avg-normal', drift_comp = False, vectorize = False)
+        pkts.process('avg-normal', drift_comp=drift_comp, vectorize=vectorize,
+                     batch=batch)
         x_est_avg = [r["x_pkts_avg_normal"] for r in data if "x_pkts_avg_normal" in r]
 
         # Check values
-        # avg(x_est) in N = [6, 10.5, 16, 36.5]
-        self.assertEqual(x_est_avg[0], 6)
-        self.assertEqual(x_est_avg[1], 10.5)
-        self.assertEqual(x_est_avg[2], 16)
-        self.assertEqual(x_est_avg[3], 36.5)
-
-    def test_sample_avg_normal_vec(self):
-        """Vectorized sample-average with and without batch processing"""
-        for batch in [True, False]:
-            data = copy.deepcopy(immutable_data)
-            N    = 2
-            pkts = PktSelection(N, data)
-            pkts.process('avg-normal', drift_comp=False, vectorize=True,
-                         batch=batch, batch_size=3)
-            x_est_avg = [r["x_pkts_avg_normal"] for r in data if "x_pkts_avg_normal" in r]
-
-            # Check values
+        if (drift_comp):
+            # avg(x_est') in N      = [4, 5, 6.5, 23.5]
+            # after re-adding drift = [7, 13, 17.5, 38.5]
+            self.assertEqual(x_est_avg[0], 7)
+            self.assertEqual(x_est_avg[1], 13)
+            self.assertEqual(x_est_avg[2], 17.5)
+            self.assertEqual(x_est_avg[3], 38.5)
+        else:
             # avg(x_est) in N = [6, 10.5, 16, 36.5]
             self.assertEqual(x_est_avg[0], 6)
             self.assertEqual(x_est_avg[1], 10.5)
             self.assertEqual(x_est_avg[2], 16)
             self.assertEqual(x_est_avg[3], 36.5)
 
-    def test_sample_avg_normal_drift_comp(self):
-        """Sample-average with drift compensation"""
-        for batch in [True, False]:
-            for vectorize in [True, False]:
-                data = copy.deepcopy(immutable_data)
-                N    = 2
-                pkts = PktSelection(N, data)
-                pkts.process('avg-normal', drift_comp=True, vectorize=vectorize,
-                             batch=batch, batch_size=3)
-                x_est_avg = [r["x_pkts_avg_normal"] for r in data if "x_pkts_avg_normal" in r]
+    def test_sample_avg_normal(self):
+        """Window-based sample-average"""
+        for drift_comp in [True, False]:
+            self._run_sample_avg_normal(drift_comp=drift_comp)
 
-                # Check values
-                # avg(x_est') in N      = [4, 5, 6.5, 23.5]
-                # after re-adding drift = [7, 13, 17.5, 38.5]
-                self.assertEqual(x_est_avg[0], 7)
-                self.assertEqual(x_est_avg[1], 13)
-                self.assertEqual(x_est_avg[2], 17.5)
-                self.assertEqual(x_est_avg[3], 38.5)
+    def test_sample_avg_normal_vec(self):
+        """Vectorized sample-average with and without batch processing"""
+        for drift_comp in [True, False]:
+            for batch in [True, False]:
+                self._run_sample_avg_normal(drift_comp=drift_comp,
+                                            vectorize=True, batch=batch)
 
     def test_sample_avg_recursive(self):
         """Recursive sample-average"""
@@ -102,60 +88,44 @@ class TestPktSelection(unittest.TestCase):
         self.assertEqual(x_est_avg[1], (3 + 7 + 6)/3 + 11)
         self.assertEqual(x_est_avg[2], (7 + 6 + 41)/3 + 15)
 
-    def test_sample_median(self):
-        """Non-vectorized sample-median"""
+    def _run_sample_median(self, drift_comp=False, vectorize=False,
+                           batch=False):
+        """Sample-median test runner"""
         data = copy.deepcopy(immutable_data)
         N    = 3
         pkts = PktSelection(N, data)
-        pkts.process('median', drift_comp=False, vectorize=False)
+        pkts.process('median', drift_comp=drift_comp, vectorize=vectorize,
+                     batch=batch)
         x_est_median = [r["x_pkts_median"] for r in data if \
                          "x_pkts_median" in r]
 
         # Check values
-        # median(t21) in N = [16, 16, 16]
-        # median(t43) in N = [12, 15, 15]
-        self.assertEqual(x_est_median[0], (16 - 12)/2)
-        self.assertEqual(x_est_median[1], (16 - 15)/2)
-        self.assertEqual(x_est_median[2], (16 - 15)/2)
-
-    def test_sample_median_vec(self):
-        """Vectorized sample-median with and without batch processing"""
-        for batch in [True, False]:
-            data = copy.deepcopy(immutable_data)
-            N    = 3
-            pkts = PktSelection(N, data)
-            pkts.process('median', drift_comp=False, vectorize=True,
-                         batch=batch, batch_size=3)
-            x_est_median = [r["x_pkts_median"] for r in data if \
-                             "x_pkts_median" in r]
-
-            # Check values
+        if (drift_comp):
+            # median(t21') in N     = [9, 8, 8]
+            # median(t43') in N     = [15, 23, 26]
+            # sample-median result  = [-3, -7.5, -9]
+            # after re-adding drift = [5, 3.5, 6]
+            self.assertEqual(x_est_median[0], 5)
+            self.assertEqual(x_est_median[1], 3.5)
+            self.assertEqual(x_est_median[2], 6)
+        else:
             # median(t21) in N = [16, 16, 16]
             # median(t43) in N = [12, 15, 15]
             self.assertEqual(x_est_median[0], (16 - 12)/2)
             self.assertEqual(x_est_median[1], (16 - 15)/2)
             self.assertEqual(x_est_median[2], (16 - 15)/2)
 
-    def test_sample_median_drift_comp(self):
-        """Sample-median with drift compensation"""
-        for batch in [True, False]:
-            for vectorize in [True, False]:
-                data = copy.deepcopy(immutable_data)
-                N    = 3
-                pkts = PktSelection(N, data)
-                pkts.process('median', drift_comp=True, vectorize=vectorize,
-                             batch=batch, batch_size=3)
-                x_est_median = [r["x_pkts_median"] for r in data if \
-                                "x_pkts_median" in r]
+    def test_sample_median(self):
+        """Non-vectorized sample-median"""
+        for drift_comp in [True, False]:
+            self._run_sample_median(drift_comp=drift_comp)
 
-                # Check values
-                # median(t21') in N     = [9, 8, 8]
-                # median(t43') in N     = [15, 23, 26]
-                # sample-median result  = [-3, -7.5, -9]
-                # after re-adding drift = [5, 3.5, 6]
-                self.assertEqual(x_est_median[0], 5)
-                self.assertEqual(x_est_median[1], 3.5)
-                self.assertEqual(x_est_median[2], 6)
+    def test_sample_median_vec(self):
+        """Vectorized sample-median with and without batch processing"""
+        for drift_comp in [True, False]:
+            for batch in [True, False]:
+                self._run_sample_median(drift_comp=drift_comp, vectorize=True,
+                                        batch=batch)
 
     def _run_sample_min(self, drift_comp=False, vectorize=False,
                         recursive=False, batch=False):
@@ -243,63 +213,17 @@ class TestPktSelection(unittest.TestCase):
                 self._run_sample_max(drift_comp=drift_comp, vectorize=True,
                                      batch=batch)
 
-    def test_sample_mode_vec(self):
-        """Vectorized sample-mode with and without batch processing"""
-        for batch in [True, False]:
-            data = copy.deepcopy(immutable_data)
-            N    = 3
-            pkts = PktSelection(N, data)
-            pkts.process('mode', drift_comp=False, vectorize=True,
-                         batch=batch, batch_size=3)
-            x_est_mode = [r["x_pkts_mode"] for r in data if "x_pkts_mode" in r]
+    def _run_sample_mode(self, drift_comp=False, vectorize=False, batch=False):
+        """Sample-mode test runner"""
+        data = copy.deepcopy(immutable_data)
+        N    = 3
+        pkts = PktSelection(N, data)
+        pkts.process('mode', drift_comp=drift_comp, vectorize=vectorize,
+                     batch=batch)
+        x_est_mode = [r["x_pkts_mode"] for r in data if "x_pkts_mode" in r]
 
-            # Timestamp differences:
-            # t2 - t1: [[18. 12. 16.]
-            #           [12. 16. 19.]
-            #           [16. 19. 12.]]
-            # t4 - t3: [[ 8. 12. 15.]
-            #           [12. 15. 25.]
-            #           [15. 25. 11.]]
-            #
-            # Quantized timestamp differences (quantum = 10 ns):
-            # t2 - t1: [[2. 1. 2.]
-            #           [1. 2. 2.]
-            #           [2. 2. 1.]]
-            # t4 - t3: [[1. 1. 2.]
-            #           [1. 2. 2.]
-            #           [2. 2. 1.]]
-            #
-            # Mode in each quantized window:
-            # t2 - t1: [[2.]
-            #           [2.]
-            #           [2.]]
-            # t4 - t3: [[1.]
-            #           [2.]
-            #           [2.]]
-            #
-            # After dequantization
-            # t2 - t1: [[20.]
-            #           [20.]
-            #           [20.]]
-            # t4 - t3: [[10.]
-            #           [20.]
-            #           [20.]]
-            #
-            # Expected results
-            self.assertEqual(x_est_mode[0], 5.0)
-            self.assertEqual(x_est_mode[1], 0)
-            self.assertEqual(x_est_mode[2], 0)
-
-    def test_sample_mode_drift_comp(self):
-        """Vectorized sample-mode with drift compensation"""
-        for batch in [True, False]:
-            data = copy.deepcopy(immutable_data)
-            N    = 3
-            pkts = PktSelection(N, data)
-            pkts.process('mode', drift_comp=True, vectorize=True,
-                         batch=batch, batch_size=3)
-            x_est_mode = [r["x_pkts_mode"] for r in data if "x_pkts_mode" in r]
-
+        # Check results
+        if (drift_comp):
             # Timestamp differences:
             # t2' - t1': [[17. 9. 8.]
             #             [9. 8. 8.]
@@ -339,4 +263,49 @@ class TestPktSelection(unittest.TestCase):
             self.assertEqual(x_est_mode[0], 3)
             self.assertEqual(x_est_mode[1], 6)
             self.assertEqual(x_est_mode[2], 10)
+        else:
+            # Timestamp differences:
+            # t2 - t1: [[18. 12. 16.]
+            #           [12. 16. 19.]
+            #           [16. 19. 12.]]
+            # t4 - t3: [[ 8. 12. 15.]
+            #           [12. 15. 25.]
+            #           [15. 25. 11.]]
+            #
+            # Quantized timestamp differences (quantum = 10 ns):
+            # t2 - t1: [[2. 1. 2.]
+            #           [1. 2. 2.]
+            #           [2. 2. 1.]]
+            # t4 - t3: [[1. 1. 2.]
+            #           [1. 2. 2.]
+            #           [2. 2. 1.]]
+            #
+            # Mode in each quantized window:
+            # t2 - t1: [[2.]
+            #           [2.]
+            #           [2.]]
+            # t4 - t3: [[1.]
+            #           [2.]
+            #           [2.]]
+            #
+            # After dequantization
+            # t2 - t1: [[20.]
+            #           [20.]
+            #           [20.]]
+            # t4 - t3: [[10.]
+            #           [20.]
+            #           [20.]]
+            #
+            # Expected results
+            self.assertEqual(x_est_mode[0], 5.0)
+            self.assertEqual(x_est_mode[1], 0)
+            self.assertEqual(x_est_mode[2], 0)
+
+    def test_sample_mode_vec(self):
+        """Vectorized sample-mode with and without batch processing"""
+        for drift_comp in [True, False]:
+            for batch in [True, False]:
+                self._run_sample_mode(drift_comp=drift_comp, vectorize=True,
+                                      batch=batch)
+
 
