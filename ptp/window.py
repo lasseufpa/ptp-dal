@@ -101,6 +101,10 @@ class Optimizer():
         n_windows = len(window_vec)
         error     = np.zeros(n_windows)
 
+        # Fair number of samples to use for the error evaluation
+        n_f = len(data) - int(max(window_vec))
+        assert(n_f > 0)
+
         # Control variables
         last_print     = 0
         min_err        = np.inf
@@ -152,15 +156,14 @@ class Optimizer():
             if (estimator != "ls"):
                 self._correct_pkts_bias(est_key)
 
-            # The recursive moving average methods have transitories. Try to
-            # skip them by throwing away an arbitrary number of initial values.
-            self._sample_skip = 300 if (estimator == "sample-average") \
-                                else self._sample_skip
-            post_tran_data    = data[self._sample_skip:]
-
             # Get time offset estimation errors
-            x_err = np.array([r[f"x_{est_key}"] - r["x"] for r in
-                              post_tran_data if f"x_{est_key}" in r])
+            #
+            # NOTE: Consider only the portion of the dataset that contains
+            # estimates produced by all window lengths (n_f samples), such that
+            # the comparison becomes fair. Otherwise, the shortest windows would
+            # be assessed based on more data.
+            x_err = np.array([r[f"x_{est_key}"] - r["x"] for r in data[-n_f:]
+                              if f"x_{est_key}" in r])
 
             # Erase results from dataset
             for r in data:
