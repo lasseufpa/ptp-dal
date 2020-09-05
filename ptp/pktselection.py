@@ -2,6 +2,7 @@ import logging
 import numpy as np
 from scipy import stats
 from ptp.ewma import Ewma
+import ptp.filters
 logger = logging.getLogger(__name__)
 
 
@@ -410,22 +411,58 @@ class PktSelection():
 
         return x_est.reshape(x_est.size)
 
-    def _sample_by_sample(self, strategy, drift_comp):
-        """Sample-by-sample processing
+    def _tdiff_ops_recursive(self, drift_comp, op):
+        """Recursive filters operating on timestamp differences (t21/t43)
+
+        Supports recursive sample-minimum and sample-maximum implementations.
 
         Args:
-            strategy      : Selection strategy of interest (recursive moving
-                            average or exponentially-weighted moving average).
-            drift_comp    : Whether to compensate drift of timestamp differences
-                            or time offset measuremrents prior to computing
-                            packet selection operators.
+            drift_comp : Whether to apply drift compensation
+            op         : Operation (min or max)
 
         """
-        # Assume that all elements of self.data contain "x_est". If drift
-        # compensation is enabled, assume all elements contain "cum_drift".
-        assert(all([("x_est" in r) for r in self.data]))
+        assert(op in ['min', 'max'])
+
+        # Drift compensation array
         if (drift_comp):
-            assert(all([("cum_drift" in r) for r in self.data]))
+            drift_corr = np.array([r["cum_drift"] for r in self.data])
+        else:
+            drift_corr = np.zeros(len(self.data))
+
+        # Drift-compensated timetamp difference arrays
+        t21 = np.array([float(r["t2"] - r["t1"]) for r in self.data]) \
+              - drift_corr
+        t43 = np.array([float(r["t4"] - r["t3"]) for r in self.data]) \
+              + drift_corr
+
+        # Recursive moving-minimum/maximum of t21 and t43
+        filter_op    = ptp.filters.moving_minimum if (op == 'min') else \
+                       ptp.filters.moving_maximum
+        filtered_t21 = filter_op(self.N, t21)
+        filtered_t43 = filter_op(self.N, t43)
+
+        # Time offset estimates
+        x_est = (filtered_t21 - filtered_t43) / 2
+
+        # Re-add cumulative drift and save on global data records after the
+        # transitory of (N-1) samples:
+        i = self.N - 1
+        for val in x_est:
+            self.data[i][f"x_pkts_{op}"] = val + drift_corr[i]
+            i += 1
+
+    def _toffset_ops_recursive(self, drift_comp, strategy):
+        """Recursive filters operating on time offset estimates
+
+        Supports recursive sample-average and EWMA implementations.
+
+        Args:
+            drift_comp : Whether to apply drift compensation
+            strategy   : Selection strategy of interest (recursive moving
+                         average or exponentially-weighted moving average).
+
+        """
+        assert(strategy in ['avg-recursive', 'ewma'])
 
         # Key for save data on global data records
         key = strategy.replace('-', '_')
@@ -441,13 +478,38 @@ class PktSelection():
                 x_est = self._sample_avg_recursive(x_obs - drift_correction)
             elif (strategy == 'ewma'):
                 x_est = self._ewma.step(x_obs - drift_correction)
-            else:
-                raise ValueError("Strategy choice %s unknown" %(strategy))
 
             # Re-add cumulative drift and save on global data records after the
             # averaging transitory of (N-1) samples:
             if (i >= (self.N - 1)):
                 self.data[i][f"x_pkts_{key}"] = x_est + drift_correction
+
+    def _sample_by_sample(self, strategy, drift_comp):
+        """Sample-by-sample processing
+
+        Args:
+            strategy   : Selection strategy of interest (recursive moving
+                         average or exponentially-weighted moving average).
+            drift_comp : Whether to compensate drift of timestamp differences
+                         or time offset measurements prior to computing
+                         packet selection operators.
+
+        """
+        # Assume that all elements of self.data contain "x_est". If drift
+        # compensation is enabled, assume all elements contain "cum_drift".
+        assert(all([("x_est" in r) for r in self.data]))
+        if (drift_comp):
+            assert(all([("cum_drift" in r) for r in self.data]))
+
+        tdiff_ops = ['min', 'max']
+        toffset_ops = ['avg-recursive', 'ewma']
+
+        if (strategy in tdiff_ops):
+            self._tdiff_ops_recursive(drift_comp, strategy)
+        elif (strategy in toffset_ops):
+            self._toffset_ops_recursive(drift_comp, strategy)
+        else:
+            raise ValueError("Strategy choice %{} unsupported".format(strategy))
 
     def _window_by_window(self, strategy, drift_comp):
         """Window-by-window processing
@@ -698,7 +760,7 @@ class PktSelection():
         self._set_window_len(N)
 
     def process(self, strategy, drift_comp=True, vectorize=True, batch=True,
-                batch_size=4096, calc_drift=True):
+                batch_size=4096, calc_drift=True, recursive=True):
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
@@ -800,6 +862,7 @@ class PktSelection():
                          that the parent object will already calculate the
                          cumulative drifts and make them available to all
                          workers through the shared self.data.
+            recursive  : Prefer a recursive implementation when available.
 
         """
         if (drift_comp):
@@ -836,8 +899,11 @@ class PktSelection():
                 cum_drift += r["drift"]
                 r["cum_drift"] = cum_drift
 
-        if (strategy == 'avg-recursive' or strategy == 'ewma'):
-            # Sample-by-Sample processing
+        # If there is a recursive implementation available for the chosen
+        # strategy, use it, as it is expected to be faster.
+        recursive_strategies = ['avg-recursive', 'min', 'max', 'ewma']
+        if (strategy in recursive_strategies and recursive):
+            # Sample-by-sample processing (recursive implementations)
             self._sample_by_sample(strategy, drift_comp)
         elif (vectorize):
             # Matrix-by-matrix processing

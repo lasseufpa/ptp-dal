@@ -157,109 +157,91 @@ class TestPktSelection(unittest.TestCase):
                 self.assertEqual(x_est_median[1], 3.5)
                 self.assertEqual(x_est_median[2], 6)
 
-    def test_sample_min(self):
-        """Non-vectorized sample-minimum"""
+    def _run_sample_min(self, drift_comp=False, vectorize=False,
+                        recursive=False, batch=False):
+        """Sample-minimum test runner"""
         data = copy.deepcopy(immutable_data)
         N    = 3
         pkts = PktSelection(N, data)
-        pkts.process('min', drift_comp=False, vectorize=False)
+        pkts.process('min', drift_comp=drift_comp, vectorize=vectorize,
+                     recursive=recursive, batch=batch)
         x_est_min = [r["x_pkts_min"] for r in data if "x_pkts_min" in r]
 
         # Check values
-        # min(t21) in N = [12, 12, 12]
-        # min(t43) in N = [8, 12, 11]
-        self.assertEqual(x_est_min[0], 2)
-        self.assertEqual(x_est_min[1], 0)
-        self.assertEqual(x_est_min[2], 0.5)
-
-    def test_sample_min_vec(self):
-        """Vectorized sample-minimum with and without batch processing"""
-        for batch in [True, False]:
-            data = copy.deepcopy(immutable_data)
-            N    = 3
-            pkts = PktSelection(N, data)
-            pkts.process('min', drift_comp=False, vectorize=True,
-                         batch=batch, batch_size=3)
-            x_est_min = [r["x_pkts_min"] for r in data if "x_pkts_min" in r]
-
-            # Check values
+        if (drift_comp):
+            # min(t21') in N        = [8, 8, -3]
+            # min(t43') in N        = [9, 15, 23]
+            # sample-min result     = [-0.5, -3.5, -13]
+            # after re-adding drift = [7.5, 7.5, 2]
+            self.assertEqual(x_est_min[0], 7.5)
+            self.assertEqual(x_est_min[1], 7.5)
+            self.assertEqual(x_est_min[2], 2)
+        else:
             # min(t21) in N = [12, 12, 12]
             # min(t43) in N = [8, 12, 11]
             self.assertEqual(x_est_min[0], 2)
             self.assertEqual(x_est_min[1], 0)
             self.assertEqual(x_est_min[2], 0.5)
 
-    def test_sample_min_drift_comp(self):
-        """Sample-minimum with drift compensation"""
-        for batch in [True, False]:
-            for vectorize in [True, False]:
-                data = copy.deepcopy(immutable_data)
-                N    = 3
-                pkts = PktSelection(N, data)
-                pkts.process('min', drift_comp=True, vectorize=vectorize,
-                             batch=batch, batch_size=3)
-                x_est_min = [r["x_pkts_min"] for r in data if "x_pkts_min" in r]
+    def test_sample_min(self):
+        """Non-vectorized and non-recursive sample-minimum"""
+        for drift_comp in [True, False]:
+            self._run_sample_min(drift_comp=drift_comp)
 
-                # Check values
-                # min(t21') in N        = [8, 8, -3]
-                # min(t43') in N        = [9, 15, 23]
-                # sample-min result     = [-0.5, -3.5, -13]
-                # after re-adding drift = [7.5, 7.5, 2]
-                self.assertEqual(x_est_min[0], 7.5)
-                self.assertEqual(x_est_min[1], 7.5)
-                self.assertEqual(x_est_min[2], 2)
+    def test_sample_min_recursive(self):
+        """Recursive sample-minimum"""
+        for drift_comp in [True, False]:
+            self._run_sample_min(drift_comp=drift_comp, recursive=True)
 
-    def test_sample_max(self):
-        """Non-vectorized sample-maximum"""
+    def test_sample_min_vec(self):
+        """Vectorized sample-minimum with and without batch processing"""
+        for drift_comp in [True, False]:
+            for batch in [True, False]:
+                self._run_sample_min(drift_comp=drift_comp, vectorize=True,
+                                     batch=batch)
+
+    def _run_sample_max(self, drift_comp=False, vectorize=False,
+                        recursive=False, batch=False):
+        """Sample-maximum test runner"""
         data = copy.deepcopy(immutable_data)
         N    = 3
         pkts = PktSelection(N, data)
-        pkts.process('max', drift_comp=False, vectorize=False)
+        pkts.process('max', drift_comp=drift_comp, vectorize=vectorize,
+                     recursive=recursive, batch=batch)
         x_est_max = [r["x_pkts_max"] for r in data if "x_pkts_max" in r]
 
         # Check values
-        # max(t21) in N = [18, 19, 19]
-        # max(t43) in N = [15, 25, 25]
-        self.assertEqual(x_est_max[0], 1.5)
-        self.assertEqual(x_est_max[1], -3)
-        self.assertEqual(x_est_max[2], -3)
-
-    def test_sample_max_vec(self):
-        """Vectorized sample-maximum with and without batch processing"""
-        for batch in [True, False]:
-            data = copy.deepcopy(immutable_data)
-            N    = 3
-            pkts = PktSelection(N, data)
-            pkts.process('max', drift_comp=False, vectorize=True,
-                         batch=batch, batch_size=3)
-            x_est_max = [r["x_pkts_max"] for r in data if "x_pkts_max" in r]
-
-            # Check values
+        if (drift_comp):
+            # max(t21') in N        = [17, 9, 8]
+            # max(t43') in N        = [23, 36, 36]
+            # sample-max result     = [-3, -13.5, -14]
+            # after re-adding drift = [5, -2.5, 1]
+            self.assertEqual(x_est_max[0], 5)
+            self.assertEqual(x_est_max[1], -2.5)
+            self.assertEqual(x_est_max[2], 1)
+        else:
             # max(t21) in N = [18, 19, 19]
             # max(t43) in N = [15, 25, 25]
             self.assertEqual(x_est_max[0], 1.5)
             self.assertEqual(x_est_max[1], -3)
             self.assertEqual(x_est_max[2], -3)
 
-    def test_sample_max_drift_comp(self):
-        """Sample-maximum with drift compensation"""
-        for batch in [True, False]:
-            for vectorize in [True, False]:
-                data = copy.deepcopy(immutable_data)
-                N    = 3
-                pkts = PktSelection(N, data)
-                pkts.process('max', drift_comp=True, vectorize=vectorize,
-                             batch=batch, batch_size=3)
-                x_est_max = [r["x_pkts_max"] for r in data if "x_pkts_max" in r]
+    def test_sample_max(self):
+        """Non-vectorized sample-maximum"""
+        for drift_comp in [True, False]:
+            self._run_sample_max(drift_comp=drift_comp)
 
-                # Check values
-                # max(t21') in N        = [17, 9, 8]
-                # max(t43') in N        = [23, 36, 36]
-                # sample-max result     = [-3, -13.5, -14]
-                # after re-adding drift = [5, -2.5, 1]
-                self.assertEqual(x_est_max[0], 5)
-                self.assertEqual(x_est_max[1], -2.5)
-                self.assertEqual(x_est_max[2], 1)
+    def test_sample_max_recursive(self):
+        """Recursive sample-maximum"""
+        for drift_comp in [True, False]:
+            self._run_sample_max(drift_comp=drift_comp, recursive=True)
+
+    def test_sample_max_vec(self):
+        """Vectorized sample-maximum with and without batch processing"""
+        for drift_comp in [True, False]:
+            for batch in [True, False]:
+                self._run_sample_max(drift_comp=drift_comp, vectorize=True,
+                                     batch=batch)
 
     def test_sample_mode_vec(self):
         """Vectorized sample-mode with and without batch processing"""
