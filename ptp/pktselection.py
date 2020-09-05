@@ -33,12 +33,6 @@ class PktSelection():
         N                        = self.N
         self.i_batch             = 0
         self.data                = self._original_data
-        # Recursive moving-average
-        self._movavg_accum       = 0
-        self._movavg_buffer      = np.zeros(2*N)
-        self._movavg_i           = N
-        # Exponentially-weight moving average
-        self._ewma.reset()
         # Sample-mode params
         self._sample_mode_bin    = SAMPLE_MODE_BIN_0
         self._sample_mode_bin_fw = SAMPLE_MODE_BIN_0
@@ -46,10 +40,8 @@ class PktSelection():
         self._mode_stall_cnt     = 0
 
     def _set_window_len(self, N):
-        """Set window length and associated paramters"""
+        """Set window length and associated parameters"""
         self.N = N
-        self._ewma = Ewma()
-        self._ewma.set_equivalent_window(N)
 
     def _window(self, v, N, shift=1, copy = False):
         """Split numpy vector into windows with configurable overlapping
@@ -105,33 +97,6 @@ class PktSelection():
 
         """
         return np.mean(x_obs, axis=1)
-
-    def _sample_avg_recursive(self, x_obs):
-        """Calculate the average of a given time offset vector recursively
-
-        Uses a circular (ring) buffer with size 2*N, where the tail pointer is
-        always lagging the head pointer by N. The head pointer is used to save
-        new values and the tail pointer is used to throw away the oldest value.
-
-        Args:
-            x_obs   : Scalar time offset observation
-
-        Returns:
-            The moving average
-
-        """
-        i_head                      = self._movavg_i
-        i_tail                      = (i_head - self.N) % (2*self.N)
-        # Put new observation on the head of the buffer
-        self._movavg_buffer[i_head] = x_obs
-        self._movavg_accum         += x_obs
-        # Remove the oldest value on the tail of the buffer
-        self._movavg_accum         -= self._movavg_buffer[i_tail]
-        # Compute new average and advance head pointer
-        new_avg                     = self._movavg_accum / self.N
-        self._movavg_i              = (self._movavg_i + 1) % (2*self.N)
-
-        return new_avg
 
     def _sample_median(self, t2_minus_t1_w, t4_minus_t3_w):
         """Calculate the sample-median estimate of a given observation window
@@ -452,7 +417,7 @@ class PktSelection():
             i += 1
 
     def _toffset_ops_recursive(self, drift_comp, strategy):
-        """Recursive filters operating on time offset estimates
+        """Recursive filters operating on time offset measurements
 
         Supports recursive sample-average and EWMA implementations.
 
@@ -464,25 +429,27 @@ class PktSelection():
         """
         assert(strategy in ['avg', 'ewma'])
 
-        # Key for save data on global data records
+        # Drift compensation array
+        if (drift_comp):
+            drift_corr = np.array([r["cum_drift"] for r in self.data])
+        else:
+            drift_corr = np.zeros(len(self.data))
+
+        # Drift-compensated time offset measurement array
+        x_obs = np.array([r["x_est"] for r in self.data]) - drift_corr
+
+        # Filter the measurements
+        filter_op = ptp.filters.moving_average if (strategy == "avg") else \
+                    ptp.filters.ewma
+        x_est     = filter_op(self.N, x_obs)
+
+        # Re-add cumulative drift and save on global data records after the
+        # transitory of (N-1) samples:
         key = strategy.replace('-', '_')
-
-        drift_correction = 0
-        for i in range(len(self.data)):
-            if (drift_comp):
-                drift_correction = self.data[i]["cum_drift"]
-
-            x_obs = self.data[i]["x_est"]
-
-            if (strategy == 'avg'):
-                x_est = self._sample_avg_recursive(x_obs - drift_correction)
-            elif (strategy == 'ewma'):
-                x_est = self._ewma.step(x_obs - drift_correction)
-
-            # Re-add cumulative drift and save on global data records after the
-            # averaging transitory of (N-1) samples:
-            if (i >= (self.N - 1)):
-                self.data[i][f"x_pkts_{key}"] = x_est + drift_correction
+        i   = self.N - 1
+        for val in x_est:
+            self.data[i][f"x_pkts_{key}"] = val + drift_corr[i]
+            i += 1
 
     def _sample_by_sample(self, strategy, drift_comp):
         """Sample-by-sample processing

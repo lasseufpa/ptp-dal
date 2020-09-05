@@ -1,5 +1,54 @@
 """Recursive/moving filter operations"""
 import numpy as np
+import ptp.ewma
+
+
+def ewma(N, x_array):
+    """Exponentially weighted moving average (EWMA)
+
+    Uses the Ewma class from the ewma.py module to implement an EWMA filter. The
+    coefficients are set based on a target window length.
+
+    Args:
+        N       : Window length
+        x_array : (numpy.ndarray) data array
+
+    Returns:
+        (numpy.ndarray) Array with the average computed at each observation
+        window over the input data array. For an input array of size S, the
+        result array has size "S -N + 1".
+
+    """
+    res = np.zeros(len(x_array))
+
+    ewma_filt = ptp.ewma.Ewma()
+    ewma_filt.set_equivalent_window(N)
+
+    res = [ewma_filt.step(x) for x in x_array]
+
+    return res[N-1:]
+
+
+def moving_average(N, x_array):
+    """Moving-average
+
+    Uses an FIR filter to implement the moving average. The operation is
+    equivalent to sliding an observation window of length N over a given data
+    array and computing the average for each window.
+
+    Args:
+        N       : Window length
+        x_array : (numpy.ndarray) data array
+
+    Returns:
+        (numpy.ndarray) Array with the average computed at each observation
+        window over the input data array. For an input array of size S, the
+        result array has size "S -N + 1".
+
+    """
+    assert(isinstance(x_array, np.ndarray))
+    h = np.ones(N) / N
+    return np.convolve(x_array, h, mode="valid")
 
 
 def moving_minimum(N, x_array):
