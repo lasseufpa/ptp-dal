@@ -386,7 +386,7 @@ class PktSelection():
             op         : Operation (min or max)
 
         """
-        assert(op in ['min', 'max'])
+        assert(op in ['min', 'max', 'mode'])
 
         # Drift compensation array
         if (drift_comp):
@@ -401,8 +401,12 @@ class PktSelection():
               + drift_corr
 
         # Recursive moving-minimum/maximum of t21 and t43
-        filter_op    = ptp.filters.moving_minimum if (op == 'min') else \
-                       ptp.filters.moving_maximum
+        filter_map = {
+            'min'  : ptp.filters.moving_minimum,
+            'max'  : ptp.filters.moving_maximum,
+            'mode' : ptp.filters.moving_mode
+        }
+        filter_op    = filter_map[op]
         filtered_t21 = filter_op(self.N, t21)
         filtered_t43 = filter_op(self.N, t43)
 
@@ -468,7 +472,7 @@ class PktSelection():
         if (drift_comp):
             assert(all([("cum_drift" in r) for r in self.data]))
 
-        tdiff_ops = ['min', 'max']
+        tdiff_ops   = ['min', 'max', 'mode']
         toffset_ops = ['avg', 'ewma']
 
         if (strategy in tdiff_ops):
@@ -868,7 +872,7 @@ class PktSelection():
 
         # If there is a recursive implementation available for the chosen
         # strategy, use it, as it is expected to be faster.
-        recursive_strategies = ['avg', 'min', 'max', 'ewma']
+        recursive_strategies = ['avg', 'min', 'max', 'ewma', 'mode']
         if (strategy in recursive_strategies and recursive):
             # Sample-by-sample processing (recursive implementations)
             self._sample_by_sample(strategy, drift_comp)

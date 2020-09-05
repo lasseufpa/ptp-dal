@@ -190,13 +190,14 @@ class TestPktSelection(unittest.TestCase):
                 self._run_sample_max(drift_comp=drift_comp, vectorize=True,
                                      batch=batch)
 
-    def _run_sample_mode(self, drift_comp=False, vectorize=False, batch=False):
+    def _run_sample_mode(self, drift_comp=False, vectorize=False,
+                         recursive=False, batch=False):
         """Sample-mode test runner"""
         data = copy.deepcopy(immutable_data)
         N    = 3
         pkts = PktSelection(N, data)
         pkts.process('mode', drift_comp=drift_comp, vectorize=vectorize,
-                     batch=batch)
+                     recursive=recursive, batch=batch)
         x_est_mode = [r["x_pkts_mode"] for r in data if "x_pkts_mode" in r]
 
         # Check results
@@ -285,4 +286,8 @@ class TestPktSelection(unittest.TestCase):
                 self._run_sample_mode(drift_comp=drift_comp, vectorize=True,
                                       batch=batch)
 
+    def test_sample_mode_recursive(self):
+        """Recursive sample-mode"""
+        for drift_comp in [True, False]:
+            self._run_sample_mode(drift_comp=drift_comp, recursive=True)
 
