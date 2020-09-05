@@ -462,7 +462,7 @@ class PktSelection():
                          average or exponentially-weighted moving average).
 
         """
-        assert(strategy in ['avg-recursive', 'ewma'])
+        assert(strategy in ['avg', 'ewma'])
 
         # Key for save data on global data records
         key = strategy.replace('-', '_')
@@ -474,7 +474,7 @@ class PktSelection():
 
             x_obs = self.data[i]["x_est"]
 
-            if (strategy == 'avg-recursive'):
+            if (strategy == 'avg'):
                 x_est = self._sample_avg_recursive(x_obs - drift_correction)
             elif (strategy == 'ewma'):
                 x_est = self._ewma.step(x_obs - drift_correction)
@@ -502,7 +502,7 @@ class PktSelection():
             assert(all([("cum_drift" in r) for r in self.data]))
 
         tdiff_ops = ['min', 'max']
-        toffset_ops = ['avg-recursive', 'ewma']
+        toffset_ops = ['avg', 'ewma']
 
         if (strategy in tdiff_ops):
             self._tdiff_ops_recursive(drift_comp, strategy)
@@ -532,7 +532,7 @@ class PktSelection():
                                         self.data[i_s:i_e]])
 
             # Operator that processes time offset measurement windows
-            if (strategy == 'avg-normal'):
+            if (strategy == 'avg'):
                 # Observation window
                 x_obs_w = np.array([res["x_est"] for res in self.data[i_s:i_e]])
 
@@ -635,7 +635,7 @@ class PktSelection():
             # NOTE: it is OK to let _window use copy = False here. We don't
             # mutate these values (they are only read, but not written).
 
-            if (strategy == 'avg-normal'):
+            if (strategy == 'avg'):
                 # Time offset measurements:
                 x_obs = np.array([res["x_est"] for res in self.data[i_s:i_e]],
                                  dtype='float64')
@@ -703,7 +703,7 @@ class PktSelection():
 
         """
         # Operator that processes time offset measurement windows
-        if (strategy == 'avg-normal'):
+        if (strategy == 'avg'):
             # Time offset measurement
             assert(x_obs.any()), "Time offset measurement not available"
 
@@ -764,9 +764,8 @@ class PktSelection():
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
-        sample-average ("avg-recursive" or "avg-normal"), EWMA ("ewma"),
-        sample-median ("median"), sample-minimum ("min") or sample-mode ("mode")
-        over sliding windows of observations.
+        sample-average, EWMA, sample-median, sample-minimum, sample-maximum, or
+        sample-mode over sliding windows of observations.
 
         ----------------------------------------
         Drift compensation:
@@ -839,7 +838,8 @@ class PktSelection():
         they are recursive, and hence must be computed sample by sample.
 
         Args:
-            strategy   : Select the strategy of interest.
+            strategy   : Select the strategy of interest: "avg", "ewma",
+                         "median", "min", "max", or "mode"
             drift_comp : Whether to compensate drift of timestamp differences or
                          time offset measuremrents prior to computing packet
                          selection operators.
@@ -901,7 +901,7 @@ class PktSelection():
 
         # If there is a recursive implementation available for the chosen
         # strategy, use it, as it is expected to be faster.
-        recursive_strategies = ['avg-recursive', 'min', 'max', 'ewma']
+        recursive_strategies = ['avg', 'min', 'max', 'ewma']
         if (strategy in recursive_strategies and recursive):
             # Sample-by-sample processing (recursive implementations)
             self._sample_by_sample(strategy, drift_comp)

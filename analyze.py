@@ -225,7 +225,7 @@ def _run_pktselection(data, window_len, batch_size, drift_comp=True):
 
     # Moving average
     pkts = ptp.pktselection.PktSelection(window_len['movavg'], data)
-    pkts.process("avg-recursive", drift_comp=drift_comp, batch_size=batch_size)
+    pkts.process("avg", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-median
     pkts.set_window_len(window_len['median'])

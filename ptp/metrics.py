@@ -16,7 +16,7 @@ NS_PER_MIN = (60 * 1e9)
 est_keys = {
     "raw"                : {"label": "Raw"},
     "true"               : {"label": "True Values"},
-    "pkts_avg_recursive" : {"label": "Sample average"},
+    "pkts_avg"           : {"label": "Sample average"},
     "pkts_median"        : {"label": "Sample median"},
     "pkts_min"           : {"label": "Sample min"},
     "pkts_max"           : {"label": "Sample max"},
@@ -25,7 +25,6 @@ est_keys = {
     "kf"                 : {"label": "KF"},
     "loop"               : {"label": "TLL"},
     "pkts_ewma"          : {"label": "EWMA"},
-    "pkts_avg_normal"    : {"label": "Sample average (normal)"},
     "ls_t2"              : {"label": "LS (t2)"},
     "ls_t1"              : {"label": "LS (t1)"}
 }

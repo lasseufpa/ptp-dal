@@ -30,7 +30,7 @@ ls.process(impl="eff")
 
 # Moving average
 pkts = ptp.pktselection.PktSelection(N_movavg, simulation.data)
-pkts.process("avg-recursive")
+pkts.process("avg")
 
 # Sample-median
 pkts.set_window_len(N_median)

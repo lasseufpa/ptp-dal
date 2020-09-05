@@ -23,15 +23,15 @@ immutable_data = [
 
 class TestPktSelection(unittest.TestCase):
 
-    def _run_sample_avg_normal(self, drift_comp=False, vectorize=False,
-                               batch=False):
+    def _run_sample_avg(self, drift_comp=False, vectorize=False,
+                        recursive=False, batch=False):
         """Window-based sample-average test runner"""
         data = copy.deepcopy(immutable_data)
         N    = 2
         pkts = PktSelection(N, data)
-        pkts.process('avg-normal', drift_comp=drift_comp, vectorize=vectorize,
-                     batch=batch)
-        x_est_avg = [r["x_pkts_avg_normal"] for r in data if "x_pkts_avg_normal" in r]
+        pkts.process('avg', drift_comp=drift_comp, vectorize=vectorize,
+                     recursive=recursive, batch=batch)
+        x_est_avg = [r["x_pkts_avg"] for r in data if "x_pkts_avg" in r]
 
         # Check values
         if (drift_comp):
@@ -51,42 +51,19 @@ class TestPktSelection(unittest.TestCase):
     def test_sample_avg_normal(self):
         """Window-based sample-average"""
         for drift_comp in [True, False]:
-            self._run_sample_avg_normal(drift_comp=drift_comp)
+            self._run_sample_avg(drift_comp=drift_comp)
+
+    def test_sample_avg_recursive(self):
+        """Recursive sample-average"""
+        for drift_comp in [True, False]:
+            self._run_sample_avg(drift_comp=drift_comp, recursive=True)
 
     def test_sample_avg_normal_vec(self):
         """Vectorized sample-average with and without batch processing"""
         for drift_comp in [True, False]:
             for batch in [True, False]:
-                self._run_sample_avg_normal(drift_comp=drift_comp,
-                                            vectorize=True, batch=batch)
-
-    def test_sample_avg_recursive(self):
-        """Recursive sample-average"""
-        data = copy.deepcopy(immutable_data)
-        N    = 3
-        pkts = PktSelection(N, data)
-        pkts.process('avg-recursive', drift_comp=False, vectorize=False)
-        x_est_avg = [r["x_pkts_avg_recursive"] for r in data if \
-                     "x_pkts_avg_recursive" in r]
-
-        # Check values
-        self.assertEqual(x_est_avg[0], (6 + 6 + 15)/3)
-        self.assertEqual(x_est_avg[1], (6 + 15 + 17)/3)
-        self.assertEqual(x_est_avg[2], (15 + 17 + 56)/3)
-
-    def test_sample_avg_recursive_drift_comp(self):
-        """Recursive sample-average with drift compensation"""
-        data = copy.deepcopy(immutable_data)
-        N    = 3
-        pkts = PktSelection(N, data)
-        pkts.process('avg-recursive', drift_comp=True, vectorize=False)
-        x_est_avg = [r["x_pkts_avg_recursive"] for r in data if \
-                     "x_pkts_avg_recursive" in r]
-
-        # Check values
-        self.assertEqual(x_est_avg[0], (5 + 3 + 7)/3 + 8)
-        self.assertEqual(x_est_avg[1], (3 + 7 + 6)/3 + 11)
-        self.assertEqual(x_est_avg[2], (7 + 6 + 41)/3 + 15)
+                self._run_sample_avg(drift_comp=drift_comp, vectorize=True,
+                                     batch=batch)
 
     def _run_sample_median(self, drift_comp=False, vectorize=False,
                            batch=False):
