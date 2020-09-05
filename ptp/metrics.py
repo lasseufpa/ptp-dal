@@ -2227,22 +2227,31 @@ class Analyser():
                              dpi=None, **kwargs):
         """Plot error vs window"""
 
+        window_cfg = None
         if (self.cache):
             window_cfg = self.cache.load('window')
-        else:
+
+        if (window_cfg is None):
             logger.warning("Unable to find cached file with window"
-                            "optimization parameters")
+                           "optimization parameters")
             return
 
-        # Plot each estimator individually
-        for estimator in window_cfg.keys():
+        # Remove algorithms that were not optimized
+        rm_list = list()
+        for k in window_cfg:
+            if (window_cfg[k]['N_best'] is None):
+                rm_list.append(k)
+        for k in rm_list:
+            del window_cfg[k]
 
-            est_key      = window_cfg[estimator]['est_key']
-            est_name     = window_cfg[estimator]['name']
-            N_best       = window_cfg[estimator]['N_best']
-            error_metric = window_cfg[estimator]['error_metric']
-            win_len      = np.array(window_cfg[estimator]['window_len'])
-            win_error    = np.array(window_cfg[estimator]['window_error'])
+        # Plot each estimator individually
+        for estimator, cfg in window_cfg.items():
+            est_key      = cfg['est_key']
+            est_name     = cfg['name']
+            N_best       = cfg['N_best']
+            error_metric = cfg['error_metric']
+            win_len      = np.array(cfg['window_len'])
+            win_error    = np.array(cfg['window_error'])
 
             # Convert to RMSE
             if (error_metric == "mse"):
@@ -2273,16 +2282,17 @@ class Analyser():
         for estimator, cfg in sorted(window_cfg.items(),
                                      key=lambda x: min(x[1]['window_error']),
                                      reverse=True):
-            est_key      = window_cfg[estimator]['est_key']
-
+            # Skip the algorithms that are not supposed to be displayed on the
+            # plot containing all estimators
+            est_key  = cfg['est_key']
             if (not est_keys[est_key]["show"]):
                 continue
 
-            est_name     = window_cfg[estimator]['name']
-            N_best       = window_cfg[estimator]['N_best']
-            error_metric = window_cfg[estimator]['error_metric']
-            win_len      = np.array(window_cfg[estimator]['window_len'])
-            win_error    = np.array(window_cfg[estimator]['window_error'])
+            est_name     = cfg['name']
+            N_best       = cfg['N_best']
+            error_metric = cfg['error_metric']
+            win_len      = np.array(cfg['window_len'])
+            win_error    = np.array(cfg['window_error'])
 
             # Convert to RMSE
             if (error_metric == "mse"):
