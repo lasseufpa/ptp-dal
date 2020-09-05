@@ -79,6 +79,11 @@ def main():
                         type=int,
                         help='Maximum window length that the window optimizer \
                         can return for any algorithm.')
+    parser.add_argument('--pkts-no-drift-comp',
+                        default=False,
+                        action='store_true',
+                        help='Whether to disable the drift compensation step '
+                        'applied within packet selection algorithms.')
     parser.add_argument('--verbose', '-v', action='count', default=1,
                         help="Verbosity (logging) level")
     args = parser.parse_args()
@@ -117,8 +122,18 @@ def main():
     damping, loopbw = freq_estimator.optimize_loop(cache=cache)
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
+
+    # Options applied to the algorithms executed by the window optimizer
+    drift_comp = not args.pkts_no_drift_comp
+    algo_opts = {
+        'drift_comp'     : drift_comp, # whether to apply drift compensation
+        'bias_corr_mode' : 'none',     # bias correction mode
+        'bias_est'       : {},         # bias estimates
+        'batch_size'     : 4096        # batch size
+    }
+
     # Optimize window lengths
-    window_optimizer = ptp.window.Optimizer(src.data, T_ns)
+    window_optimizer = ptp.window.Optimizer(src.data, T_ns, algo_opts)
     window_optimizer.process(args.estimator, error_metric=args.metric,
                              cache=cache, early_stopping=(not args.no_stop),
                              force=args.force, fine_pass=args.fine,

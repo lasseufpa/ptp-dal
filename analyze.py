@@ -70,16 +70,15 @@ def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
                           batch_size):
     """Run tuner of window lengths"""
 
-    # Options for packet selection algorithms executed internally within the
-    # optimizer
-    pkts_opts = {
+    # Options used by the algorithms executed internally within the optimizer
+    algo_opts = {
         'drift_comp' : drift_comp, # whether to apply drift compensation
         'bias_corr_mode' : bias,   # bias correction mode
         'bias_est' : bias_est,     # bias estimates
         'batch_size' : batch_size  # batch size
     }
 
-    window_optimizer = ptp.window.Optimizer(data, T_ns, pkts_opts)
+    window_optimizer = ptp.window.Optimizer(data, T_ns, algo_opts)
     window_optimizer.process('all',
                              error_metric = metric,
                              fine_pass = en_fine,

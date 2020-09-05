@@ -41,18 +41,19 @@ class Optimizer():
                            "N_best" : None}
     }
 
-    def __init__(self, data, T_ns, pkts_opts={}):
+    def __init__(self, data, T_ns, opts):
         """Optimizes processing window lengths
 
         Args:
-            data      : Array of objects with simulation or testbed data
-            T_ns      : Nominal message period in nanoseconds
-            pkts_opts : Packet selection algorithm options
+            data : Array of objects with simulation or testbed data
+            T_ns : Nominal message period in nanoseconds
+            opts : Packet selection or LS algorithm options
+
 
         """
-        self.data      = data
-        self.T_ns      = T_ns
-        self.pkts_opts = pkts_opts
+        self.data = data
+        self.T_ns = T_ns
+        self.opts = opts
 
         # Number of samples
         self.n_data   = len(data)
@@ -62,8 +63,8 @@ class Optimizer():
 
     def _correct_pkts_bias(self, key):
         """Correct the bias of packet selection algorithms"""
-        bias_corr_mode = self.pkts_opts['bias_corr_mode']
-        bias_est       = self.pkts_opts['bias_est']
+        bias_corr_mode = self.opts['bias_corr_mode']
+        bias_est       = self.opts['bias_est']
 
         if (not (bias_corr_mode == 'post' or bias_corr_mode == 'both')):
             return
@@ -119,12 +120,12 @@ class Optimizer():
             if (estimator == "ls"):
                 ls = ptp.ls.Ls(N, data, self.T_ns)
                 ls.process(impl=est_impl,
-                           batch_size=self.pkts_opts['batch_size'])
+                           batch_size=self.opts['batch_size'])
             else:
-                pkts    = ptp.pktselection.PktSelection(N, data)
+                pkts = ptp.pktselection.PktSelection(N, data)
                 pkts.process(strategy=est_impl,
-                             drift_comp=self.pkts_opts['drift_comp'],
-                             batch_size=self.pkts_opts['batch_size'])
+                             drift_comp=self.opts['drift_comp'],
+                             batch_size=self.opts['batch_size'])
 
             # Correct bias if bias correction is enabled for packet selection
             # algorithms
