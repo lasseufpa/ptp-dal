@@ -402,9 +402,9 @@ def parse_args():
                         default=None,
                         help='Specific time interval to observe given as \
                         \"start:end\" in hours.')
-    parser.add_argument('--plot-prefix',
+    parser.add_argument('--prefix',
                         default=None,
-                        help='Prefix to prepend to saved plot files.')
+                        help='Prefix to prepend to saved plot and cache files.')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,
@@ -531,7 +531,8 @@ def read_dataset(args):
     ds['path'] = ds_manager.download(args.file)
 
     # Define cache handler
-    ds['cache'] = None if args.no_cache else ptp.cache.Cache(ds['path'])
+    ds['cache'] = None if args.no_cache else ptp.cache.Cache(ds['path'],
+                                                             args.prefix)
 
     # Detect the source of the dataset
     ds['name']   = ds['path'].split("/")[-1]
@@ -656,7 +657,7 @@ def analyze(ds, args, no_processing=False, save=True):
     """Analyze results"""
     _run_analyzer(ds['data'].data, ds['data'].metadata, ds['path'],
                   ds['source'], eps_format=args.eps, dpi=args.dpi,
-                  uselatex=args.latex, skip=args.skip, prefix=args.plot_prefix,
+                  uselatex=args.latex, skip=args.skip, prefix=args.prefix,
                   cache=ds['cache'], save=save, no_processing=no_processing)
 
 
