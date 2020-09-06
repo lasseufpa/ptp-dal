@@ -4,6 +4,7 @@
 """
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import subprocess, json, sys, logging
+from multiprocessing.pool import ThreadPool
 
 
 def _append_key_val(cmd, key, val):
@@ -17,8 +18,10 @@ def _append_key_val(cmd, key, val):
         cmd.append(str(val))
 
 
-def _run(action, args, dry_run=False):
+def _run(action, args, job_id, dry_run=False):
     """Run the acquisition"""
+    logging.info("Running {} {}".format(action + ".py", job_id))
+
     script = action + ".py"
     cmd    = ["python3", script]
     cmd.extend(args)
@@ -42,6 +45,10 @@ def parser():
                    choices=["capture", "analyze"],
                    default="capture",
                    help="Action to run in batch (capture or analyze).")
+    p.add_argument('-j', '--jobs',
+                   type=int,
+                   default=1,
+                   help="Number jobs to run concurrently.")
     p.add_argument('--verbose', '-v',
                    action='count',
                    default=1,
@@ -55,6 +62,9 @@ def parser():
 
 def main():
     args = parser()
+
+    # It's not possible to run the "capture" action with parallel jobs
+    assert(args.jobs == 1 or args.action=="analyze")
 
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
@@ -80,6 +90,8 @@ def main():
     for param in cfg['global']:
         _append_key_val(global_args, param, cfg['global'][param])
 
+    # Define the command-line arguments of each job
+    starmap_args = list()
     for i, action in enumerate(cfg['batch']):
         # Specific command-line arguments
         action_args = []
@@ -87,10 +99,15 @@ def main():
         for param in action:
             _append_key_val(action_args, param, action[param])
 
-        logging.info("Running {} {}".format(args.action + ".py", i))
+        starmap_args.append((args.action, action_args, i, args.dry_run))
 
-        # Run the action
-        _run(args.action, action_args, args.dry_run)
+    # Run the jobs in parallel or sequentially
+    if args.jobs > 1:
+        with ThreadPool(processes=args.jobs) as pool:
+            pool.starmap(_run, starmap_args)
+    else:
+        for args in starmap_args:
+            _run(*args)
 
 
 if __name__ == "__main__":
