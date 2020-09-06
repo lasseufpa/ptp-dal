@@ -132,35 +132,30 @@ class Ls():
         x_f = np.zeros(n_windows)
         y   = np.zeros(n_windows)
 
+        # Preallocate accumulator
+        Q   = np.zeros(2)
+
+        # Starting estimates (starting point for the recursive implementation)
+        Q[0]   = np.sum(x_obs[:N])
+        Q[1]   = np.sum(np.multiply(np.arange(N), x_obs[:N]))
+        Theta  = np.dot(self.P, Q.T)
+        x_f[0] = Theta[0] + (Theta[1] * (N-1))
+        y[0]   = Theta[1] / self.T_ns
+
         # Iterate over sliding windows of observations
-        for i in range(0, n_windows):
+        for i in range(1, n_windows):
             # Window start and end indexes
             i_s = i * new_per_win
             i_e = i_s + N
 
-            # Observation window
-            x_obs_w = x_obs[i_s:i_e]
-
-            # Accumulator 1
-            if (i == 0):
-                Q_1   = np.sum(x_obs_w)
-            else:
-                # Slide accumulator - throw away oldest and add new
-                Q_1 -= x_obs[i_s - 1]
-                Q_1 += x_obs[i_e -1]
-
-            # Accumulator 2
-            if (i == 0):
-                Q_2 = np.sum(np.multiply(np.arange(N), x_obs_w))
-            else:
-                Q_2 -= Q_1
-                Q_2 += N * x_obs[i_e -1]
-
-            # Accumulator vector
-            Q     = np.array([Q_1, Q_2])
+            # Update the accumulators
+            Q[0] -= x_obs[i_s - 1]
+            Q[0] += x_obs[i_e -1]
+            Q[1] -= Q[0]
+            Q[1] += N * x_obs[i_e -1]
 
             # LS Estimation
-            Theta        = np.dot(self.P,Q.T);
+            Theta        = np.dot(self.P, Q.T)
             x0           = Theta[0] # initial time offset within window
             y_times_T_ns = Theta[1] # drift in nanoseconds/measurement
 
@@ -204,7 +199,7 @@ class Ls():
         Q[1,:] = np.dot(np.arange(N), X_obs)
 
         # LS estimations
-        Theta        = np.dot(self.P,Q)
+        Theta        = np.dot(self.P, Q)
         X0           = Theta[0,:]
         Y_times_T_ns = Theta[1,:]
         Xf           = X0 + (Y_times_T_ns * (N-1))
