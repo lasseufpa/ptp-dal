@@ -2,15 +2,17 @@ import unittest
 import numpy as np
 from ptp.ls import *
 
-data = [{"x_est": 6 , "t1": 0,     "t2": 0},
-        {"x_est": 8,  "t1": 250e6, "t2": 250e6},
-        {"x_est": 10, "t1": 500e6, "t2": 500e6},
-        {"x_est": 12, "t1": 750e6, "t2": 750e6},
-        {"x_est": 14, "t1": 1e9,   "t2": 1e9}]
 
 class TestLs(unittest.TestCase):
+    def setUp(self):
+        self.data = [{"x_est": 6 , "t1": 0,     "t2": 0},
+                     {"x_est": 8,  "t1": 250e6, "t2": 250e6},
+                     {"x_est": 10, "t1": 500e6, "t2": 500e6},
+                     {"x_est": 12, "t1": 750e6, "t2": 750e6},
+                     {"x_est": 14, "t1": 1e9,   "t2": 1e9}]
 
-    def run_ls(self, impl, batch_mode=True, batch_size=4096):
+    def run_ls(self, impl, batch_mode=True, batch_size=3):
+        data = self.data
         N    = 4
         T_ns = 250e3
         ls   = Ls(N, data)
@@ -31,10 +33,14 @@ class TestLs(unittest.TestCase):
     def test_ls_t2(self):
         self.run_ls(impl="t2")
 
-    def test_ls_eff_no_batch(self):
-        self.run_ls(impl="eff", batch_mode=False)
+    def test_ls_eff(self):
+        for batch in [True, False]:
+            self.run_ls(impl="eff", batch_mode=batch)
 
-    def test_ls_eff_batch(self):
+    def test_ls_eff_vec_no_batch(self):
+        self.run_ls(impl="eff-vec", batch_mode=False)
+
+    def test_ls_eff_vec_batch(self):
         for batch_size in [1,2,3,4]:
-            self.run_ls(impl="eff", batch_mode=True, batch_size=batch_size)
+            self.run_ls(impl="eff-vec", batch_mode=True, batch_size=batch_size)
 
