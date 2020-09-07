@@ -321,17 +321,7 @@ class Estimator():
                 # 1), "i" lags the actual data index by 1.
                 r["drift"] = r["y_est"] * delta
 
-    def _settling_time(self, damping, loopbw):
-        """Computes the settling time of a PI loop
-
-        Args:
-            damping : Damping factor
-            loopbw  : Loop bandwidth
-
-        """
-        return int(4 / (damping * loopbw))
-
-    def loop(self, damping=1.0, loopbw=0.001, max_settling=None):
+    def loop(self, damping=1.0, loopbw=0.001, settling=0.2):
         """Estimate time offset drifts using PI loop
 
         The PI loop tries to minimize the error between the input time offset
@@ -341,44 +331,48 @@ class Estimator():
         offset drift (or frequency offset) such that the error is minimized.
 
         The time offset drift estimates that are produced by the loop are only
-        saved in the main data list after the settling time has elapsed. Other
-        blocks will use this in order to infer when drift estimates are
+        saved in the main data list after the loop settles. Other blocks will
+        use the presence of drift estimates to infer when drift estimates are
         locked. In other words, if the "drift" key is not in a dict of the data
         list, the loop is not locked yet at this point.
 
+        Note that the convergence of the loop is not explicitly tested
+        here. Instead, we simply define the portion of the dataset that can be
+        used for settling. All estimates produced past this portion of the
+        dataset are saved, the other values are discarded. The rationale is that
+        the optimizer also considers the same settling time margin. Hence, if
+        the damping and loopbw parameters came from the optimizer, the values
+        past the chosen settling time are already optimal and very likely
+        effectively settled (converged).
+
         Args:
-            damping      : Damping factor
-            loopbw       : Loop bandwidth
-            max_settling : Maximum acceptable settling time (in samples)
+            damping  : Damping factor
+            loopbw   : Loop bandwidth
+            settling : Fraction of the dataset over which the loop can settle.
+                       Results are only saved after this portion of the dataset.
 
         """
         logger.debug("Run PI loop with damping {:f} and loop bw {:f}".format(
             damping, loopbw))
-        theta_n  = loopbw / (damping + (1.0/(4 * damping)));
-        denomin  = (1 + 2*damping*theta_n + (theta_n**2));
-        Kp_K0_K1 = (4 * damping * theta_n) / denomin;
-        Kp_K0_K2 = (4 * (theta_n**2)) / denomin;
 
+        # Compute the proportional and integral gains
+        theta_n  = loopbw / (damping + (1.0/(4 * damping)))
+        denomin  = (1 + 2*damping*theta_n + (theta_n**2))
+        Kp_K0_K1 = (4 * damping * theta_n) / denomin
+        Kp_K0_K2 = (4 * (theta_n**2)) / denomin
         # And since Kp and K0 are assumed unitary
-        Kp = Kp_K0_K1; # proportional gain
-        Ki = Kp_K0_K2; # integrator gain
-
-        # Settling time
-        settling     = self._settling_time(damping, loopbw)
-        max_settling = max_settling if max_settling else 0.2*len(self.data)
-
-        if (settling > max_settling):
-            raise ValueError("Loop's settling time exceeds {} samples"
-                             "(damping: {:f}, loopbw: {:f})".format(
-                                 max_settling, damping, loopbw))
+        Kp       = Kp_K0_K1 # proportional gain
+        Ki       = Kp_K0_K2 # integrator gain
 
         # Clean previous estimates
         for r in self.data:
             r.pop("drift", None)
             r.pop("x_loop", None)
 
+        # Index after which the loop is assumed to be settled
+        i_settling = int(np.floor(settling * len(self.data)))
+
         # Run loop
-        drift = 0
         f_int = 0
         dds   = self.data[0]["x_est"]
 
@@ -389,7 +383,7 @@ class Estimator():
             f_int     += Ki * err
             f_err      = f_prop + f_int
 
-            if (i > settling):
+            if (i >= i_settling):
                 r["drift"]  = f_err
                 r["x_loop"] = dds
 
@@ -465,38 +459,19 @@ class Estimator():
         best_damping = None
         best_loopbw  = None
 
-        # First find the longest settling time among all possible parameter
-        # combinations from damping_vec and loopbw_vec. With that, determine a
-        # number of steady-state drift estimates (i.e., estimates obtained after
-        # the settling) that is guaranteed to exist for all parameters. This
-        # result represents the number of samples that we can use to compare all
-        # settings fairly, i.e., based on the same number of samples.
-        n_data         = len(self.data)
-        settling_limit = int(np.floor(max_transient * n_data))
-        settling_times = []
         for damping in damping_vec:
             for loopbw in loopbw_vec:
-                settling = self._settling_time(damping, loopbw)
-                if (settling <= settling_limit):
-                    settling_times.append(settling)
+                # Run loop with the given configurations
+                self.loop(damping = damping, loopbw = loopbw,
+                          settling=max_transient)
 
-        n_samples = n_data - max(settling_times)
-        # This is a number of steady-state drift estimates that is guaranteed to
-        # be available for all damping and loopbw configurations
-
-        for damping in damping_vec:
-            for loopbw in loopbw_vec:
-                try:
-                    self.loop(damping = damping, loopbw = loopbw,
-                              max_settling=settling_limit)
-                except ValueError as e:
-                    logger.warning(e)
-                    logger.warning("Skipping damping: {:f}, "
-                                   "loopbw: {:f}".format(
-                                       damping, loopbw))
-                    continue
-
-                error, cum_error = self._eval_drift_err(loss, n_samples)
+                # Evaluate the drift estimation error
+                error, cum_error = self._eval_drift_err(loss)
+                # NOTE: there is no need to restrict the range of samples to be
+                # used in this error evaluation. The loop only saves the
+                # estimates that are past the desired transient. Hence, all
+                # samples considered within self._eval_drift_err() are already
+                # within the desired portion of the dataset used for analysis.
 
                 # NOTE: By default the damping factor and loop bandwidth are
                 # tuned using the cumulative drift instead of the absolute. This

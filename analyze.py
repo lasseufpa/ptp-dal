@@ -103,7 +103,8 @@ def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop',
             cache_id=cache_id,
             force=force,
             max_transient=max_transient)
-        freq_estimator.loop(damping = damping, loopbw = loopbw)
+        freq_estimator.loop(damping = damping, loopbw = loopbw,
+                            settling=max_transient)
     else:
         freq_estimator.optimize_to_drift(loss="max-error",
                                          max_window_span=max_transient)
