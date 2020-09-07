@@ -45,9 +45,9 @@ class Estimator():
         # Absolute drift
         true_drift = np.array([(r["x"] - self.data[i-1]["x"])
                                for i,r in enumerate(self.data)
-                               if "drift" in r])[:n_samples]
+                               if "drift" in r])[-n_samples:]
         drift_est  = np.array([r["drift"] for r in self.data
-                               if "drift" in r])[:n_samples]
+                               if "drift" in r])[-n_samples:]
         drift_err  = drift_est - true_drift
 
         # Cumulative drift
