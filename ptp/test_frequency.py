@@ -25,11 +25,9 @@ class TestFrequency(unittest.TestCase):
             # Expected values:
             # [1, 2, 3, 2.5, 1.5]
 
-    def test_one_way_foffset_est(self):
-        """Test unbiased frequency offset estimates based on t1 and t2 only"""
-        N = 3
-        freq_estimator = Estimator(self.data, delta=N)
-        freq_estimator.process(strategy="one-way")
+    def _estimate_foffset(self, strategy, N=3):
+        self.estimator = Estimator(self.data, delta=N)
+        self.estimator.process(strategy=strategy)
 
         # We want a window spanning N sample intervals. Hence, we compute the
         # frequency offset between the extremes of windows containing N+1
@@ -37,6 +35,18 @@ class TestFrequency(unittest.TestCase):
         # first estimate comes on sample index N (the N+1-th sample).
         assert(all([not ("y_est" in r) for r in self.data[:N]]))
         assert("y_est" in self.data[N])
+
+    def _estimate_drift(self, N=3):
+        self.estimator.estimate_drift()
+
+        # The drift estimates are only added to the dataset entries that contain
+        # a corresponding frequency offset estimate.
+        assert(all([not ("drift" in r) for r in self.data[:N]]))
+        assert("drift" in self.data[N])
+
+    def test_one_way_foffset_est(self):
+        """Test unbiased frequency offset estimates based on t1 and t2 only"""
+        self._estimate_foffset(strategy="one-way")
 
         # Check estimates:
         y_est          = [r["y_est"] for r in self.data if "y_est" in r]
@@ -46,13 +56,7 @@ class TestFrequency(unittest.TestCase):
 
     def test_reversed_one_way_foffset_est(self):
         """Test unbiased frequency offset estimates based on t3 and t4 only"""
-        N = 3
-        freq_estimator = Estimator(self.data, delta=N)
-        freq_estimator.process(strategy="one-way-reversed")
-
-        # Refer to the comments on test_one_way_foffset_est()
-        assert(all([not ("y_est" in r) for r in self.data[:N]]))
-        assert("y_est" in self.data[N])
+        self._estimate_foffset(strategy="one-way-reversed")
 
         # Check estimates:
         y_est          = [r["y_est"] for r in self.data if "y_est" in r]
@@ -62,13 +66,7 @@ class TestFrequency(unittest.TestCase):
 
     def test_two_way_foffset_est(self):
         """Test unbiased frequency offset estimates based on t1/t2/t3/t4"""
-        N = 3
-        freq_estimator = Estimator(self.data, delta=N)
-        freq_estimator.process(strategy="two-way")
-
-        # Refer to the comments on test_one_way_foffset_est()
-        assert(all([not ("y_est" in r) for r in self.data[:N]]))
-        assert("y_est" in self.data[N])
+        self._estimate_foffset(strategy="two-way")
 
         # Check estimates:
         y_est          = [r["y_est"] for r in self.data if "y_est" in r]
@@ -77,15 +75,8 @@ class TestFrequency(unittest.TestCase):
 
     def test_toffset_drift_est(self):
         """Test time offset drift estimation"""
-        N = 3
-        freq_estimator = Estimator(self.data, delta=N)
-        freq_estimator.process(strategy="two-way")
-        freq_estimator.estimate_drift()
-
-        # The drift estimates are only added to the dataset entries that contain
-        # a corresponding frequency offset estimate.
-        assert(all([not ("drift" in r) for r in self.data[:N]]))
-        assert("drift" in self.data[N])
+        self._estimate_foffset(strategy="two-way")
+        self._estimate_drift()
 
         # Check estimates. The drift estimate at the n-th sample is given by the
         # n-th frequency offset estimate multiplied by the interval between
