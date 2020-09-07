@@ -25,7 +25,7 @@ class Estimator():
         self.data  = data
         self.delta = delta
 
-    def _eval_drift_err(self, loss, n_samples=None):
+    def _eval_drift_err(self, loss, n_samples=0):
         """Evaluate error between drift estimates and the true drift
 
         Use the drift estimates and true time offset values that are available
@@ -33,7 +33,8 @@ class Estimator():
 
         Args:
             loss      : Loss function (mse or max-error)
-            n_samples : Number of drift samples to consider
+            n_samples : Number of drift samples to consider (0, the default,
+                        considers all samples)
 
         Returns:
            Tuple with the errors corresponding to the absolute drift and the
@@ -45,15 +46,15 @@ class Estimator():
         # Absolute drift
         true_drift = np.array([(r["x"] - self.data[i-1]["x"])
                                for i,r in enumerate(self.data)
-                               if "drift" in r])[-n_samples:]
+                               if "drift" in r])
         drift_est  = np.array([r["drift"] for r in self.data
-                               if "drift" in r])[-n_samples:]
-        drift_err  = drift_est - true_drift
+                               if "drift" in r])
+        drift_err  = (drift_est - true_drift)[-n_samples:]
 
         # Cumulative drift
         true_cum_drift = true_drift.cumsum()
         cum_drif_est   = drift_est.cumsum()
-        cum_drif_err   = cum_drif_est - true_cum_drift
+        cum_drif_err   = (cum_drif_est - true_cum_drift)[-n_samples:]
 
         if (loss == "mse"):
             drift_err     = np.square(drift_err).mean()
