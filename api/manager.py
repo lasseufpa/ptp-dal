@@ -212,6 +212,14 @@ class Formatter():
                 'n_rru_ul': None,
                 'vlan_pcp': None,
             },
+            'bg_traffic': {
+                'type': None,
+                'cross_info': {
+                    'flow': None,
+                    'model': None,
+                    'bw': None
+                }
+            },
             'calibration': None,
             'calibration_duration': None,
             'hops': {
@@ -248,6 +256,11 @@ class Formatter():
         flatten_exp_md = self._flatten(expected_md_structure)
         flatten_ds_md  = self._flatten(self.metadata)
 
+        # Maintain compatibility with old datasets
+        if ('bg_traffic' in flatten_ds_md and
+            flatten_ds_md['bg_traffic'] == False):
+            flatten_ds_md['bg_traffic'] = None
+
         # Find the matches between the expected dictionary and the actual one
         for k,v in flatten_exp_md.items():
             if ("pipeline_" in k):
@@ -256,7 +269,6 @@ class Formatter():
                 incoming_k = "pipelines_{}".format(k.split("_")[-1])
                 if (incoming_k in flatten_ds_md):
                     flatten_exp_md[k] = flatten_ds_md[incoming_k]
-
             elif (k == "start_time"):
                 flatten_exp_md[k] = datetime.datetime.strptime(
                     flatten_ds_md[k], '%Y-%m-%d %H:%M:%S')
@@ -309,8 +321,12 @@ class Formatter():
             flatten_exp_md[k.replace('fh_traffic', 'fh')] = flatten_exp_md.pop(k)
 
         # Add boolean value to indicate the presence or absence of the FH
-        # traffic
-        flatten_exp_md['fh_traffic'] = False if (not self.metadata['fh_traffic']) else True
+        # traffic and BG traffic
+        flatten_exp_md['fh_traffic'] = False \
+            if (not self.metadata['fh_traffic']) else True
+
+        flatten_exp_md['bg_traffic'] = 'bg_traffic' in self.metadata and \
+                                       self.metadata['bg_traffic'] is not None
 
         return flatten_exp_md
 

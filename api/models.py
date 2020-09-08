@@ -42,6 +42,11 @@ class Dataset(db.Model):
     fh_n_rru_ul                 = db.Column(db.Integer)
     fh_n_rru_dl                 = db.Column(db.Integer)
     fh_vlan_pcp                 = db.Column(db.Integer)
+    bg_traffic                  = db.Column(db.Boolean)
+    bg_traffic_type             = db.Column(db.String(20))
+    bg_traffic_cross_info_flow  = db.Column(db.String(20))
+    bg_traffic_cross_info_model = db.Column(db.Integer)
+    bg_traffic_cross_info_bw    = db.Column(db.Integer)
     n_exchanges                 = db.Column(db.Integer)
 
     def __repr__(self):
