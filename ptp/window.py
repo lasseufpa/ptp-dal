@@ -92,7 +92,8 @@ class Optimizer():
         Returns:
             N_best : Best evaluated window length
             error  : Vector with the error computed for all given window lengths
-            i_stop : Index where evaluation halted (if early stopping is active)
+            i_stop : Index succeding the index where the evaluation halted
+                     (if early stopping is active).
 
         """
         data      = self.data
@@ -200,7 +201,7 @@ class Optimizer():
             # Save the index of the last iteration
             i_iter = i
 
-        return N_best, error, i_iter
+        return N_best, error, (i_iter + 1)
 
     def _search_best_window(self, estimator, error_metric, early_stopping=True,
                             fine_pass=False, eval_all=False, log_max_window=13,
