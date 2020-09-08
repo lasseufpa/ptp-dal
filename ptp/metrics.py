@@ -2224,7 +2224,7 @@ class Analyser():
 
     @analysis_plot("error_vs_window")
     def plot_error_vs_window(self, plot_info=False, save=True, save_format=None,
-                             dpi=None, **kwargs):
+                             dpi=None, yscale='linear', **kwargs):
         """Plot error vs window"""
 
         window_cfg = None
@@ -2259,6 +2259,7 @@ class Analyser():
 
             plt.figure(figsize=self.figsize)
             plt.semilogx(win_len, win_error, markersize=3, base=2)
+            plt.yscale(yscale)
             self._plt_title(est_name)
             plt.xlabel("Window Length $N$ (samples)")
             plt.ylabel("{} (ns)".format(
@@ -2303,6 +2304,7 @@ class Analyser():
                          marker=est_keys[est_key]['marker'],
                          c=est_keys[est_key]["color"],
                          linestyle=est_keys[est_key]["linestyle"])
+            plt.yscale(yscale)
 
         plt.xlabel("Window Length $N$ (samples)")
         plt.ylabel("{} (ns)".format(
