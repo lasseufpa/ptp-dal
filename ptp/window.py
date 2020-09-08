@@ -248,10 +248,9 @@ class Optimizer():
             # the default patience.
             log_len_e = np.minimum(np.floor(np.log2(len(self.data)/2)),
                                    log_max_window)
-            if (est_key == "pkts_mode"):
-                log_len_s = 2 # sample-mode needs window length > 2
-            else:
-                log_len_s = 1
+            # Start from N=4, so that all algorithms consider the same window
+            # range. A window of N=2 does not make sense for sample-mode.
+            log_len_s      = 2
             log_window_len = np.arange(log_len_s, log_len_e + 1, 1)
             window_len     = 2**log_window_len
 
