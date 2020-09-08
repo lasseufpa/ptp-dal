@@ -33,7 +33,7 @@ class Cache():
 
         # Create the folder if it doesn't exist
         if not os.path.isdir(self.cache_path):
-            os.makedirs(self.cache_path)
+            os.makedirs(self.cache_path, exist_ok=True)
 
     def _is_cache_available(self):
         """Check if the cache file is available"""
