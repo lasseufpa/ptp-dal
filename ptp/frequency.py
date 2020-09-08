@@ -357,6 +357,22 @@ class Estimator():
                 # 1), "i" lags the actual data index by 1.
                 r["drift"] = r["y_est"] * delta
 
+    def _calc_loop_constants(self, damping, loopbw):
+        """Compute the proportional and integral gains
+
+        Refer to "Rice, Michael. Digital Communications: A Discrete-Time
+        Approach. Appendix C."
+
+        """
+        theta_n  = loopbw / (damping + (1.0/(4 * damping)))
+        denomin  = (1 + 2*damping*theta_n + (theta_n**2))
+        Kp_K0_K1 = (4 * damping * theta_n) / denomin
+        Kp_K0_K2 = (4 * (theta_n**2)) / denomin
+        # And since Kp and K0 are assumed unitary
+        Kp       = Kp_K0_K1 # proportional gain
+        Ki       = Kp_K0_K2 # integrator gain
+        return Kp, Ki
+
     def loop(self, damping=1.0, loopbw=0.001, settling=0.2):
         """Estimate time offset drifts using PI loop
 
@@ -391,14 +407,7 @@ class Estimator():
         logger.debug("Run PI loop with damping {:f} and loop bw {:f}".format(
             damping, loopbw))
 
-        # Compute the proportional and integral gains
-        theta_n  = loopbw / (damping + (1.0/(4 * damping)))
-        denomin  = (1 + 2*damping*theta_n + (theta_n**2))
-        Kp_K0_K1 = (4 * damping * theta_n) / denomin
-        Kp_K0_K2 = (4 * (theta_n**2)) / denomin
-        # And since Kp and K0 are assumed unitary
-        Kp       = Kp_K0_K1 # proportional gain
-        Ki       = Kp_K0_K2 # integrator gain
+        Kp, Ki = self._calc_loop_constants(damping, loopbw)
 
         # Clean previous estimates
         for r in self.data:
