@@ -149,19 +149,26 @@ class KalmanFilter():
         assert(obs_model in ['scalar', 'vector']), \
             f"Unknow observation model {obs_model}"
 
-        # Default system state
-        self.s_0 = self._set_initial_state() if s_0 is None else s_0
-        self.P_0 = np.diag([500, 500])
-        self.A   = np.array([[1., self.T],          # State transition matrix
-                             [0., 1.]])
-        self.Q   = np.array([[1e-13, 0],            # State noise cov matrix
-                             [0, 1e-18]])
-
         # System measurements (scalar or vector)
         if (self.obs_model == 'scalar'):
             self._set_scalar_observation()
         elif (self.obs_model == 'vector'):
             self._set_vector_observation()
+
+        # Default system state
+        self.s_0 = self._set_initial_state() if s_0 is None else s_0
+        self.P_0 = np.diag([self.R[0,0], 1e10]) if P_0 is None else P_0
+        # Note: In order to improve the initial Kalman transitory, initialize
+        # the covariance matrix with the time offset variance R and a big
+        # arbitrary number for the frequency offset variance. The objective is
+        # to initialize the filter with a high gain. In other words, starts the
+        # filter with low confidence in the state, favoring the observed
+        # measurements.
+
+        self.A   = np.array([[1., self.T],          # State transition matrix
+                             [0., 1.]])
+        self.Q   = np.array([[1e-13, 0],            # State noise cov matrix
+                             [0, 1e-18]])
 
         # Validate args
         assert(s_0 is None or isinstance(s_0, np.ndarray))
@@ -170,8 +177,6 @@ class KalmanFilter():
         assert(R is None or isinstance(R, np.ndarray))
 
         # Override some parameters based on optional constructor arguments
-        self.s_0 = self.s_0 if s_0 is None else s_0 # Initial state's mean
-        self.P_0 = self.P_0 if P_0 is None else P_0 # Initial state's cov matrix
         self.Q   = self.Q if Q is None else Q       # State noise cov matrix
         self.R   = self.R if R is None else R       # Obs noise cov matrix
 
