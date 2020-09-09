@@ -234,9 +234,9 @@ class Reader():
         for i in range (0, n_data):
             results = self.process(data[i])
 
-            # Append occupancy to results if it exists
+            # Append optional metrics to results if they are present
             for key in optional_metrics:
-                if (data[i].get(key)):
+                if (key in data[i]):
                     results[key] = data[i][key]
 
             self.data.append(results)
