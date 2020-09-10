@@ -30,7 +30,6 @@ class PktSelection():
 
     def _reset_state(self):
         """Reset state"""
-        N                        = self.N
         self.i_batch             = 0
         self.data                = self._original_data
         # Sample-mode params

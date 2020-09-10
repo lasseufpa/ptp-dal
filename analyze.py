@@ -112,9 +112,9 @@ def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop',
         freq_estimator.estimate_drift()
 
 
-def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
-                          early_stopping, cache, drift_comp, bias, bias_est,
-                          batch_size):
+def _run_window_optimizer(data, disable_list, T_ns, metric, en_fine, force,
+                          max_window, early_stopping, cache, drift_comp, bias,
+                          bias_est, batch_size):
     """Run tuner of window lengths"""
 
     # Options used by the algorithms executed internally within the optimizer
@@ -126,7 +126,16 @@ def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
     }
 
     window_optimizer = ptp.window.Optimizer(data, T_ns, algo_opts)
-    window_optimizer.process('all',
+
+    # Window-based estimators to optimize
+    estimator_list = list(window_optimizer.est_op.keys())
+
+    # Remove selected estimators
+    for estimator in disable_list:
+        if (estimator in estimator_list):
+            estimator_list.remove(estimator)
+
+    window_optimizer.process(estimator_list,
                              error_metric = metric,
                              fine_pass = en_fine,
                              force = force,
@@ -220,32 +229,42 @@ def _run_post_bias_compensation(data, corr):
             logging.warning(f"Can't compensate asymmetry of {metric}")
 
 
-def _run_pktselection(data, window_len, batch_size, drift_comp=True):
+def _run_pktselection(data, window_len, batch_size, drift_comp=True,
+                      sample_avg=True, sample_median=True, sample_min=True,
+                      sample_max=True, sample_mode=True, ewma=True):
     """Run packet selection algorithms"""
 
-    # Moving average
-    pkts = ptp.pktselection.PktSelection(window_len['movavg'], data)
-    pkts.process("avg", drift_comp=drift_comp, batch_size=batch_size)
+    pkts = ptp.pktselection.PktSelection(N=None, data=data)
+
+    # Sample-average
+    if (sample_avg):
+        pkts.set_window_len(window_len['movavg'])
+        pkts.process("avg", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-median
-    pkts.set_window_len(window_len['median'])
-    pkts.process("median", drift_comp=drift_comp, batch_size=batch_size)
+    if (sample_median):
+        pkts.set_window_len(window_len['median'])
+        pkts.process("median", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-minimum
-    pkts.set_window_len(window_len['min'])
-    pkts.process("min", drift_comp=drift_comp, batch_size=batch_size)
+    if (sample_min):
+        pkts.set_window_len(window_len['min'])
+        pkts.process("min", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-maximum
-    pkts.set_window_len(window_len['max'])
-    pkts.process("max", drift_comp=drift_comp, batch_size=batch_size)
+    if (sample_max):
+        pkts.set_window_len(window_len['max'])
+        pkts.process("max", drift_comp=drift_comp, batch_size=batch_size)
 
     # Exponentially weighted moving average
-    pkts.set_window_len(window_len['ewma'])
-    pkts.process("ewma", drift_comp=drift_comp, batch_size=batch_size)
+    if (ewma):
+        pkts.set_window_len(window_len['ewma'])
+        pkts.process("ewma", drift_comp=drift_comp, batch_size=batch_size)
 
     # Sample-mode
-    pkts.set_window_len(window_len['mode'])
-    pkts.process("mode", drift_comp=drift_comp, batch_size=batch_size)
+    if (sample_mode):
+        pkts.set_window_len(window_len['mode'])
+        pkts.process("mode", drift_comp=drift_comp, batch_size=batch_size)
 
 
 def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
@@ -336,6 +355,13 @@ def parse_args():
                         the data produced by the dataset reader, such as  \
                         two-way time offset and delay measurements. Useful \
                         to inspect results without much wait.")
+    parser.add_argument('--disable',
+                        choices=["ewma", "sample-average", "sample-min",
+                                 "sample-max", "sample-mode", "sample-median",
+                                 "ls", "kalman"],
+                        default=None,
+                        nargs='+',
+                        help="Algorithms to disable")
     parser.add_argument('--no-optimizer',
                         default=False,
                         action='store_true',
@@ -554,8 +580,8 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
     if (args.no_optimizer):
         window_lengths = default_window_lengths
     else:
-        window_lengths = _run_window_optimizer(ds['data'].data, T_ns,
-                                               args.optimizer_metric,
+        window_lengths = _run_window_optimizer(ds['data'].data, args.disable,
+                                               T_ns, args.optimizer_metric,
                                                args.optimizer_fine,
                                                args.optimizer_force,
                                                args.optimizer_max_window,
@@ -566,16 +592,22 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                                                bias_est,
                                                args.batch_size)
 
-    if (ls):
+    if ("ls" not in args.disable):
         _run_ls(ds['data'].data, window_lengths['ls'], T_ns, args.batch_size)
 
-    if (kalman):
+    if ("kalman" not in args.disable):
         _run_kalman(ds['data'].data, T_ns, cache=ds['cache'],
                     force=args.optimizer_force)
 
     if (pktselection):
         _run_pktselection(ds['data'].data, window_lengths, args.batch_size,
-                          drift_comp = drift_comp)
+                          drift_comp = drift_comp,
+                          sample_avg = ("sample-average" not in args.disable),
+                          sample_median = ("sample-median" not in args.disable),
+                          sample_min = ("sample-min" not in args.disable),
+                          sample_max = ("sample-max" not in args.disable),
+                          sample_mode = ("sample-mode" not in args.disable),
+                          ewma = ("ewma" not in args.disable))
 
     if (args.bias == 'post' or args.bias == 'both'):
         _run_post_bias_compensation(ds['data'].data, bias_est)

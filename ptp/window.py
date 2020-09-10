@@ -19,7 +19,7 @@ class Optimizer():
                            "impl"   : "avg",
                            "est_key": "pkts_avg",
                            "N_best" : None},
-        "sample-ewma"   : {"name"   : "EWMA",
+        "ewma"          : {"name"   : "EWMA",
                            "impl"   : "ewma",
                            "est_key": "pkts_ewma",
                            "N_best" : None},
@@ -352,13 +352,13 @@ class Optimizer():
 
         return True
 
-    def process(self, estimator, error_metric="max-te", cache=None,
+    def process(self, target, error_metric="max-te", cache=None,
                 sample_skip=0, early_stopping=True, force=False,
                 fine_pass=False, max_window=8192, save_global=False):
         """Process the observations
 
         Args:
-            estimator       : Select the estimator
+            target          : Target estimator(s) to optimize.
             error_metric    : Estimation error metric (Max|TE| or MSE)
             cache           : Cache handler used to save the optimized
                               configuration in a json file
@@ -373,6 +373,12 @@ class Optimizer():
                               the cache file
 
         """
+        # Validate target estimator(s)
+        if (isinstance(target, list)):
+            assert([(estimator in self.est_op.keys()) for estimator in target])
+        else:
+            assert(target in self.est_op.keys())
+
         self._sample_skip = sample_skip
 
         # Power-of-2 maximum window length
@@ -396,19 +402,26 @@ class Optimizer():
             logger.info("Unable to find existed configuration file")
 
         # Estimators to optimize
-        if (estimator == 'all'):
+        if (target == 'all'):
             # All estimators, except the ones that are already optimized (within
             # the results that were loaded from cache)
             estimators = [k for k in self.est_op.keys() if
                           (self.est_op[k]["N_best"] is None or
                            self.est_op[k]["error_metric"] != error_metric or
                            self.est_op[k]["n_samples"] != self.n_data)]
+        elif (isinstance(target, list)):
+            estimators = [k for k in target if
+                          (self.est_op[k]["N_best"] is None or
+                           self.est_op[k]["error_metric"] != error_metric or
+                           self.est_op[k]["n_samples"] != self.n_data)]
         else:
-            estimators = [estimator]
+            estimators = [target]
 
-        for estimator in estimators:
+        logger.info("Optimize window of: {}".format(estimators))
+
+        for e in estimators:
             # Search the window length that minimizes the calculated error
-            self._search_best_window(estimator, error_metric=error_metric,
+            self._search_best_window(e, error_metric=error_metric,
                                      early_stopping=early_stopping,
                                      fine_pass=fine_pass,
                                      log_max_window=log_max_window,
@@ -432,7 +445,7 @@ class Optimizer():
             'min'     : self.est_op["sample-min"]["N_best"],
             'max'     : self.est_op["sample-max"]["N_best"],
             'mode'    : self.est_op["sample-mode"]["N_best"],
-            'ewma'    : self.est_op["sample-ewma"]["N_best"]
+            'ewma'    : self.est_op["ewma"]["N_best"]
         }
 
     def print_results(self):
@@ -440,5 +453,6 @@ class Optimizer():
 
         print("Tuned window lengths:")
         for i in self.est_op:
-            print("%20s: %d" %(i, self.est_op[i]["N_best"]))
+            if (self.est_op[i]["N_best"] is not None):
+                print("%20s: %d" %(i, self.est_op[i]["N_best"]))
 
