@@ -94,36 +94,49 @@ class TestFrequency(unittest.TestCase):
         expected_drift = np.array([(2.5-1)/3, (1.5-2)/3])
         true_drift     = np.array([-0.4, -1])
         err            = expected_drift - true_drift
-        # Should be equal to 0.9 and (2.5/3)
-        # Cumulative should be 0.9 and (0.9 + 2.5/3)
+        norm_drift_err = err.cumsum() / true_drift.cumsum()
+        # Error should be equal to 0.9 and (2.5/3)
+        # Cumulative error should be 0.9 and (0.9 + 2.5/3)
+        # True cumulative time offset drift is [-0.4, -1.4]
+        # Normalized cumulative error is [0.9/0.4, (0.9 + 2.5/3)/1.4]
 
         # MSE loss function
-        drift_err, cum_drift_err = self.estimator._eval_drift_err("mse")
+        drift_err     = self.estimator._eval_drift_err("mse", "instantaneous")
+        cum_drift_err = self.estimator._eval_drift_err("mse", "cumulative")
         self.assertAlmostEqual(drift_err, np.square(err).mean())
-        self.assertAlmostEqual(cum_drift_err, np.square(err.cumsum()).mean())
+        self.assertAlmostEqual(cum_drift_err, np.square(norm_drift_err).mean())
 
         # max|error| loss function
-        drift_err, cum_drift_err = self.estimator._eval_drift_err("max-error")
+        drift_err     = self.estimator._eval_drift_err("max-error",
+                                                       "instantaneous")
+        cum_drift_err = self.estimator._eval_drift_err("max-error",
+                                                       "cumulative")
         self.assertAlmostEqual(drift_err, 0.9)
-        self.assertAlmostEqual(cum_drift_err, (0.9 + 2.5/3))
+        self.assertAlmostEqual(cum_drift_err, 0.9/0.4)
 
         # Test restricted set of samples on evaluation. More specifically, test
         # the error evaluation based on the last sample only. In this case, the
         # max|error| and MSE are equal to the last error value and its square
         # value, respectively.
-        last_err     = (2.5/3)
-        last_cum_err = (0.9 + 2.5/3)
+        last_err          = (2.5/3)
+        last_norm_cum_err = (0.9 + 2.5/3)/1.4
 
-        # MSE loss function (RMS of a scalar is the scalar)
-        drift_err, cum_drift_err = self.estimator._eval_drift_err("mse",
-                                                                  n_samples=1)
+        # MSE loss function
+        drift_err     = self.estimator._eval_drift_err("mse", "instantaneous",
+                                                       n_samples=1)
+        cum_drift_err = self.estimator._eval_drift_err("mse", "cumulative",
+                                                       n_samples=1)
         self.assertAlmostEqual(drift_err, last_err**2)
-        self.assertAlmostEqual(cum_drift_err, last_cum_err**2)
+        self.assertAlmostEqual(cum_drift_err, last_norm_cum_err**2)
 
         # max|error| loss function
-        drift_err, cum_drift_err = self.estimator._eval_drift_err("max-error",
-                                                                  n_samples=1)
+        drift_err     = self.estimator._eval_drift_err("max-error",
+                                                       "instantaneous",
+                                                       n_samples=1)
+        cum_drift_err = self.estimator._eval_drift_err("max-error",
+                                                       "cumulative",
+                                                       n_samples=1)
         self.assertAlmostEqual(drift_err, last_err)
-        self.assertAlmostEqual(cum_drift_err, last_cum_err)
+        self.assertAlmostEqual(cum_drift_err, last_norm_cum_err)
 
 

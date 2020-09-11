@@ -25,45 +25,97 @@ class Estimator():
         self.data  = data
         self.delta = delta
 
-    def _eval_drift_err(self, loss, n_samples=0):
-        """Evaluate error between drift estimates and the true drift
+    def _eval_drift_err(self, loss, criterion, n_samples=0, N=8192):
+        """Evaluate the drift estimation error relative to true drift
 
-        Use the drift estimates and true time offset values that are available
-        internally on self.data.
+        Assess the quality of the drift estimates by comparing them to the true
+        time offset drifts. Do so considering that the true time offset drifts
+        contain an uncertainty. Assuming that each true time offset is actually
+        "x + u", where "u" is the label uncertainty, consider a maximum
+        uncertainty on true drifts of "2u".
+
+        Often the true drift between consecutive samples is significantly lower
+        than the uncertainty "2u". Hence, it is often undesirable to consider
+        the instantaneous drift estimation error, as it will be masked by the
+        uncertainty. To overcome this problem, accumulate drift estimates and
+        compare the cumulative values. Accumulate a window of drift estimates
+        long enough such that the cumulative values exceeds the uncertainty
+        significantly. For example, if a frequency offset as low as 10 ppb is
+        expected, and "2*u = 16" ns, accumulate at least 16 seconds so that the
+        cumulative drift values become 10x higher than the uncertainty.
+
+        Another important requirement is that the drift estimates must be
+        smooth. They are ultimately used for drift compensation within packet
+        selection algorithms. On these algorithms, the drift is first
+        subtracted, then re-added in the end. This means that the accuracy of
+        the cumulative drifts relative to the true cumulative drift since the
+        beginning of the dataset is not important. What matters the most is the
+        accuracy of drift estimates within the observation window. Try to
+        optimize the drifts such that they do not deviate too much from the true
+        drifts over short-term windows.
+
+        This function uses the drift estimates and true time offset values that
+        are available internally on self.data.
 
         Args:
             loss      : Loss function (mse or max-error)
+            criterion : Error criterion used for tuning: cumulative time offset
+                        drift error or instantaneous time offset drift error.
             n_samples : Number of drift samples to consider (0, the default,
                         considers all samples)
+            N         : Number of drift estimates to accumulate in a window.
 
         Returns:
-           Tuple with the errors corresponding to the absolute drift and the
-           cumulative drift.
+            Scalar value representing the MSE (mean square error) or max|error|
+            (maximum absolute error) of the current drift estimates.
 
         """
+        assert(criterion in ['cumulative', 'instantaneous'])
         assert(loss in ["mse", "max-error"])
 
-        # Absolute drift
+        # Instantaneous true and estimated drifts
         true_drift = np.array([(r["x"] - self.data[i-1]["x"])
                                for i,r in enumerate(self.data)
                                if "drift" in r])
         drift_est  = np.array([r["drift"] for r in self.data
                                if "drift" in r])
-        drift_err  = (drift_est - true_drift)[-n_samples:]
 
-        # Cumulative drift
-        true_cum_drift = true_drift.cumsum()
-        cum_drif_est   = drift_est.cumsum()
-        cum_drif_err   = (cum_drif_est - true_cum_drift)[-n_samples:]
+        if (criterion == 'instantaneous'):
+            drift_err  = (drift_est - true_drift)[-n_samples:]
+            if (loss == "mse"):
+                return np.square(drift_err).mean()
+            elif (loss == "max-error"):
+                return np.amax(np.abs(drift_err))
+
+        # Running-sum of drifts over a rolling window of N samples. If there is
+        # less than N samples in the dataset, use a cumulative sum.
+        if (len(self.data) <= N):
+            true_cum_drift = true_drift.cumsum()
+            cum_drift_est  = drift_est.cumsum()
+        else:
+            h              = np.ones(N)
+            true_cum_drift = np.convolve(true_drift, h, mode="valid")
+            cum_drift_est  = np.convolve(drift_est, h, mode="valid")
+
+        # Normalized cumulative drift estimation errors
+        #
+        # Normalize by the absolute of the true drifts such that different
+        # frequency offsets (with varying levels of drifts) are equally
+        # weighted. For example, with 128 sample per second, a 10 ppb offset
+        # leads to drifts in the order of 10 ns when accumulated over N=128,
+        # whereas a 100 ppb freq. offset yields cumulative drifts in the order
+        # of 100 ns. If we estimate cumulative drifts of 9 ns and 90 ns,
+        # respectively, the absolute errors are 1 ns and 10 ns, respectively,
+        # which are unfair to compare (e.g., the max-error loss will focus on
+        # high frequency offsets). In contrast, the normalized errors are 0.1 in
+        # both cases, which can be compared fairly.
+        cum_drift_err = (cum_drift_est - true_cum_drift)[-n_samples:] \
+                        / np.abs(true_cum_drift[-n_samples:])
 
         if (loss == "mse"):
-            drift_err     = np.square(drift_err).mean()
-            cum_drift_err = np.square(cum_drif_err).mean()
+            return np.square(cum_drift_err).mean()
         elif (loss == "max-error"):
-            drift_err     = np.amax(np.abs(drift_err))
-            cum_drift_err = np.amax(np.abs(cum_drif_err))
-
-        return drift_err, cum_drift_err
+            return np.amax(np.abs(cum_drift_err))
 
     def process(self, strategy="two-way"):
         """Process the data
@@ -193,8 +245,8 @@ class Estimator():
             loss            : Loss function used to optimize the window length
                               (mse or max-error).
             criterion       : Whether the loss function is applied to the
-                              cumulative time offset drift or the absolute
-                              (instantaneous) time offset drift error.
+                              cumulative time offset drift or the instantaneous
+                              time offset drift error.
             max_window_span : Maximum fraction of the dataset to be occupied by
                               the observation window. This parameter controls
                               the maximum tolerable latency to obtain the first
@@ -217,7 +269,7 @@ class Estimator():
             cumulative error considers the actual drift estimation errors.
 
         """
-        assert(criterion in ['cumulative', 'absolute'])
+        assert(criterion in ['cumulative', 'instantaneous'])
         assert(loss in ["mse", "max-error"])
 
         log_min_window = 1
@@ -235,10 +287,7 @@ class Estimator():
             2**log_min_window, 2**log_max_window))
 
         m_error     = np.inf
-        m_cum_error = np.inf
         N_opt       = 0
-        N_opt_cum   = 0
-
         for N in window_len:
             for r in self.data:
                 r.pop("y_est", None)
@@ -248,30 +297,16 @@ class Estimator():
             self.process()
             self.estimate_drift()
 
-            error, cum_error = self._eval_drift_err(loss, n_samples)
+            error = self._eval_drift_err(loss, criterion, n_samples)
 
             if (error < m_error):
                 m_error = error
                 N_opt   = N
 
-            if (cum_error < m_cum_error):
-                m_cum_error = cum_error
-                N_opt_cum   = N
-
         loss_label = "MSE" if loss == "mse" else "Max|Error|"
-        if (N_opt != N_opt_cum):
-            logger.info("Window of {} leads to best absolute drift {} "
-                        "(of {:.2f}), whereas a window of "
-                        "{} leads to best cumulative drift {} "
-                        "(of {:.2f})".format(
-                            N_opt, loss_label, m_error, N_opt_cum, loss_label,
-                            m_cum_error
-                        ))
-
         logger.info("Minimum {}: {} ppb".format(loss_label, m_error))
         logger.info("Optimum N: {}".format(N_opt))
-
-        self.delta = N_opt_cum if criterion == "cumulative" else N_opt
+        self.delta = N_opt
 
     def set_truth(self, delta=None):
         """Set "true" frequency offset based on "true" time offset measurements
@@ -415,10 +450,14 @@ class Estimator():
 
         Tries some pre-defined damping factor and loop bandwidth values.
 
+        By default the damping factor and loop bandwidth are tuned using the
+        cumulative drift instead of the absolute. This is because the latter
+        leads to a time offset drift estimation that is very close to the
+        'optimize_to_y', while the former yield the best estimation performance.
+
         Args:
-            criterion     : Error criterion used for tuning: cumulative time
-                            offset drift error or absolute/instantaneous time
-                            offset drift error.
+            criterion     : Error criterion used for tuning: cumulative or
+                            instantaneous time offset drift error.
             loss          : Loss function (mse or max-error).
             cache         : Cache handler used to save the optimal configuration
                             on a JSON file.
@@ -431,7 +470,7 @@ class Estimator():
                             first drift estimates.
 
         """
-        assert(criterion in ['cumulative', 'absolute'])
+        assert(criterion in ['cumulative', 'instantaneous'])
         assert(loss in ["mse", "max-error"])
 
         # Check if a cached configuration file exists and is valid
@@ -456,7 +495,6 @@ class Estimator():
             np.arange(0.0001, 0.001, 0.0001),
             np.arange(0.00001, 0.0001, 0.00001)))
         m_error      = np.inf
-        m_cum_error  = np.inf
         best_damping = None
         best_loopbw  = None
 
@@ -467,30 +505,17 @@ class Estimator():
                           settling=max_transient)
 
                 # Evaluate the drift estimation error
-                error, cum_error = self._eval_drift_err(loss)
+                error = self._eval_drift_err(loss, criterion)
                 # NOTE: there is no need to restrict the range of samples to be
                 # used in this error evaluation. The loop only saves the
                 # estimates that are past the desired transient. Hence, all
                 # samples considered within self._eval_drift_err() are already
                 # within the desired portion of the dataset used for analysis.
 
-                # NOTE: By default the damping factor and loop bandwidth are
-                # tuned using the cumulative drift instead of the absolute. This
-                # is because the latter leads to a time offset drift estimation
-                # that is very close to the 'optimize_to_y', while the former
-                # yield the best estimation performance.
-                if (criterion == 'cumulative'):
-                    if (cum_error < m_cum_error):
-                        m_cum_error  = cum_error
-                        best_damping = damping
-                        best_loopbw  = loopbw
-                elif (criterion == 'absolute'):
-                    if (error < m_error):
-                        m_error      = error
-                        best_damping = damping
-                        best_loopbw  = loopbw
-                else:
-                    raise ValueError("Unknown error criterion %s" %(criterion))
+                if (error < m_error):
+                    m_error      = error
+                    best_damping = damping
+                    best_loopbw  = loopbw
 
         logger.info("PI loop optimization")
         logger.info("Damping factor: {:f}".format(best_damping))
