@@ -345,52 +345,11 @@ def parse_args():
                         action='store_true',
                         help='Whether to disable caching of optimal \
                         configurations')
-    parser.add_argument('--optimizer-fine',
-                        default=False,
-                        action='store_true',
-                        help='Whether to enable window optimizer fine pass')
-    parser.add_argument('--optimizer-force',
-                        default=False,
-                        action='store_true',
-                        help='Force window optimizer processing even if \
-                        already done previously')
-    parser.add_argument('--optimizer-metric',
-                        default='max-te',
-                        help='Estimation error metric for window tuning',
-                        choices=['max-te', 'mse'])
-    parser.add_argument('--optimizer-max-window',
-                        default=8192,
-                        type=int,
-                        help='Maximum window length that the window optimizer \
-                        can return for any algorithm.')
-    parser.add_argument('--optimizer-no-stop',
-                        default=False,
-                        action='store_true',
-                        help='Do not apply early stopping on window optimizer')
     parser.add_argument('--infer-secs',
                         default=False,
                         action='store_true',
                         help="Infer seconds rather than using the seconds that \
                         were actually captured.")
-    parser.add_argument('--bias',
-                        choices=['pre', 'post', 'both', 'none'],
-                        default='both',
-                        help="Compensate the bias prior to any post-processing \
-                        (pre), after post-processing (post), both pre and \
-                        post post-processing (both) or disable it ('none').")
-    parser.add_argument('--drift-est-strategy',
-                        default="loop",
-                        choices=["loop", "unbiased"],
-                        help='Drift estimation strategy. Select \"loop\" to \
-                        use the drift estimates produced by the TLL PI loop or \
-                        \"unbiased\" to use the conventional unbiased \
-                        frequency offset estimator based on intervals measured \
-                        at the slave and the master.')
-    parser.add_argument('--pkts-no-drift-comp',
-                        default=False,
-                        action='store_true',
-                        help='Whether to disable the drift compensation step '
-                        'applied within packet selection algorithms.')
     parser.add_argument('--batch-size',
                         default=4096,
                         type=int,
@@ -409,18 +368,6 @@ def parse_args():
                         default=None,
                         help='Specific time interval to observe given as \
                         \"start:end\" in hours.')
-    parser.add_argument('--eps',
-                        default=False,
-                        action='store_true',
-                        help='Whether to save images in .eps format.')
-    parser.add_argument('--dpi',
-                        type=int,
-                        default=300,
-                        help='Images resolution in dots per inch.')
-    parser.add_argument('--latex',
-                        default=False,
-                        action='store_true',
-                        help='Render plots using LaTeX.')
     parser.add_argument('--plot-prefix',
                         default=None,
                         help='Prefix to prepend to saved plot files.')
@@ -428,6 +375,96 @@ def parse_args():
                         action='count',
                         default=1,
                         help="Verbosity (logging) level")
+
+    p_opts = parser.add_argument_group('Packet Selection/Filtering Options')
+    p_opts.add_argument('--pkts-no-drift-comp',
+                        default=False,
+                        action='store_true',
+                        help='Whether to disable the drift compensation step '
+                        'applied within packet selection algorithms.')
+
+    b_opts = parser.add_argument_group('Bias Correction Options')
+    b_opts.add_argument('--bias',
+                        choices=['pre', 'post', 'both', 'none'],
+                        default='both',
+                        help="Compensate the bias prior to any post-processing \
+                        (pre), after post-processing (post), both pre and \
+                        post post-processing (both) or disable it ('none').")
+
+    o_opts = parser.add_argument_group('Window Optimizer Options')
+    o_opts.add_argument('--optimizer-fine',
+                        default=False,
+                        action='store_true',
+                        help='Whether to enable window optimizer fine pass')
+    o_opts.add_argument('--optimizer-force',
+                        default=False,
+                        action='store_true',
+                        help='Force window optimizer processing even if \
+                        already done previously')
+    o_opts.add_argument('--optimizer-metric',
+                        default='max-te',
+                        help='Estimation error metric for window tuning',
+                        choices=['max-te', 'mse'])
+    o_opts.add_argument('--optimizer-max-window',
+                        default=8192,
+                        type=int,
+                        help='Maximum window length that the window optimizer \
+                        can return for any algorithm.')
+    o_opts.add_argument('--optimizer-no-stop',
+                        default=False,
+                        action='store_true',
+                        help='Do not apply early stopping on window optimizer')
+
+    d_opts = parser.add_argument_group('Drift Estimation Options')
+    d_opts.add_argument('--drift-est-strategy',
+                        default="loop",
+                        choices=["loop", "unbiased"],
+                        help='Drift estimation strategy. Select \"loop\" to \
+                        use the drift estimates produced by the TLL PI loop or \
+                        \"unbiased\" to use the conventional unbiased \
+                        frequency offset estimator based on intervals measured \
+                        at the slave and the master.')
+
+    plot_opts = parser.add_argument_group('Plot Options')
+    plot_opts.add_argument('--eps',
+                           default=False,
+                           action='store_true',
+                           help='Whether to save images in .eps format.')
+    plot_opts.add_argument('--dpi',
+                           type=int,
+                           default=300,
+                           help='Images resolution in dots per inch.')
+    plot_opts.add_argument('--latex',
+                           default=False,
+                           action='store_true',
+                           help='Render plots using LaTeX.')
+
+    cal_opts = parser.add_argument_group('Delay Asymmetry Calibration Options')
+    cal_opts.add_argument('--cal-quantum',
+                          default=50,
+                          type=int,
+                          help="Quantization step.")
+    cal_opts.add_argument('--cal-decimation',
+                          default=1,
+                          type=int,
+                          help="Decimation ratio. A value of 1 means decimation "
+                          "is disabled.")
+    cal_opts.add_argument('--cal-drift-comp',
+                          default=False,
+                          action='store_true',
+                          help='Whether to apply drift compensation on '
+                          'the delta_d estimates used for calibration. Useful '
+                          'when the drift affecting delta_d is expected to be '
+                          'larger than the drift estimation error.')
+    cal_opts.add_argument('--cal-prob-thresh',
+                          default=[0.001, 0.001],
+                          nargs=2,
+                          type=float,
+                          help="Probability thresholds.")
+    cal_opts.add_argument('--cal-static-thresh',
+                          default=False,
+                          action='store_true',
+                          help='Whether to disable automatic threshold tuning.')
     return parser.parse_args()
 
 
