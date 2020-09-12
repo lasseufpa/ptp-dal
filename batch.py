@@ -14,7 +14,12 @@ def _append_key_val(cmd, key, val):
     else:
         cmd.append("--" + key)
 
-    if (val is not None and val != ""):
+    if (val is None):
+        return
+    elif (isinstance(val, list)):
+        for e in val:
+            cmd.append(str(e))
+    elif (val != ""):
         cmd.append(str(val))
 
 
