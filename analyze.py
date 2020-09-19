@@ -306,6 +306,7 @@ def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
         analyser.plot_pps_rtc_foffset_est(save=save)
     analyser.plot_delay_vs_time(save=save)
     analyser.plot_delay_vs_time(split=True, save=save)
+    analyser.plot_delay_vs_time(split=True, marginal_pdf=True, save=save)
     analyser.plot_delay_hist(n_bins=50, save=save)
     analyser.plot_delay_hist(n_bins=50, show_raw=False, save=save)
     analyser.plot_delay_hist(split=True, n_bins=50, save=save)

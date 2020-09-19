@@ -195,7 +195,7 @@ class Analyser():
 
         handler.tight_layout()
         handler.savefig(self.path + img_name + "." + img_format,
-                        format=img_format, dpi=img_dpi)
+                        format=img_format, dpi=img_dpi, bbox_inches="tight")
 
     def _plot_filter(self, kwargs):
         """Filter the results to be included/excluded from the plot
@@ -229,6 +229,53 @@ class Analyser():
         """Reset filters for plots to be showed or disabled"""
         for v in est_keys.values():
             v["show"] = True
+
+    def _plt_scatter_hist(self, x, y,  xlabel, ylabel, bins='auto',
+                          edgecolor='black', grid=True, cdf=False):
+        """Generate scatter plot followed by the marginal density (or histogram)
+
+        Generate a plot with two "boxes". The first and main box is the ordinary
+        scatter plot. The second, to the right, is the marginal density (PDF or
+        CDF) corresponding to the time-series in the scatter plot. The density
+        plot is rotated by 90 degrees (has horizontal orientation) such that its
+        x-axis shares the scatter plot's y-axis.
+
+        Args:
+            x         : Array with x-axis data
+            y         : Array with y-axis data
+            xlabel    : Label from x-axis
+            ylabel    : Label from y-axis
+            bins      : Number of bins
+            edgecolor : Histogram edgecolor
+            grid      : Whether to enable grid
+            cdf       : Plot the cumulative distribution function (CDF) instead
+                        of the probability density function (PDF)
+
+        """
+        _ , axs = plt.subplots(1, 2, sharey=True, figsize=self.figsize,
+                               gridspec_kw={'width_ratios': [5, 1],
+                                            'wspace': 0.05})
+
+        # Scatter plot
+        axs[0].scatter(x, y, s = 1.0)
+        axs[0].set_xlabel(xlabel)
+        axs[0].set_ylabel(ylabel)
+
+        # Horizontal histogram
+        axs[1].hist(y, bins=bins, orientation='horizontal', density=True,
+                    cumulative=cdf, edgecolor=edgecolor, linewidth=1.0,
+                    histtype='step')
+
+        # Remove y-axis from histogram
+        axs[1].get_yaxis().set_visible(False)
+
+        if (cdf):
+            axs[1].set_xlabel("CDF")
+        else:
+            axs[1].set_xlabel("PDF")
+
+        if (grid):
+            axs[0].grid()
 
     def save_metadata(self, metadata, save=False):
         """Save metadata info on the path where plots are saved
@@ -1293,16 +1340,20 @@ class Analyser():
 
     @analysis_plot("delay_vs_time")
     def plot_delay_vs_time(self, x_unit='time', show_raw=True, split=False,
-                           save=True, save_format=None, dpi=None):
+                           marginal_pdf=False, save=True, save_format=None,
+                           dpi=None):
         """Plot delay estimations vs time
 
         Args:
-            x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
-            show_raw    : Show raw measurements
-            split       : Whether to split m-to-s and s-to-m plots
-            save        : Save the figure
-            save_format : Select image format: 'png' or 'eps'
-            dpi         : Image resolution in dots per inch
+            x_unit       : Horizontal axis unit: 'time' in minutes or 'samples'
+            show_raw     : Show raw measurements
+            split        : Whether to split m-to-s and s-to-m plots
+            marginal_pdf : Whether to show the delay probability density
+                           function at the side of the plot (only
+                           available with the split mode)
+            save         : Save the figure
+            save_format  : Select image format: 'png' or 'eps'
+            dpi          : Image resolution in dots per inch
 
         """
         logger.info("Plot delay vs. time")
@@ -1319,18 +1370,23 @@ class Analyser():
             x_axis_vec   = range(0, n_data)
             x_axis_label = 'Realization'
 
-        d      = [r["d"] for r in self.data]
-        d_bw   = [r["d_bw"] for r in self.data]
+        d    = np.array([r["d"] for r in self.data]) / 1e3
+        d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
 
         if (show_raw):
             d_est  = [r["d_est"] for r in self.data]
 
         if (split):
-            plt.figure(figsize=self.figsize)
-            plt.scatter(x_axis_vec, d, s = 1.0)
-            plt.xlabel(x_axis_label)
-            plt.ylabel('m-to-s delay (ns)')
-            plt.grid()
+            if (marginal_pdf):
+                self._plt_scatter_hist(x_axis_vec, d,
+                                       xlabel=x_axis_label,
+                                       ylabel='m-t-s delay (us)')
+            else:
+                plt.figure(figsize=self.figsize)
+                plt.scatter(x_axis_vec, d, s = 1.0)
+                plt.xlabel(x_axis_label)
+                plt.ylabel('m-to-s delay (us)')
+                plt.grid()
 
             if (save):
                 self._plt_save(dpi, save_format, suffix="m2s")
@@ -1338,17 +1394,23 @@ class Analyser():
                 plt.show()
             plt.close()
 
-            plt.figure(figsize=self.figsize)
-            plt.scatter(x_axis_vec, d_bw, s = 1.0)
-            plt.xlabel(x_axis_label)
-            plt.ylabel('s-to-m delay (ns)')
-            plt.grid()
+            if (marginal_pdf):
+                self._plt_scatter_hist(x_axis_vec, d_bw,
+                                       xlabel=x_axis_label,
+                                       ylabel='s-to-m delay (us)')
+            else:
+                plt.figure(figsize=self.figsize)
+                plt.scatter(x_axis_vec, d_bw, s = 1.0)
+                plt.xlabel(x_axis_label)
+                plt.ylabel('s-to-m delay (us)')
+                plt.grid()
 
             if (save):
                 self._plt_save(dpi, save_format, suffix="s2m")
             else:
                 plt.show()
             plt.close()
+
         else:
             plt.figure(figsize=self.figsize)
             if (show_raw):
