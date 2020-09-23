@@ -258,6 +258,19 @@ class Analyser():
                 json.dump(metadata, f, indent=4, sort_keys=True)
                 print("\n", file=f)
 
+    def save_maxte_and_mtie_cache(self):
+        """Save cached max|TE| and MTIE results"""
+        if (self.cache is None):
+            return
+
+        logger.info("Save max|TE| and MTIE results to cache file")
+
+        for key, label in zip(["max_te", "mtie"], ["max|TE|", "MTIE"]):
+            if (self.results[key]):
+                self.cache.save(self.results[key], key)
+            else:
+                logger.warning(f"Cache of {label} results is empty")
+
     def _calc_best_case_queueing(self, hops, t_idle, t_fh, t_ptp, direction,
                                  n_rru):
         """Calculate the best-case queueing delay experienced by a PTP frame

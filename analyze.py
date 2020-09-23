@@ -317,6 +317,7 @@ def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
     analyser.rank_algorithms(metric="mtie", save=save)
     analyser.rank_algorithms(metric="rms", save=save)
     analyser.rank_algorithms(metric="std", save=save)
+    analyser.save_maxte_and_mtie_cache()
 
 
 def parse_args():
