@@ -9,12 +9,21 @@ from multiprocessing.pool import ThreadPool
 
 def _append_key_val(cmd, key, val):
     """Add key,val pair from dictionary to a given list of arguments"""
-    if (len(key) == 1):
-        cmd.append("-" + key)
-    else:
-        cmd.append("--" + key)
+    assert(len(key) > 0), "Empty key"
 
-    if (val is None):
+    if (isinstance(val, tuple)):
+        # Special case used for counted argument (with action='count')
+        keyarg = "-" + val[0] * val[1]
+    elif (len(key) == 1):
+        keyarg = "-" + key
+    else:
+        keyarg = "--" + key
+
+    # The arguments come from a dictionary, so they should never be repeated
+    assert(keyarg not in cmd)
+    cmd.append(keyarg)
+
+    if (val is None or isinstance(val, tuple)):
         return
     elif (isinstance(val, list)):
         for e in val:
@@ -23,9 +32,15 @@ def _append_key_val(cmd, key, val):
         cmd.append(str(val))
 
 
-def _run(action, args, job_id, dry_run=False):
+def _run(action, arg_dict, job_id, dry_run=False):
     """Run the acquisition"""
+    assert(isinstance(arg_dict, dict))
     logging.info("Running {} {}".format(action + ".py", job_id))
+
+    # Convert argument dictionary to a list of arguments
+    args = []
+    for k,v in arg_dict.items():
+        _append_key_val(args, k, v)
 
     script = action + ".py"
     cmd    = ["python3", script]
@@ -90,21 +105,21 @@ def main():
     assert(all([isinstance(x, dict) for x in cfg['batch']]))
 
     # Global command-line arguments
-    log_level_arg = "-" + ((args.verbose - 1) * "v") if args.verbose > 1 else ""
-    global_args   = [log_level_arg]
-    for param in cfg['global']:
-        _append_key_val(global_args, param, cfg['global'][param])
+    global_dict = cfg['global']
+
+    # Add log level
+    if (args.verbose > 1):
+        # Special case: use tuple to indicate argument with action=count.
+        # TODO: find a better solution
+        global_dict['verbose'] = ("v", (args.verbose - 1))
 
     # Define the command-line arguments of each job
     starmap_args = list()
-    for i, action in enumerate(cfg['batch']):
-        # Specific command-line arguments
-        action_args = []
-        action_args.extend(global_args)
-        for param in action:
-            _append_key_val(action_args, param, action[param])
-
-        starmap_args.append((args.action, action_args, i, args.dry_run))
+    for i, specific_dict in enumerate(cfg['batch']):
+        # Join process-specific command-line arguments with global
+        # arguments. The specific arguments can override the global args.
+        arg_dict = {**global_dict, **specific_dict}
+        starmap_args.append((args.action, arg_dict, i, args.dry_run))
 
     # Run the jobs in parallel or sequentially
     if args.jobs > 1:
