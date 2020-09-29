@@ -26,9 +26,9 @@ class Estimator():
         self.delta = delta
 
     def _eval_drift_err(self, loss, n_samples=None):
-        """Evaluate RMS error of drift estimates with respect to true drift
+        """Evaluate error between drift estimates and the true drift
 
-        Use drift estimates and true time offset values that are available
+        Use the drift estimates and true time offset values that are available
         internally on self.data.
 
         Args:
@@ -36,8 +36,8 @@ class Estimator():
             n_samples : Number of drift samples to consider
 
         Returns:
-           Tuple with the RMS error of the absolute drift and the RMS error
-           of the cumulative drift.
+           Tuple with the errors corresponding to the absolute drift and the
+           cumulative drift.
 
         """
         assert(loss in ["mse", "max-error"])
@@ -56,8 +56,8 @@ class Estimator():
         cum_drif_err   = cum_drif_est - true_cum_drift
 
         if (loss == "mse"):
-            drift_err     = np.sqrt(np.square(drift_err).mean())
-            cum_drift_err = np.sqrt(np.square(cum_drif_err).mean())
+            drift_err     = np.square(drift_err).mean()
+            cum_drift_err = np.square(cum_drif_err).mean()
         elif (loss == "max-error"):
             drift_err     = np.amax(np.abs(drift_err))
             cum_drift_err = np.amax(np.abs(cum_drif_err))
@@ -90,15 +90,21 @@ class Estimator():
             r["y_est"] = y_est[i]
 
     def optimize_to_y(self, loss="mse"):
-        """Optimize delta for minimum MSE of y estimation w.r.t true y
+        """"Optimize the observation interval used for freq. offset estimation
 
-        Optimizes the window length used for unbiased frequency offset
-        estimations in order to minimize the MSE relative to the true frequency
-        offset y. The problem with this approach is that the truth in y is
-        questionable. Since the true y values are also computed based on
-        windows, the window length used for the truth computation affects
-        results and may render the optimization below less effective for drift
-        compensation.
+        Optimizes the observation interval used for unbiased frequency offset
+        estimations in order to minimize the error between the estimates and the
+        true frequency offset. This minimization can be either in terms of the
+        mean square error (MSE) or the maximum absolute error (max|error|).
+
+        The problem with this approach is that the truth in "y" (the true
+        frequency offset) is questionable. Since the true y values are also
+        computed based on windows, the window length used for the truth
+        computation affects results and may render the optimization below less
+        effective for drift compensation.
+
+        Args:
+            loss : Loss function (mse or max-error)
 
         """
         assert(loss in ["mse", "max-error"])
@@ -147,11 +153,30 @@ class Estimator():
         self.delta = N_opt
 
     def optimize_to_drift(self, loss="mse", criterion='cumulative'):
-        """Optimize delta for minimum RMSE of cumulative drift estimations
+        """Optimize the observation interval used for freq. offset estimation
 
-        This can lead to better performance than the other optimization routine
-        because in the end what we really care about is predicting drifts
-        accurately.
+        Optimize based on the time offset drift estimation errors. This
+        optimizer can lead to better performance because, in the end, what we
+        really care about is predicting drifts accurately.
+
+        Args:
+            loss      : Loss function (mse or max-error)
+            criterion : Error criterion: cumulative or absolute
+
+        Note:
+            The cumulative criterion typically leads to better optimization
+            performance. The absolute criterion considers estimation errors that
+            are often masked by the uncertainty on dataset labels. For example,
+            if the truth labels have an uncertainty of +-8 ns and the
+            instantaneos drift error is < 1 ns, then the instataneous drift
+            error becomes negligible relative to the uncertainty. In contrast,
+            the cumulative criterion accumulates error such that the cumulative
+            values are significantly greater than the intrinsic uncertainty on
+            dataset labels. For example, if the instantaneous drift is in the
+            order of 1 ns and is accumulated over 200 samples, the cumulative
+            result (around 200 ns) becomes significantly greater than the truth
+            uncertainty (e.g., 8 ns). Consequently, the optimization based on
+            cumulative error considers the actual drift estimation errors.
 
         """
         assert(criterion in ['cumulative', 'absolute'])
@@ -194,7 +219,7 @@ class Estimator():
                 m_cum_error = cum_error
                 N_opt_cum   = N
 
-        loss_label = "RMSE" if loss == "mse" else "Max|Error|"
+        loss_label = "MSE" if loss == "mse" else "Max|Error|"
         if (N_opt != N_opt_cum):
             logger.info("Window of {} leads to best absolute drift {} "
                         "(of {:.2f}), whereas a window of "
@@ -207,10 +232,6 @@ class Estimator():
         logger.info("Minimum {}: {} ppb".format(loss_label, m_error))
         logger.info("Optimum N: {}".format(N_opt))
 
-        # NOTE: The window length is being tunned using the cumulative drift
-        # instead of the absolute. This is because the latter leads to an window
-        # configuration is very close to the 'optimize_to_y', while the former
-        # yield the best estimation performance.
         self.delta = N_opt_cum if criterion == "cumulative" else N_opt
 
     def set_truth(self, delta=None):
@@ -263,7 +284,13 @@ class Estimator():
                 r["drift"] = r["y_est"] * delta
 
     def _settling_time(self, damping, loopbw):
-        """Computes the settling time of a PI loop"""
+        """Computes the settling time of a PI loop
+
+        Args:
+            damping : Damping factor
+            loopbw  : Loop bandwidth
+
+        """
         return int(4 / (damping * loopbw))
 
     def loop(self, damping=1.0, loopbw=0.001):
@@ -349,9 +376,9 @@ class Estimator():
 
     def optimize_loop(self, criterion='cumulative', loss="mse", cache=None,
                       cache_id='loop', force=False):
-        """Find loop parameters that minimize the RMSE of drift estimates
+        """Find loop parameters that minimize the drift estimation error
 
-        Try some pre-defined damping factor and loop bandwidth values.
+        Tries some pre-defined damping factor and loop bandwidth values.
 
         Args:
             criterion : Error criterion used for tuning: cumulative or absolute
