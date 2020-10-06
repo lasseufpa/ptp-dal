@@ -338,6 +338,12 @@ def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
     analyser.plot_mtie(period = T, show_raw = False, save=save)
     analyser.plot_max_te(window_len = int(60/T), save=save)
     analyser.plot_max_te(show_raw=False, window_len = int(60/T), save=save)
+    analyser.plot_max_te(show_raw=False, plottype='bar',
+                         window_len = int(60/T), save=save)
+    analyser.plot_max_te(show_raw=False, plottype='boxplot',
+                         window_len = int(60/T), save=save)
+    analyser.plot_max_te(show_raw=False, plottype='violin',
+                         window_len = int(60/T), save=save)
     analyser.plot_error_vs_window(save=save)
     analyser.window_optimizer_results(save=save)
     analyser.toffset_err_stats(save=save)

@@ -2019,18 +2019,22 @@ class Analyser():
         plt.close()
 
     @analysis_plot("max_te")
-    def plot_max_te(self, window_len, x_unit='time', save=True,
+    def plot_max_te(self, window_len, plottype='line', x_unit='time', save=True,
                     save_format=None, dpi=None, **kwargs):
         """Plot Max|TE| vs time.
 
         Args:
             window_len  : Window lengths
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            plottype    : Choose the plot type: 'line', 'bar', 'boxplot'
+                          or 'violin'.
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
             dpi         : Image resolution in dots per inch
 
         """
+        assert(plottype in ['line', 'bar', 'boxplot', 'violin'])
+
         # Rank the max|TE| performance to plot curves in order. This step will
         # calculate all max|TE| curves and save them on self.results.
         if ("max-te" not in self.ranking):
@@ -2053,32 +2057,83 @@ class Analyser():
         plt.figure(figsize=self.figsize)
 
         # Plot max|TE| curves in ascending order of performance
+        sorted_max_te   = []
+        sort_descending = (plottype == 'line')
         for suffix, _ in sorted(self.ranking['max-te'].items(),
-                                key=lambda x: x[1], reverse=True):
+                                key=lambda x: x[1], reverse=sort_descending):
             value = est_keys[suffix]
             if (not value["show"] or suffix == "true"):
                 continue
 
             key = "x_est" if (suffix == "raw") else "x_" + suffix
-
-            # Take max|TE| from cached results
             assert(key in self.results["max_te"])
-            max_te_est = self.results["max_te"][key]
 
-            # Define the x axis - either in time or in samples
-            if (x_unit == "time"):
-                x_axis_vec = [time_vec[i] for i, r in
-                              enumerate(post_tran_data) if key in r]
-            elif (x_unit == "samples"):
-                x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
+            sorted_max_te.append((suffix, self.results["max_te"][key]))
 
-            plt.plot(x_axis_vec[window_len - 1::window_len], max_te_est,
-                     label=self._format_label(value["label"]), markersize=2,
-                     marker=value['marker'], c=value["color"],
-                     linestyle=value["linestyle"])
+        if (plottype in ['bar', 'boxplot', 'violin']):
+            max_te_est  = [v[1] for v in sorted_max_te]
+            max_te_mean = np.mean(max_te_est, axis=1)
+            max_te_std  = np.std(max_te_est, axis=1)
+            max_te_keys = [k[0] for k in sorted_max_te]
+            colors      = [est_keys[k]['color'] for k in max_te_keys]
+            labels      = [self._format_label(est_keys[k]['label']) for k in
+                           max_te_keys]
 
-        plt.xlabel(x_axis_label)
-        plt.ylabel('$\max|$TE$|$ (ns)')
+        if (plottype == 'line'):
+            for suffix, max_te_est in sorted_max_te:
+                value = est_keys[suffix]
+                key   = "x_est" if (suffix == "raw") else "x_" + suffix
+
+                # Define the x axis - either in time or in samples
+                if (x_unit == "time"):
+                    x_axis_vec = [time_vec[i] for i, r in
+                                  enumerate(post_tran_data) if key in r]
+                elif (x_unit == "samples"):
+                    x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
+
+                plt.plot(x_axis_vec[window_len - 1::window_len], max_te_est,
+                         label=self._format_label(value["label"]), markersize=2,
+                         marker=value['marker'], c=value["color"],
+                         linestyle=value["linestyle"])
+
+            plt.xlabel(x_axis_label)
+            plt.ylabel('$\max|$TE$|$ (ns)')
+
+        elif (plottype == 'bar'):
+            position = range(len(labels))
+            plt.bar(position, max_te_mean, yerr=max_te_std, align='center',
+                    alpha=0.9, ecolor='black', capsize=5, color=colors)
+
+            plt.xticks(position, labels)
+            plt.ylabel('$\max|$TE$|$ (ns)')
+
+        elif (plottype == 'boxplot'):
+            box = plt.boxplot(max_te_est, labels=labels,
+                              showfliers=False, patch_artist=True, vert=False,
+                              medianprops={'linewidth': 1, 'color': 'black'})
+
+            plt.xlabel('$\max|$TE$|$ (ns)')
+
+            for b, color in zip(box['boxes'], colors):
+                b.set_facecolor(color)
+                b.set_edgecolor('black')
+
+        else:
+            position    = range(1, len(labels) + 1)
+            violinparts = plt.violinplot(max_te_est, showmeans=True, vert=False)
+
+            plt.xlabel('$\max|$TE$|$ (ns)')
+            plt.yticks(position, labels)
+
+            for part in ['cbars', 'cmins', 'cmaxes', 'cmeans']:
+                vp = violinparts[part]
+                vp.set_edgecolor('black')
+                vp.set_linewidth(1)
+
+            for b, color in zip(violinparts['bodies'], colors):
+                b.set_facecolor(color)
+                b.set_edgecolor('black')
+
         plt.grid()
         self._plt_legend()
 
