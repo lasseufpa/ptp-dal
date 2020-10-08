@@ -30,7 +30,7 @@ metadata_v1 = {
     },
     'ptp_unicast': False,
     'departure_ctrl': False,
-    'departure_gap': 0,
+    'departure_gap': None,
     'tstamp_latency_corr': {
         'bbu': {
             'tx': 80,
@@ -81,7 +81,7 @@ metadata_v2 = {
     },
     'ptp_unicast': False,
     'departure_ctrl': False,
-    'departure_gap': 0,
+    'departure_gap': None,
     'tstamp_latency_corr': {
         'bbu': {
             'tx': 80,
@@ -134,7 +134,7 @@ metadata_v3 = {
     },
     'ptp_unicast': False,
     'departure_ctrl': False,
-    'departure_gap': 0,
+    'departure_gap': {},
     'tstamp_latency_corr': {
         'bbu': {
             'tx': 80,
@@ -183,7 +183,8 @@ class TestFormatter(unittest.TestCase):
             'pipeline_rru': 239,
             'start_time': datetime.strptime('2020-04-25 09:47:07', '%Y-%m-%d %H:%M:%S'),
             'departure_ctrl': False,
-            'departure_gap': 0,
+            'departure_gap_dl': None,
+            'departure_gap_ul': None,
             'ptp_unicast': False,
             'tstamp_latency_corr_bbu_tx': 80,
             'tstamp_latency_corr_bbu_rx': 80,

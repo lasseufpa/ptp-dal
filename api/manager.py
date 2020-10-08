@@ -233,7 +233,10 @@ class Formatter():
             },
             'ptp_unicast': None,
             'departure_ctrl': None,
-            'departure_gap': None,
+            'departure_gap': {
+                'dl': None,
+                'ul': None
+            },
             'tstamp_latency_corr': {
                 'bbu': {
                     'tx': 80,
