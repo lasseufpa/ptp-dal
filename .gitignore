@@ -3,11 +3,8 @@
 *.DS_Store
 plots/
 !plots/README.md
-data/index.html
+data/
+!data/README.md
+cache/
+!cache/README.md
 *.pyc
-*.json
-*.npz
-*.pickle
-*.gz
-*.pbz2
-*.xz

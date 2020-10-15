@@ -1,0 +1,83 @@
+{
+  "global": {
+    "dpi": 1200,
+    "latex": null,
+    "optimizer-force": null,
+    "optimizer-max-window": 65536,
+    "optimizer-metric": "max-te",
+    "drift-est-strategy": "unbiased-one-way",
+    "drift-est-pkts": "sample-min",
+    "drift-est-loss": "mse",
+    "optimizer-no-stop": null,
+    "skip": 0.25,
+    "disable": [
+      "ewma"
+    ]
+  },
+  "batch": [
+    {
+      "file": "serial-20200727-152214",
+      "bias": "none",
+      "prefix": "20200727_152214_pts"
+    },
+    {
+      "file": "serial-20200727-152214",
+      "bias": "both",
+      "prefix": "20200727_152214_apts"
+    },
+    {
+      "file": "serial-20200726-230128",
+      "bias": "none",
+      "prefix": "20200726_230128_pts"
+    },
+    {
+      "file": "serial-20200726-230128",
+      "bias": "both",
+      "prefix": "20200726_230128_apts"
+    },
+    {
+      "file": "serial-20200729-150215",
+      "bias": "none",
+      "prefix": "20200729_150215_pts",
+      "drift-est-pkts": "sample-max"
+    },
+    {
+      "file": "serial-20200729-150215",
+      "bias": "both",
+      "prefix": "20200729_150215_apts",
+      "drift-est-pkts": "sample-max"
+    },
+    {
+      "file": "serial-20200729-104054",
+      "bias": "none",
+      "prefix": "20200729_104054_pts",
+      "drift-est-pkts": "sample-max"
+    },
+    {
+      "file": "serial-20200729-104054",
+      "bias": "both",
+      "prefix": "20200729_104054_apts",
+      "drift-est-pkts": "sample-max"
+    },
+    {
+      "file": "serial-20200901-160854",
+      "bias": "none",
+      "prefix": "20200901_160854_pts"
+    },
+    {
+      "file": "serial-20200901-160854",
+      "bias": "both",
+      "prefix": "20200901_160854_apts"
+    },
+    {
+      "file": "serial-20200901-181512",
+      "bias": "none",
+      "prefix": "20200901_181512_pts"
+    },
+    {
+      "file": "serial-20200901-181512",
+      "bias": "both",
+      "prefix": "20200901_181512_apts"
+    }
+  ]
+}

@@ -100,6 +100,12 @@ post-process the timestamps using all implemented algorithms.
 
 After that, a set of results will be available within the `plots/` directory.
 
+## Analysis Recipes
+
+Directory `recipes` contains preset recipes for running several analyses (in
+batches) based on distinct datasets. Refer to the instructions [in the referred
+directory](recipes/README.md).
+
 ## Dataset Cataloging
 
 Assuming for instance that the datasets to be cataloged are located within the
