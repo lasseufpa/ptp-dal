@@ -1,9 +1,17 @@
 """Generate cache for optimal configurations
 """
 import logging, os, json
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 
 class Cache():
@@ -56,7 +64,7 @@ class Cache():
                                   self.prefix + "{}.json".format(identifier))
 
         with open(cache_file, 'w') as fd:
-            json.dump(data, fd)
+            json.dump(data, fd, cls=NumpyEncoder)
 
         logger.info("Saved {} cache on {}".format(identifier, cache_file))
 
