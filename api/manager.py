@@ -190,6 +190,9 @@ class Formatter():
             Dictionary in the correct format to save in the database
 
         """
+        # Dictionary with the expected metadata structure. This structure
+        # matches the database schema. Therefore, it will be used in order to
+        # successfully add the information on the database.
         expected_md_structure = {
             'oscillator': None,
             'sync_period': None,
@@ -239,16 +242,16 @@ class Formatter():
             },
             'tstamp_latency_corr': {
                 'bbu': {
-                    'tx': 80,
-                    'rx': 80,
+                    'tx': None,
+                    'rx': None,
                 },
                 'rru1': {
-                    'tx': 80,
-                    'rx': 80,
+                    'tx': None,
+                    'rx': None,
                 },
                 'rru2': {
-                    'tx': 80,
-                    'rx': 80
+                    'tx': None,
+                    'rx': None
                 }
             },
             'start_time': None,
