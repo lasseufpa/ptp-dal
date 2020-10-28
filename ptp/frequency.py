@@ -460,6 +460,7 @@ class Estimator():
                 if (self._is_cached_cfg_valid(cached_cfg, target_cfg)):
                     self.delta  = cached_cfg['N']
                     self.N_pkts = cached_cfg['N_pkts']
+                    return
         else:
             logger.info("Unable to find cached configuration file")
 
