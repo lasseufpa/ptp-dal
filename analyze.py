@@ -371,7 +371,7 @@ def parse_args():
                         choices=["ewma", "sample-average", "sample-min",
                                  "sample-max", "sample-mode", "sample-median",
                                  "ls", "kalman"],
-                        default=None,
+                        default=[],
                         nargs='+',
                         help="Algorithms to disable")
     parser.add_argument('--no-optimizer',
