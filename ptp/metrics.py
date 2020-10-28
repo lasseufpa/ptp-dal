@@ -671,9 +671,8 @@ class Analyser():
         """Print window optimizer results from cache file"""
         logger.info("Window optimizer results")
 
-        if (self.cache):
-            window_cfg = self.cache.load('window')
-        else:
+        window_cfg = self.cache.load('window') if (self.cache) else None
+        if (window_cfg is None):
             logger.warning("Unable to find cached file with window"
                             "optimization parameters")
             return
