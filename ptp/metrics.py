@@ -318,6 +318,25 @@ class Analyser():
             else:
                 logger.warning(f"Cache of {label} results is empty")
 
+    def load_maxte_and_mtie_cache(self):
+        """Load cached max|TE| and MTIE results"""
+        assert(self.cache is not None), "Cache handler is unavailable"
+
+        logger.info("Load max|TE| and MTIE results from cache file")
+
+        for key, label in zip(["max_te", "mtie"], ["max|TE|", "MTIE"]):
+            if (self.results[key] != {}):
+                logger.warning(f"Pre-existing {label} results will be "
+                               "overwritten")
+
+            cached_res = self.cache.load(key)
+
+            assert(cached_res is not None), f"{label} unavailable on cache file"
+
+            # Save internally as np.array
+            for k, v in cached_res.items():
+                self.results[key][k] = np.array(v)
+
     def _calc_best_case_queueing(self, hops, t_idle, t_fh, t_ptp, direction,
                                  n_rru):
         """Calculate the best-case queueing delay experienced by a PTP frame
