@@ -337,6 +337,11 @@ class Analyser():
             for k, v in cached_res.items():
                 self.results[key][k] = np.array(v)
 
+            # Re-run the ranking
+            self._rank_algorithms(metric=key.replace("_", "-"), force=True)
+            # NOTE: the replace covers the inconsistency between the max_te and
+            # max-te keys used on self.results and self.ranking, respectively.
+
     def _calc_best_case_queueing(self, hops, t_idle, t_fh, t_ptp, direction,
                                  n_rru):
         """Calculate the best-case queueing delay experienced by a PTP frame
@@ -811,12 +816,13 @@ class Analyser():
                 self._print_err_stats(f, "Drift", drift_err, "ns")
                 self._print_err_stats(f, "Cumulative Drift", cum_drif_err, "ns")
 
-    def _rank_algorithms(self, metric, max_te_win_len=1000):
+    def _rank_algorithms(self, metric, max_te_win_len=1000, force=False):
         """Rank algorithms based on a chosen performance metric
 
         Args:
             metric         : Metric used for ranking: max-te, mtie, rms or std
             max_te_win_len : Window length used for the max|TE| computation
+            force          : Force computation even if already available
 
         """
 
@@ -832,14 +838,40 @@ class Analyser():
         if (any([("drift" in r) for r in post_tran_data])):
             assert(all([("drift" in r) for r in post_tran_data]))
 
-        self.ranking[metric] = dict()
-        for suffix, value in est_keys.items():
-            key   = "x_est" if (suffix == "raw") else "x_" + suffix
-            x_err = np.array([r[key] - r["x"] for r in post_tran_data \
-                              if key in r])
+        # Check if it is necessary to rank the results, since the ranking may
+        # already be available (cached).
+        computation_needed = metric not in self.ranking
+        if (metric in self.ranking):
+            for suffix in est_keys.keys():
+                if (suffix in self.ranking[metric]):
+                    continue
+                # Re-compute the ranking if there is any new estimate available
+                # on the dataset that is not present on the ranking yet.
+                key = "x_est" if (suffix == "raw") else "x_" + suffix
+                if (any([key in r for r in post_tran_data])):
+                    computation_needed = True
+                    break
 
-            if (len(x_err) ==  0):
-                continue
+        if (not computation_needed and not force):
+            return
+
+        self.ranking[metric] = dict()
+        for suffix in est_keys.keys():
+            key = "x_est" if (suffix == "raw") else "x_" + suffix
+
+            # The time offset error (x_err) is necessary to compute the ranked
+            # metric. However, if the results are cached already, it is not
+            # necessary. This applies only to max|TE| and MTIE results (which
+            # can be cached).
+            needs_x_err = metric in ["rms", "std"] or \
+                          key not in self.results[metric.replace("-","_")]
+            # FIXME: there is an inconsistency between 'max-te' (on ranking) and
+            # 'max_te' on cached results, solved above using replace.
+            if (needs_x_err):
+                x_err = np.array([r[key] - r["x"] for r in post_tran_data \
+                                  if key in r])
+                if (len(x_err) == 0):
+                    continue
 
             if (metric == "max-te"):
                 if (key in self.results["max_te"]):
@@ -881,8 +913,7 @@ class Analyser():
         """
         logger.info(f"Rank algorithm performances based on {metric}")
 
-        if (metric not in self.ranking):
-            self._rank_algorithms(metric, max_te_win_len)
+        self._rank_algorithms(metric, max_te_win_len)
 
         # Print to stdout and, if so desired, to info.txt
         files = [None]
@@ -1993,8 +2024,7 @@ class Analyser():
         """
         # Rank the MTIE performance to plot curves in order. This step will
         # calculate all MTIE curves and save them on self.results.
-        if ("mtie" not in self.ranking):
-            self._rank_algorithms(metric="mtie")
+        self._rank_algorithms(metric="mtie")
 
         logger.info("Plot MTIE")
         plt.figure(figsize=self.figsize)
@@ -2056,8 +2086,7 @@ class Analyser():
 
         # Rank the max|TE| performance to plot curves in order. This step will
         # calculate all max|TE| curves and save them on self.results.
-        if ("max-te" not in self.ranking):
-            self._rank_algorithms(metric="max-te", max_te_win_len = window_len)
+        self._rank_algorithms(metric="max-te", max_te_win_len = window_len)
 
         logger.info("Plot max|TE| vs. time")
         post_tran_data = self.data[self.n_skip:]
