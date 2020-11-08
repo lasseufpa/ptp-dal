@@ -1373,7 +1373,7 @@ class Analyser():
         d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
 
         if (show_raw):
-            d_est  = [r["d_est"] for r in self.data]
+            d_est  = np.array([r["d_est"] for r in self.data]) / 1e3
 
         if (split):
             if (marginal_pdf):
@@ -1416,7 +1416,7 @@ class Analyser():
                 plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
             plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
             plt.xlabel(x_axis_label)
-            plt.ylabel('Delay Estimation (ns)')
+            plt.ylabel('Delay Estimation (us)')
             plt.grid()
             plt.legend()
 
