@@ -148,13 +148,20 @@ class Estimator():
         # which are unfair to compare (e.g., the max-error loss will focus on
         # high frequency offsets). In contrast, the normalized errors are 0.1 in
         # both cases, which can be compared fairly.
-        cum_drift_err = (cum_drift_est - true_cum_drift)[-n_samples:] \
-                        / np.abs(true_cum_drift[-n_samples:])
-
+        #
+        # To avoid Inf values, return zero for the normalized error everywhere
+        # the true cumulative drift (the normalization factor) presents zero
+        # values. Sometimes the cumulative error window has a net cumulative
+        # drift of zero nanoseconds, which leads to this scenario.
+        cum_drift_err      = (cum_drift_est - true_cum_drift)[-n_samples:]
+        norm_factor        = np.abs(true_cum_drift[-n_samples:])
+        norm_cum_drift_err = np.divide(cum_drift_err, norm_factor,
+                                       out = np.zeros_like(cum_drift_err),
+                                       where = (norm_factor != 0))
         if (loss == "mse"):
-            return np.square(cum_drift_err).mean()
+            return np.square(norm_cum_drift_err).mean()
         elif (loss == "max-error"):
-            return np.amax(np.abs(cum_drift_err))
+            return np.amax(np.abs(norm_cum_drift_err))
 
     def _get_window_range(self, max_window_span):
         """Compute the range of window lengths for frequency offset estimates
