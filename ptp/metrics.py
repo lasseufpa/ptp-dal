@@ -119,11 +119,11 @@ class Analyser():
             est_keys[k]['marker']    = next(marker_cycle)['marker']
 
     def _set_path(self, file):
-        """Define path to save plots
+        """Define path to save results
 
-        Create a folder with the name of the file used to generate the metrics
-        and save all the plots inside it, or if no file is used just save
-        the metrics within the folder 'plots/'.
+        Create a folder with the name of the dataset file used to generate the
+        metrics and save all results (e.g., plots) inside it. If no file is
+        provided, save the metrics within the 'results/' directory.
 
         Args:
             file : Path of the file
@@ -132,9 +132,9 @@ class Analyser():
         if (file):
             basename = os.path.splitext(os.path.basename(file))[0]
             basename = basename.replace("-comp", "")
-            path     = 'plots/' + basename + '/'
+            path     = 'results/' + basename + '/'
         else:
-            path = 'plots/'
+            path = 'results/'
 
         # Create the folder if it doesn't exist
         if not os.path.isdir(path):

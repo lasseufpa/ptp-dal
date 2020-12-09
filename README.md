@@ -98,7 +98,7 @@ post-process the timestamps using all implemented algorithms.
 ./analyze.py -vvvv -f data/serial-20200107-111932.json
 ```
 
-After that, a set of results will be available within the `plots/` directory.
+After that, a set of results will be available in the `results/` directory.
 
 ## Analysis Recipes
 
