@@ -362,8 +362,8 @@ def parse_args():
     parser = ArgumentParser(description="PTP Analyser",
                             formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('-f', '--file',
-                        default="log.json",
-                        help='JSON dataset file.')
+                        required=True,
+                        help='Dataset file to analyze.')
     parser.add_argument('--analyze-only',
                         default=False,
                         action='store_true',
