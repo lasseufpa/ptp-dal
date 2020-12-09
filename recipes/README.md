@@ -8,7 +8,7 @@ For example, recipe `2020-ieee-access-draft.json` generates the results
 contained in [1]. To run the analysis, run the batch processing tool as follows:
 
 ```
-./batch.py -vvvv -a analyze recipes/2020-ieee-access-draft.json -j4
+./batch.py -vvvv recipes/2020-ieee-access-draft.json -j4
 ```
 
 where argument `-j` controls the number of concurrent analysis jobs.

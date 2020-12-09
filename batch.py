@@ -62,8 +62,8 @@ def parser():
     p.add_argument('filename',
                    help='JSON file describing the target action batch')
     p.add_argument('-a','--action',
-                   choices=["capture", "analyze"],
-                   default="capture",
+                   choices=["analyze"],
+                   default="analyze",
                    help="Action to run in batch (capture or analyze).")
     p.add_argument('-j', '--jobs',
                    type=int,
@@ -82,9 +82,6 @@ def parser():
 
 def main():
     args = parser()
-
-    # It's not possible to run the "capture" action with parallel jobs
-    assert(args.jobs == 1 or args.action=="analyze")
 
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
