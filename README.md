@@ -82,9 +82,6 @@ mkvirtualenv -r requirements.txt ptp
 
 ### Complementary scripts:
 
-* `capture.py` : Acquires timestamp data from the testbed in real-time. This
-  script is for internal use only. It requires the actual testbed
-  infrastructure, which is not available in this repository.
 * `compress.py` : Compresses a given dataset captured with the testbed.
 * `ptp_plots.py`: Demonstrates a few plots that can be generated using the
   `ptp.metrics` module.

@@ -2,9 +2,6 @@ before_script:
   - virtualenv --python=`which python3` ptp-env
   - source ptp-env/bin/activate
   - pip install -r requirements.txt
-  - git submodule sync --recursive
-  - git submodule update --init --recursive
-  - pip install -r roe-instruments/requirements.txt
 
 after_script:
   - deactivate
@@ -27,22 +24,6 @@ stages:
 test:
   script:
     - python -m unittest discover
-  tags:
-    - ptp
-
-acquisition:
-  stage: capture
-  script:
-    - source /opt/Xilinx/Vivado/2016.4/settings64.sh
-    - git clone --recurse-submodules https://gitlab.lasse.ufpa.br/2014-fronthaul/synchronization/roe_vivado.git
-    - ./capture.py -vvv --fh-traffic --n-rru-dl 2 --n-rru-ul 2 --n-rru-ptp 2 -p -c -y --roe-path roe_vivado/
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-      when: manual
-      allow_failure: true
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-      when: always
-    - when: never
   tags:
     - ptp
 

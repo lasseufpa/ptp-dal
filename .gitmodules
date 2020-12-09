@@ -1,6 +1,0 @@
-[submodule "pyroe"]
-	path = pyroe
-	url = https://gitlab.lasse.ufpa.br/2014-fronthaul/synchronization/pyroe.git
-[submodule "roe-instruments"]
-	path = roe-instruments
-	url = git@gitlab.lasse.ufpa.br:2014-fronthaul/synchronization/roe-instruments.git
