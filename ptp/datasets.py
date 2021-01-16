@@ -1,6 +1,6 @@
 """Dataset manager
 """
-import subprocess, os, logging, json, requests
+import subprocess, os, logging, json, requests, shutil
 from ptp import util, docs
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,20 @@ class Datasets():
 
         return cfg
 
+    def _copy_key_cert(self, key, cert):
+        """Copy key and digital certificate into the config directory"""
+        certs_dir = os.path.join(self.cfg_path, "certs")
+
+        # Create certs directory if it does not exist
+        if not os.path.isdir(certs_dir):
+            os.makedirs(certs_dir)
+
+        # Copy key and cert to the certs directory
+        new_key_path = shutil.copy(os.path.expanduser(key), certs_dir)
+        new_crt_path = shutil.copy(os.path.expanduser(cert), certs_dir)
+
+        return new_key_path, new_crt_path
+
     def _create_cfg(self):
         """Create configuration file with user-provided credentials"""
         if (not util.ask_yes_or_no("Provide information now?")):
@@ -87,8 +101,9 @@ class Datasets():
                 })
 
             elif (dl_mode.upper() == 'API'):
-                ssl_key = input("Path to your SSL key: ")
-                ssl_crt = input("Path to your SSL certificate: ")
+                ssl_key_in = input("Path to your SSL key: ")
+                ssl_crt_in = input("Path to your SSL certificate: ")
+                ssl_key, ssl_crt = self._copy_key_cert(ssl_key_in, ssl_crt_in)
                 cfg.append({
                     'dl_mode' : 'API',
                     'ssl_key' : ssl_key,
