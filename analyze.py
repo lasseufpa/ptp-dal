@@ -34,21 +34,24 @@ def _run_outlier_detection(data):
     outlier.process(c=2)
 
 
-def _run_drift_estimation(data, cache, cache_id='loop', run_loop_only=False):
-    """Run frequency offset and time offset drift estimations"""
+def _run_foffset_estimation(data, N=64, optimize=True):
+    """Run frequency offset estimations"""
 
-    freq_delta = 64
-    freq_estimator = ptp.frequency.Estimator(data, delta=freq_delta)
+    freq_delta     = N
+    freq_estimator = ptp.frequency.Estimator(data, delta=N)
 
-    if (not run_loop_only):
-        # Raw frequency estimations (mostly for visualization)
+    if (optimize):
         freq_estimator.set_truth(delta=freq_delta)
         freq_estimator.optimize_to_y()
-        freq_estimator.process()
 
-    # Time offset drift estimations through the PI control loop
-    damping, loopbw = freq_estimator.optimize_loop(cache=cache,
-                                                   cache_id=cache_id)
+    freq_estimator.process()
+
+
+def _run_drift_estimation(data, cache, cache_id='loop'):
+    """Run time offset drift estimations through the PI control loop"""
+
+    freq_estimator  = ptp.frequency.Estimator(data)
+    damping, loopbw = freq_estimator.optimize_loop(cache=cache, cache_id=cache_id)
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
 
@@ -365,6 +368,7 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
     if (args.bias == 'pre' or args.bias == 'both'):
         _run_pre_bias_compensation(ds['data'].data)
 
+    _run_foffset_estimation(ds['data'].data)
     _run_drift_estimation(ds['data'].data, cache=ds['cache'])
 
     if (args.no_optimizer):
