@@ -47,13 +47,20 @@ def _run_foffset_estimation(data, N=64, optimize=True):
     freq_estimator.process()
 
 
-def _run_drift_estimation(data, cache, cache_id='loop'):
+def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop'):
     """Run time offset drift estimations through the PI control loop"""
+    assert(strategy in ["loop", "unbiased"])
 
     freq_estimator  = ptp.frequency.Estimator(data)
-    damping, loopbw = freq_estimator.optimize_loop(cache=cache, cache_id=cache_id)
-    freq_estimator.loop(damping = damping, loopbw = loopbw)
 
+    if (strategy == "loop"):
+        damping, loopbw = freq_estimator.optimize_loop(cache=cache,
+                                                       cache_id=cache_id)
+        freq_estimator.loop(damping = damping, loopbw = loopbw)
+    else:
+        freq_estimator.optimize_to_drift()
+        freq_estimator.process()
+        freq_estimator.estimate_drift()
 
 def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
                           early_stopping, cache, drift_comp, bias, bias_est):
@@ -319,6 +326,14 @@ def parse_args():
                         help="Compensate the bias prior to any post-processing \
                         (pre), after post-processing (post), both pre and \
                         post post-processing (both) or disable it ('none').")
+    parser.add_argument('--drift-est-strategy',
+                        default="loop",
+                        choices=["loop", "unbiased"],
+                        help='Drift estimation strategy. Select \"loop\" to \
+                        use the drift estimates produced by the TLL PI loop or \
+                        \"unbiased\" to use the conventional unbiased \
+                        frequency offset estimator based on intervals measured \
+                        at the slave and the master.')
     parser.add_argument('--pkts-no-drift-comp',
                         default=False,
                         action='store_true',
@@ -412,7 +427,8 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
         # window optimizer includes its post-compensation stage internally.
 
     _run_foffset_estimation(ds['data'].data)
-    _run_drift_estimation(ds['data'].data, cache=ds['cache'])
+    _run_drift_estimation(ds['data'].data, strategy=args.drift_est_strategy,
+                          cache=ds['cache'])
 
     # Drift compensation applied on packet selection algorithms during the main
     # processing and the window optimization processing
