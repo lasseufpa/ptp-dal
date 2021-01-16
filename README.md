@@ -1,5 +1,7 @@
 # PTP Dataset Analysis Library (PTP-DAL)
 
+![Tests](https://github.com/lasseufpa/ptp-dal/workflows/Tests/badge.svg?branch=master)
+
 This repository contains a Python package and associated scripts to analyze
 synchronization via the IEEE 1588 precision time protocol (PTP). It analyzes
 synchronization algorithms based on datasets containing PTP packet timestamps.
