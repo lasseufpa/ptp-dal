@@ -99,7 +99,7 @@ def _run_pre_bias_compensation(data):
         'avg' : bias.calc_true_asymmetry(operator="raw")
     }
 
-    if ('avg' in corr):
+    if ('avg' in corr and corr['avg']):
         bias.compensate(corr=corr['avg'], toffset_key="x_est")
     else:
         logging.warning("Can't compensate average asymmetry")
@@ -117,25 +117,25 @@ def _run_post_bias_compensation(data):
     }
 
     # Sample-median
-    if ('median' in corr):
+    if ('median' in corr and corr['median']):
         bias.compensate(corr=corr['median'], toffset_key="x_pkts_median")
     else:
         logging.warning("Can't compensate asymmetry of median")
 
     # Sample-minimum
-    if ('min' in corr):
+    if ('min' in corr and corr['min']):
         bias.compensate(corr=corr['min'], toffset_key="x_pkts_min")
     else:
         logging.warning("Can't compensate asymmetry of minimum")
 
     # Sample-maximum
-    if ('max' in corr):
+    if ('max' in corr and corr['max']):
         bias.compensate(corr=corr['max'], toffset_key="x_pkts_max")
     else:
         logging.warning("Can't compensate asymmetry of maximum")
 
     # Sample-mode
-    if ('mode' in corr):
+    if ('mode' in corr and corr['mode']):
         bias.compensate(corr=corr['mode'], toffset_key="x_pkts_mode")
     else:
         logging.warning("Can't compensate asymmetry of mode")
