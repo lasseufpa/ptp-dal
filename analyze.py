@@ -91,30 +91,50 @@ def _run_pre_bias_compensation(data):
 
     """
     bias = ptp.bias.Bias(data)
-    corr = bias.calc_true_asymmetry(operator="raw")
-    bias.compensate(corr=corr, toffset_key="x_est")
+    corr = {
+        'avg' : bias.calc_true_asymmetry(operator="raw")
+    }
+
+    if ('avg' in corr):
+        bias.compensate(corr=corr['avg'], toffset_key="x_est")
+    else:
+        logging.warning("Can't compensate average asymmetry")
 
 
 def _run_post_bias_compensation(data):
     """Compensate bias of results produced by some packet selection operators"""
 
     bias = ptp.bias.Bias(data)
+    corr = {
+        'median' : bias.calc_true_asymmetry(operator="median"),
+        'min'    : bias.calc_true_asymmetry(operator="min"),
+        'max'    : bias.calc_true_asymmetry(operator="max"),
+        'mode'   : bias.calc_true_asymmetry(operator="mode")
+    }
 
     # Sample-median
-    corr_median = bias.calc_true_asymmetry(operator="median")
-    bias.compensate(corr=corr_median, toffset_key="x_pkts_median")
+    if ('median' in corr):
+        bias.compensate(corr=corr['median'], toffset_key="x_pkts_median")
+    else:
+        logging.warning("Can't compensate asymmetry of median")
 
     # Sample-minimum
-    corr_min = bias.calc_true_asymmetry(operator="min")
-    bias.compensate(corr=corr_min, toffset_key="x_pkts_min")
+    if ('min' in corr):
+        bias.compensate(corr=corr['min'], toffset_key="x_pkts_min")
+    else:
+        logging.warning("Can't compensate asymmetry of minimum")
 
     # Sample-maximum
-    corr_max = bias.calc_true_asymmetry(operator="max")
-    bias.compensate(corr=corr_max, toffset_key="x_pkts_max")
+    if ('max' in corr):
+        bias.compensate(corr=corr['max'], toffset_key="x_pkts_max")
+    else:
+        logging.warning("Can't compensate asymmetry of maximum")
 
     # Sample-mode
-    corr_mode = bias.calc_true_asymmetry(operator="mode")
-    bias.compensate(corr=corr_mode, toffset_key="x_pkts_mode")
+    if ('mode' in corr):
+        bias.compensate(corr=corr['mode'], toffset_key="x_pkts_mode")
+    else:
+        logging.warning("Can't compensate asymmetry of mode")
 
 
 def _run_pktselection(data, window_len):
