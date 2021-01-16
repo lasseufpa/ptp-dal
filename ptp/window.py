@@ -1,7 +1,7 @@
 """Helper class used to optimize processing window lengths
 """
 import logging, re, json, time, os
-import ptp.ls, ptp.pktselection
+import ptp.ls, ptp.pktselection, ptp.cache
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -41,7 +41,7 @@ class Optimizer():
                            "N_best" : None}
     }
 
-    def __init__(self, data, T_ns):
+    def __init__(self, data, T_ns, filename):
         """Optimizes processing window lengths
 
         Args:
@@ -49,14 +49,18 @@ class Optimizer():
             T_ns: Nominal message period in nanoseconds
 
         """
-        self.data   = data
-        self.T_ns   = T_ns
+        self.data     = data
+        self.T_ns     = T_ns
+        self.filename = filename
 
         # Window configuration
         self._sample_skip = None
 
-        self.cfg_filename = None
-        self.plot_path    = None
+        # Define plot path
+        this_file      = os.path.realpath(__file__)
+        rootdir        = os.path.dirname(os.path.dirname(this_file))
+        self.plot_path = os.path.join(rootdir, 'plots')
+        self.ds_name   = os.path.splitext(os.path.basename(self.filename))[0]
 
     def _eval_error(self, window_vec, estimator, error_metric,
                     early_stopping=True, patience=5):
@@ -152,6 +156,36 @@ class Optimizer():
 
         return N_best, error, i_iter
 
+    def _plot_error_vs_window(self, window_len, error, estimator, error_metric,
+                              plot_info, save):
+        """Plot error vs window"""
+
+        est_key  = self.est_op[estimator]['est_key']
+        est_name = self.est_op[estimator]['name']
+        N_best   = self.est_op[estimator]['N_best']
+
+        plt.figure()
+        plt.scatter(window_len, error)
+        plt.title(est_name)
+        plt.xlabel("window length (samples)")
+        plt.ylabel(f"{error_metric} (ns)")
+
+        if (plot_info):
+            plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
+                     transform=plt.gca().transAxes, va='top', ha='right')
+
+        if (save):
+            # Define path and create plot folder if it doesn't exist
+            fig_path = os.path.join(self.plot_path, self.ds_name)
+            if (not os.path.isdir(fig_path)):
+                os.makedirs(fig_path)
+
+            fig_filename = f"win_opt_{est_key}_{error_metric}_error_vs_window"
+            plt.savefig(os.path.join(fig_path, fig_filename), dpi=300)
+            logging.info(f"Saved figure at {fig_path}/{fig_filename}")
+        else:
+            plt.show()
+
     def _search_best_window(self, estimator, error_metric, early_stopping=True,
                             save=True, plot=False, global_plot=False,
                             plot_info=True, fine_pass=False, eval_all=False,
@@ -183,7 +217,8 @@ class Optimizer():
                              lengths.
 
         """
-        est_key   = self.est_op[estimator]["est_key"]
+        est_key  = self.est_op[estimator]['est_key']
+        est_name = self.est_op[estimator]['name']
 
         if (eval_all):
             end_window = 2**np.minimum(np.floor(np.log2(len(self.data)/2)),
@@ -262,123 +297,44 @@ class Optimizer():
         # Save the best window length
         self.est_op[estimator]["N_best"] = int(N_best)
 
-        # Estimator name
-        est_name = self.est_op[estimator]['name']
-
         if (plot):
-            plt.figure()
             if (global_plot):
-                plt.scatter(global_win_len, global_error)
+                plot_window_len = global_win_len
+                plot_error      = global_error
             else:
-                plt.scatter(window_len[:i_stop], error[:i_stop])
+                plot_window_len = window_len[:i_stop]
+                plot_error      = error[:i_stop]
 
-            plt.title(est_name)
-            plt.xlabel("window length (samples)")
-            plt.ylabel(f"{error_metric} (ns)")
-
-            if (plot_info):
-                plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
-                         transform=plt.gca().transAxes, va='top', ha='right')
-
-            if (save):
-                assert(self.plot_path is not None), "Plot path not defined"
-                plt.savefig(os.path.join(self.plot_path,
-                                         f"win_opt_{est_key}_{error_metric}_error_vs_window"),
-                            dpi=300)
-                logging.info("Saved figure at %s" %(
-                    f"{self.plot_path}/{est_key}_{error_metric}_vs_window"))
-            else:
-                plt.show()
-
+            self._plot_error_vs_window(plot_window_len, plot_error, estimator,
+                                       error_metric, plot_info, save)
 
         logger.info(f"Best evaluated window length for {est_name}: {N_best:d}")
 
-    def _set_paths(self, file):
-        """Define paths to save plots and configuration file
-
-        Create a folder with the name of the file used to generate the metrics
-        and save all the plots inside it, or if no file is used just save
-        the metrics within the folder 'plots/'.
-
-        Set the config filename based on the name of the file passed as argument
-        or create a new name if no file was used.
+    def _is_cache_complete(self, data):
+        """Check if the cached configuration is complete, i.e. if it contains
+        the best window for all possible estimators.
 
         Args:
-            file : Path of the file
-
-        """
-        if (file):
-            # Aim at saving plots at "rootdir/plots/" and window configurations
-            # at "rootdir/cache". The current module lies within
-            # "rootdir/ptp/", so we use its path in order to find rootdir.
-            basename  = os.path.splitext(os.path.basename(file))[0]
-            this_file = os.path.realpath(__file__)
-            rootdir   = os.path.dirname(os.path.dirname(this_file))
-            self.plot_path    = os.path.join(rootdir, 'plots', basename)
-            self.cfg_filename = os.path.join(rootdir, 'cache',
-                                             basename + "-config" + ".json")
-        else:
-            self.plot_path    = 'plots/'
-            self.cfg_filename = "cache/runner-" + \
-                                time.strftime("%Y%m%d-%H%M%S") + "-config" + ".json"
-
-        # Create the folder if it doesn't exist
-        if not os.path.isdir(self.plot_path):
-            os.makedirs(self.plot_path)
-
-    def save(self):
-        """Save est_op dictionary on JSON file
-
-        """
-        assert(self.cfg_filename is not None), \
-            "Configuration filename not defined"
-
-        with open(self.cfg_filename, 'w') as fd:
-            json.dump(self.est_op, fd)
-
-        logging.info("Saved window configurations on %s" %(self.cfg_filename))
-
-    def load(self, file):
-        """Load est_op from JSON file
-
-        Args:
-            file : Path of the JSON file to load
-
-        """
-        if (file):
-            with open(file) as fd:
-                self.est_op = json.load(fd)
-        else:
-            raise ValueError("Need to pass the filename to load the \
-                             configuration data")
-
-    def _is_cfg_file_complete(self):
-        """Check if configuration file is complete, i.e. if it contains the
-        best window for all possible estimators.
+            data : Cached optimal windows configuration
 
         Return:
-            bool  : Returns 'True' if file is complete.
+            bool : Returns 'True' if file is complete.
 
         """
-        assert(self.cfg_filename is not None)
-        cfg_file = self.cfg_filename
-        logger.info("Loading configurations from %s." %(cfg_file))
-        self.load(cfg_file)
-
-        # Check if the file is complete, i.e. have window configuration
+        # Check if the cached data is complete, i.e. have window configuration
         # of all estimators
-        for k, v in self.est_op.items():
+        for k, v in data.items():
             if (not v["N_best"]):
                 print("Window configuration file is incomplete.")
                 raw_resp = input("Find missing windows? [Y/n] ") or "Y"
                 response = raw_resp.lower()
                 if (response == 'y'):
-                    return True
+                    return False
                 else:
                     break
-        return False
+        return True
 
-    def process(self, estimator, error_metric="max-te", file=None, save=False,
+    def process(self, estimator, error_metric="max-te", cache=None,
                 sample_skip=0, early_stopping=True, force=False, plot=False,
                 save_plot=True, global_plot=False, plot_info=False,
                 fine_pass=False, max_window=8192):
@@ -386,7 +342,7 @@ class Optimizer():
 
         Args:
             estimator       : Select the estimator
-            error_metric    : Estimation errror metric (Max|TE| or MSE)
+            error_metric    : Estimation error metric (Max|TE| or MSE)
             file            : Path of the JSON file to save
             save            : Save the best window length in a json file
             sample_skip     : Number of initial samples to skip
@@ -411,20 +367,22 @@ class Optimizer():
             logging.warning("Max window length set to {} instead of {}".format(
                 (2**log_max_window), max_window))
 
-        # Define paths used for saving plots and config file
-        self._set_paths(file)
-
         # Is there a configuration file already? Is it complete (with all
         # information)?
-        if (os.path.isfile(self.cfg_filename)):
-            logger.info("Window tuning file %s exists." %(self.cfg_filename))
-            if (force):
-                logger.info("Cleaning configurations from %s." %(
-                    self.cfg_filename))
-                self.save()
-            else:
-                if (self._is_cfg_file_complete()):
+        if (cache is not None):
+            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
+            cached_cfg = cache.load('window')
+
+            if (cached_cfg and not force):
+                if (self._is_cache_complete(cached_cfg)):
+                    self.est_op = cached_cfg
                     return
+                else:
+                    logger.info("Cleaning configurations from %s." %(
+                        cache.cache_file))
+                    cache.save(est_op, identifier='window')
+        else:
+            logging.info("Unable to find existed configuration file")
 
         # Iterate over the estimators
         estimators = [k for k in self.est_op.keys()] if (estimator == 'all') \
@@ -442,8 +400,8 @@ class Optimizer():
                                          log_max_window=log_max_window)
 
             # Save results on JSON file
-            if (save):
-                self.save()
+            if (cache is not None):
+                cache.save(self.est_op, identifier='window')
 
     def get_results(self):
         """Get the best window for each post-processing method

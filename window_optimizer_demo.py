@@ -3,7 +3,7 @@
 """Analyse the estimators performance as a function of window length
 """
 import argparse, logging, sys
-import ptp.runner, ptp.reader, ptp.window, ptp.frequency
+import ptp.runner, ptp.reader, ptp.window, ptp.frequency, ptp.cache
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -64,6 +64,11 @@ def main():
                         default=False,
                         action='store_true',
                         help='Whether to enable window optimizer fine pass')
+    parser.add_argument('--no-cache',
+                        default=False,
+                        action='store_true',
+                        help='Whether to disable save optimal configuration \
+                        as cache.')
     parser.add_argument('--max-window',
                         default=8192,
                         type=int,
@@ -102,15 +107,18 @@ def main():
             # FIXME we should use at least a command-line variable
             T_ns = 1e9/4
 
+    # Define cache object
+    cache = None if args.no_cache else ptp.cache.Cache(args.file)
+
     # Time offset drift estimations through the PI control loop
     freq_estimator  = ptp.frequency.Estimator(ptp_src.data)
-    damping, loopbw = freq_estimator.optimize_loop()
+    damping, loopbw = freq_estimator.optimize_loop(cache)
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
     # Optimize window lengths
-    window_optimizer = ptp.window.Optimizer(ptp_src.data, T_ns)
+    window_optimizer = ptp.window.Optimizer(ptp_src.data, T_ns, args.file)
     window_optimizer.process(args.estimator, error_metric=args.metric,
-                             file=args.file, save=args.save, plot=args.plot,
+                             cache=cache, plot=args.plot,
                              early_stopping=(not args.no_stop),
                              save_plot=args.save_plot, force=args.force,
                              plot_info=(not args.no_plot_info),

@@ -11,6 +11,7 @@ import ptp.window
 import ptp.outlier
 import ptp.bias
 import ptp.download
+import ptp.cache
 
 
 default_window_lengths = {
@@ -31,7 +32,7 @@ def _run_outlier_detection(data):
     outlier.process(c=2)
 
 
-def _run_drift_estimation(data):
+def _run_drift_estimation(data, cache):
     """Run frequency offset and time offset drift estimations"""
 
     # Raw frequency estimations (mostly for visualization)
@@ -42,23 +43,22 @@ def _run_drift_estimation(data):
     freq_estimator.process()
 
     # Time offset drift estimations through the PI control loop
-    damping, loopbw = freq_estimator.optimize_loop()
+    damping, loopbw = freq_estimator.optimize_loop(cache=cache)
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
 
-def _run_window_optimizer(data, dataset_file, T_ns, metric, disable_plot,
-                          en_fine, force, max_window):
+def _run_window_optimizer(data, T_ns, dataset_file, metric, disable_plot,
+                          en_fine, force, max_window, cache):
     """Run tuner of window lengths"""
 
-    window_optimizer = ptp.window.Optimizer(data, T_ns)
+    window_optimizer = ptp.window.Optimizer(data, T_ns, dataset_file)
     window_optimizer.process('all',
                              error_metric = metric,
-                             file = dataset_file,
                              plot = (not disable_plot),
                              fine_pass = en_fine,
                              force = force,
-                             max_window = max_window)
-    window_optimizer.save()
+                             max_window = max_window,
+                             cache=cache)
     window_optimizer.print_results()
     return window_optimizer.get_results()
 
@@ -209,6 +209,11 @@ def main():
                         default=False,
                         action='store_true',
                         help='Whether to disable window optimizer plots')
+    parser.add_argument('--no-cache',
+                        default=False,
+                        action='store_true',
+                        help='Whether to disable caching of optimal \
+                        configurations')
     parser.add_argument('--optimizer-fine',
                         default=False,
                         action='store_true',
@@ -256,6 +261,9 @@ def main():
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
+    # Define cache handler
+    cache = None if args.no_cache else ptp.cache.Cache(args.file)
+
     # Download the dataset if not available
     downloader = ptp.download.Download(args.file)
     downloader.run()
@@ -280,17 +288,18 @@ def main():
     if (args.bias == 'pre' or args.bias == 'both'):
         _run_pre_bias_compensation(reader.data)
 
-    _run_drift_estimation(reader.data)
+    _run_drift_estimation(reader.data, cache=cache)
 
     if (args.no_optimizer):
         window_lengths = default_window_lengths
     else:
-        window_lengths = _run_window_optimizer(reader.data, args.file, T_ns,
+        window_lengths = _run_window_optimizer(reader.data, T_ns, args.file,
                                                args.optimizer_metric,
                                                args.no_optimizer_plots,
                                                args.optimizer_fine,
                                                args.optimizer_force,
-                                               args.optimizer_max_window)
+                                               args.optimizer_max_window,
+                                               cache)
 
     _run_ls(reader.data, window_lengths['ls'], T_ns)
 

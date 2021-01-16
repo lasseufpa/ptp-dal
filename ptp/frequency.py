@@ -1,7 +1,8 @@
 """Estimators
 """
 import numpy as np
-import logging
+import logging, os, json
+import ptp.cache
 logger = logging.getLogger(__name__)
 
 
@@ -132,7 +133,6 @@ class Estimator():
         logger.info("Optimum N:   %d" %(N_opt))
         self.delta = N_opt
 
-
     def optimize_to_drift(self):
         """Optimize delta for minimum RMSE of cumulative drift estimations
 
@@ -246,7 +246,7 @@ class Estimator():
         """Computes the settling time of a PI loop"""
         return int(4 / (damping * loopbw))
 
-    def loop(self, damping = 1.0, loopbw  = 0.001):
+    def loop(self, damping=1.0, loopbw=0.001):
         """Estimate time offset drifts using PI loop
 
         The PI loop tries to minimize the error between the input time offset
@@ -308,12 +308,48 @@ class Estimator():
 
             dds += f_err
 
-    def optimize_loop(self):
+    def _is_cfg_loop_valid(self, data):
+        """Check if the cached PI loop configuration is valid.
+
+        The configuration is assumed valid if the number of samples contained
+        into the cached data is the same as the currently self.data.
+
+        Args:
+            data : Cached optimal loop configuration
+
+        """
+        is_valid = False
+        if (data is not None):
+            n_samples = data['n_samples']
+            is_valid  = True if (n_samples == len(self.data)) else False
+
+        return is_valid
+
+    def optimize_loop(self, cache=None, force=False):
         """Find loop parameters that minimize RMSE of cumulative drift estimates
 
         Try some pre-defined damping factor and loop bandwidth values.
 
+        Args:
+            cache : Cache handler used to save the optimized configuration in a
+                    json file
+            force : Force processing even if a configuration file with the
+                    optimized parameters already exists in cache.
+
         """
+        # Check if already exist a configuration file and is valid
+        if (cache is not None):
+            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
+            cached_loop_cfg = cache.load('loop')
+
+            if (cached_loop_cfg and not force):
+                if (self._is_cfg_loop_valid(cached_loop_cfg)):
+                    best_damping = cached_loop_cfg['damping']
+                    best_loopbw  = cached_loop_cfg['loopbw']
+
+                    return best_damping, best_loopbw
+        else:
+            logging.info("Unable to find existed configuration file")
 
         damping_vec  = [0.707, 1.0]
         loopbw_vec   = np.concatenate((
@@ -367,7 +403,12 @@ class Estimator():
         logger.info("Damping factor: {:f}".format(best_damping))
         logger.info("Loop bandwidth: {:f}".format(best_loopbw))
 
+        if (cache is not None):
+            # Save optimal configuration
+            cache.save({'n_samples': len(self.data),
+                        'damping'  : best_damping,
+                        'loopbw'   : best_loopbw},
+                       identifier='loop')
+
         return best_damping, best_loopbw
-
-
 
