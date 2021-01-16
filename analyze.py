@@ -169,10 +169,14 @@ def _run_pktselection(data, window_len):
     pkts.process("mode")
 
 
-def _run_analyzer(data, metadata, dataset_file, source, no_processing=False):
+def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
+                  uselatex, no_processing=False):
     """Analyze results"""
 
-    analyser = ptp.metrics.Analyser(data, dataset_file)
+    save_format = 'eps' if eps_format else 'png'
+
+    analyser = ptp.metrics.Analyser(data, dataset_file, usetex=uselatex,
+                                    save_format=save_format, dpi=dpi)
     analyser.save_metadata(metadata, save=True)
 
     # Start with the analysis that does not require processing algorithms. That
@@ -289,6 +293,18 @@ def main():
                         default=None,
                         help='Specific time interval to observe given as \
                         \"start:end\" in hours.')
+    parser.add_argument('--eps',
+                        default=False,
+                        action='store_true',
+                        help='Whether to save images in .eps format.')
+    parser.add_argument('--dpi',
+                        type=int,
+                        default=300,
+                        help='Images resolution in dots per inch.')
+    parser.add_argument('--latex',
+                        default=False,
+                        action='store_true',
+                        help='Render plots using LaTeX.')
     parser.add_argument('--verbose', '-v',
                         action='count',
                         default=1,
@@ -325,7 +341,8 @@ def main():
 
     if (args.analyze_only):
         _run_analyzer(src.data, src.metadata, ds_path, ds_source,
-                      no_processing=True)
+                      no_processing=True, eps_format=args.eps, dpi=args.dpi,
+                      uselatex=args.latex)
         return
 
     # Nominal message period in nanoseconds
@@ -358,7 +375,8 @@ def main():
     if (args.bias == 'post' or args.bias == 'both'):
         _run_post_bias_compensation(src.data)
 
-    _run_analyzer(src.data, src.metadata, ds_path, ds_source)
+    _run_analyzer(src.data, src.metadata, ds_path, ds_source,
+                  eps_format=args.eps, dpi=args.dpi, uselatex=args.latex)
 
 
 if __name__ == "__main__":

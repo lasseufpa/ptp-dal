@@ -55,17 +55,47 @@ est_keys = {"raw"                : {"label": "Raw Measurements",
                                     "show": True}}
 
 class Analyser():
-    def __init__(self, data, file=None, prefix=""):
+    def __init__(self, data, file=None, prefix="", usetex=False,
+                 save_format='png', dpi=300):
         """PTP metrics analyser
 
         Args:
-            data   : Array of objects with simulation data
-            file   : Path of the file
-            prefix : Prefix to include on filenames when saving
+            data        : Array of objects with simulation data
+            file        : Path of the file
+            prefix      : Prefix to include on filenames when saving
+            save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
+
         """
-        self.data   = data
-        self.path   = self._set_path(file)
-        self.prefix = prefix
+        self.data        = data
+        self.path        = self._set_path(file)
+        self.prefix      = prefix
+        self.save_format = save_format
+        self.dpi         = dpi
+
+        if (usetex):
+            aspect_ratio = 1.4
+            max_width    = 3.39
+            params = {
+                'text.usetex'    : True,
+                'axes.labelsize' : 8,
+                'axes.titlesize' : 8,
+                'font.size'      : 8,
+                'legend.fontsize': 8,
+                'xtick.labelsize': 8,
+                'ytick.labelsize': 8,
+                'grid.color'     : 'k',
+                'grid.linestyle' : ':',
+                'grid.linewidth' : 0.5
+            }
+            matplotlib.rcParams.update(params)
+        else:
+            rc_figsize   = matplotlib.rcParams["figure.figsize"]
+            aspect_ratio = rc_figsize[0]/rc_figsize[1]
+            max_width    = rc_figsize[0]
+
+        self.figsize  = (max_width, max_width/aspect_ratio)
+
 
     def _set_path(self, file):
         """Define path to save plots
@@ -240,8 +270,10 @@ class Analyser():
             i_fh_ul         = (n_spf_ul / n_axc_per_frame) * Ts
 
             # Idle iterval between consecutive FH frames
-            n_rru_dl  = metadata["fh_traffic"]["n_rru_dl"]
-            n_rru_ul  = metadata["fh_traffic"]["n_rru_ul"]
+            n_rru_dl = metadata["fh_traffic"]["n_rru_dl"] if "n_rru_dl" in \
+                metadata["fh_traffic"] else metadata["fh_traffic"]["n_rru"]["dl"]
+            n_rru_ul  = metadata["fh_traffic"]["n_rru_ul"] if "n_rru_ul" in \
+                metadata["fh_traffic"] else metadata["fh_traffic"]["n_rru"]["ul"]
             t_idle_dl = i_fh_dl - (t_fh_dl * n_rru_dl)
             t_idle_ul = i_fh_ul - t_fh_ul
 
@@ -817,7 +849,7 @@ class Analyser():
     def plot_toffset_vs_time(self, show_raw=True, show_best=True, show_ls=True,
                              show_pkts=True, show_kf=True, show_loop=True,
                              show_true=True, n_skip=None, x_unit='time',
-                             save=True, save_format='png'):
+                             save=True, save_format=None, dpi=None):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -834,6 +866,7 @@ class Analyser():
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         # To facilitate inspection, it is better to skip the transitory
@@ -853,7 +886,7 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
             if (value["show"]):
@@ -899,12 +932,16 @@ class Analyser():
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time offset (ns)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "toffset_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "toffset_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
@@ -913,7 +950,7 @@ class Analyser():
     def plot_toffset_err_vs_time(self, show_raw=True, show_ls=True,
                                  show_pkts=True, show_kf=True, show_loop=True,
                                  n_skip=None, x_unit='time', save=True,
-                                 save_format='png'):
+                                 save_format=None, dpi=None):
         """Plot time offset error vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -928,6 +965,7 @@ class Analyser():
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         # To facilitate inspection, it is better to skip the transitory
@@ -947,7 +985,7 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
             if (value["show"]):
@@ -967,12 +1005,16 @@ class Analyser():
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time offset Error (ns)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "toffset_err_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "toffset_err_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
@@ -980,7 +1022,7 @@ class Analyser():
     @dec_plot_filter
     def plot_toffset_err_hist(self, show_raw=True, show_ls=True, show_pkts=True,
                               show_kf=True, show_loop=True, n_bins=50,
-                              save=True, save_format='png'):
+                              save=True, save_format=None, dpi=None):
         """Plot time offset error histogram
 
         Args:
@@ -992,6 +1034,7 @@ class Analyser():
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         # To facilitate inspection, it is better to skip the transitory
@@ -1000,7 +1043,7 @@ class Analyser():
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
             if (value["show"]):
@@ -1013,18 +1056,22 @@ class Analyser():
 
         plt.xlabel('Time offset Error (ns)')
         plt.ylabel('Probability Density')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "toffset_err_hist."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "toffset_err_hist." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
     def plot_delay_hist(self, show_raw=True, show_true=True, n_bins=50,
-                        split=False, save=True, save_format='png'):
+                        split=False, save=True, save_format=None, dpi=None):
         """Plot delay histogram
 
         Plot histogram of delays in microseconds.
@@ -1037,6 +1084,7 @@ class Analyser():
                           and estimate) on a different figure
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot delay histogram")
@@ -1048,10 +1096,11 @@ class Analyser():
 
             if (show_raw):
                 d_est = np.array([r['d_est'] for r in self.data]) / 1e3
-                plt.figure()
+                plt.figure(figsize=self.figsize)
                 plt.hist(d_est, bins=n_bins, density=True)
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
+                plt.grid(color='k', linewidth=.5, linestyle=':')
                 plt.title("Two-way Measurements")
                 plots.append({"plt" : plt.gcf(),
                               "label" : "raw"})
@@ -1060,33 +1109,37 @@ class Analyser():
                 d = np.array([r["d"] for r in self.data]) / 1e3
                 d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
 
-                plt.figure()
+                plt.figure(figsize=self.figsize)
                 plt.hist(d, bins=n_bins, density=True)
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
+                plt.grid(color='k', linewidth=.5, linestyle=':')
                 plt.title("True master-to-slave")
                 plots.append({"plt": plt.gcf(),
                               "label": "m2s"})
 
-                plt.figure()
+                plt.figure(figsize=self.figsize)
                 plt.hist(d_bw, bins=n_bins, density=True)
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
+                plt.grid(color='k', linewidth=.5, linestyle=':')
                 plt.title("True slave-to-master")
                 plots.append({"plt": plt.gcf(),
                               "label": "s2m"})
 
             for p in plots:
                 if (save):
-                    p["plt"].savefig(self.path + self.prefix + "delay_hist_" + p["label"] +
-                                     "." + save_format, format=save_format,
-                                     dpi=300)
+                    img_name   = self.prefix + "delay_hist_" + p["label"] + "."
+                    img_format = save_format or self.save_format
+                    img_dpi    = dpi or self.dpi
+                    p["plt"].tight_layout()
+                    p["plt"].savefig(self.path + img_name + img_format,
+                                     format=img_format, dpi=img_dpi)
                 else:
                     p["plt"].show()
         else:
             # Single plot
-
-            plt.figure()
+            plt.figure(figsize=self.figsize)
             if (show_raw):
                 d_est = np.array([r['d_est'] for r in self.data]) / 1e3
                 plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
@@ -1102,18 +1155,22 @@ class Analyser():
 
             plt.xlabel(x_label)
             plt.ylabel(y_label)
+            plt.grid(color='k', linewidth=.5, linestyle=':')
             plt.legend()
 
             if (save):
+                img_name   = self.prefix + "delay_hist."
+                img_format = save_format or self.save_format
+                img_dpi    = dpi or self.dpi
                 plt.tight_layout()
-                plt.savefig(self.path + self.prefix + "delay_hist." + save_format,
-                            format=save_format, dpi=300)
+                plt.savefig(self.path + img_name + img_format,
+                            format=img_format, dpi=img_dpi)
             else:
                 plt.show()
             plt.close()
 
     def plot_delay_vs_time(self, x_unit='time', show_raw=True, split=False,
-                           save=True, save_format='png'):
+                           save=True, save_format=None, dpi=None):
         """Plot delay estimations vs time
 
         Args:
@@ -1122,6 +1179,7 @@ class Analyser():
             split       : Whether to split m-to-s and s-to-m plots
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot delay vs. time")
@@ -1145,55 +1203,69 @@ class Analyser():
             d_est  = [r["d_est"] for r in self.data]
 
         if (split):
-            plt.figure()
+            plt.figure(figsize=self.figsize)
             plt.scatter(x_axis_vec, d, s = 1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('m-to-s delay (ns)')
+            plt.grid(color='k', linewidth=.5, linestyle=':')
 
             if (save):
+                img_name   = self.prefix + "delay_m2s_vs_time."
+                img_format = save_format or self.save_format
+                img_dpi    = dpi or self.dpi
                 plt.tight_layout()
-                plt.savefig(self.path + self.prefix + "delay_m2s_vs_time." + save_format,
-                            format=save_format, dpi=300)
+                plt.savefig(self.path + img_name + img_format,
+                            format=img_format, dpi=img_dpi)
             else:
                 plt.show()
             plt.close()
 
-            plt.figure()
+            plt.figure(figsize=self.figsize)
             plt.scatter(x_axis_vec, d_bw, s = 1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('s-to-m delay (ns)')
+            plt.grid(color='k', linewidth=.5, linestyle=':')
 
             if (save):
+                img_name   = self.prefix + "delay_s2m_vs_time."
+                img_format = save_format or self.save_format
+                img_dpi    = dpi or self.dpi
                 plt.tight_layout()
-                plt.savefig(self.path + self.prefix + "delay_s2m_vs_time." + save_format,
-                            format=save_format, dpi=300)
+                plt.savefig(self.path + img_name + img_format,
+                            format=img_format, dpi=img_dpi)
             else:
                 plt.show()
             plt.close()
         else:
-            plt.figure()
+            plt.figure(figsize=self.figsize)
             if (show_raw):
                 plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
             plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('Delay Estimation (ns)')
+            plt.grid(color='k', linewidth=.5, linestyle=':')
             plt.legend()
 
             if (save):
+                img_name   = self.prefix + "delay_vs_time."
+                img_format = save_format or self.save_format
+                img_dpi    = dpi or self.dpi
                 plt.tight_layout()
-                plt.savefig(self.path + self.prefix + "delay_vs_time." + save_format,
-                            format=save_format, dpi=300)
+                plt.savefig(self.path + img_name + img_format,
+                            format=img_format, dpi=img_dpi)
             else:
                 plt.show()
             plt.close()
 
-    def plot_delay_est_err_vs_time(self, x_unit='time', save=True, save_format='png'):
+    def plot_delay_est_err_vs_time(self, x_unit='time', save=True,
+                                   save_format=None, dpi=None):
         """Plot delay estimations error vs time
 
         Args:
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot delay estimation error vs. time")
@@ -1212,52 +1284,63 @@ class Analyser():
 
         d_est_err = [r["d_est"] - r["d"] for r in self.data]
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.scatter(x_axis_vec, d_est_err, s = 1.0)
         plt.xlabel(x_axis_label)
         plt.ylabel('Delay Estimation Error (ns)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
 
         if (save):
+            img_name   = self.prefix + "delay_est_err_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "delay_est_err_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name  + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
-    def plot_delay_asym_hist(self, n_bins=50, save=True, save_format='png'):
+    def plot_delay_asym_hist(self, n_bins=50, save=True, save_format=None,
+                             dpi=None):
         """Plot delay asymmetry histogram
 
         Args:
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot delay asymmetry histogram")
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         d_asym = np.array([r['asym'] for r in self.data]) / 1e3
         plt.hist(d_asym, bins=n_bins, density=True)
         plt.xlabel('Delay asymmetry (us)')
         plt.ylabel('Probability Density')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
 
         if (save):
+            img_name   = self.prefix + "delay_asym_hist."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "delay_asym_hist." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
     def plot_delay_asym_vs_time(self, save=True, x_unit='time',
-                                save_format='png'):
+                                save_format=None, dpi=None):
         """Plot delay asymmetry over time
 
         Args:
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot delay asymmetry vs. time")
@@ -1275,15 +1358,19 @@ class Analyser():
 
         d_asym = np.array([r['asym'] for r in self.data]) / 1e3
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.scatter(time_vec, d_asym, s=1.0)
         plt.xlabel(x_axis_label)
         plt.ylabel('Delay asymmetry (us)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
 
         if (save):
+            img_name   = self.prefix + "delay_asym_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "delay_asym_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
@@ -1291,7 +1378,7 @@ class Analyser():
     @dec_plot_filter
     def plot_foffset_vs_time(self, show_raw=True, show_ls=True, show_kf=True,
                              show_true=True, n_skip=None, x_unit='time',
-                             save=True, save_format='png'):
+                             save=True, save_format=None, dpi=None):
         """Plot freq. offset vs time
 
         Args:
@@ -1303,6 +1390,7 @@ class Analyser():
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
 
@@ -1323,7 +1411,7 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
             if (value["show"]):
@@ -1351,12 +1439,16 @@ class Analyser():
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset (ppb)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "foffset_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "foffset_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
@@ -1364,7 +1456,7 @@ class Analyser():
     @dec_plot_filter
     def plot_foffset_err_vs_time(self, show_raw=True, show_ls=True,
                                  show_kf=True, n_skip_kf=0, x_unit='time',
-                                 save=True, save_format='png'):
+                                 save=True, save_format=None, dpi=None):
         """Plot freq. offset estimation error vs time
 
         Args:
@@ -1375,6 +1467,7 @@ class Analyser():
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
 
@@ -1395,7 +1488,7 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
             if (value["show"]):
@@ -1422,19 +1515,23 @@ class Analyser():
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset Error (ppb)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "foffset_err_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "foffset_err_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
     @dec_plot_filter
     def plot_foffset_err_hist(self, show_raw=True, show_ls=True, show_kf=True,
-                              n_bins=50, save=True, save_format='png'):
+                              n_bins=50, save=True, save_format=None, dpi=None):
         """Plot frequency offset error histogram
 
         Args:
@@ -1444,6 +1541,7 @@ class Analyser():
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         # To facilitate inspection, it is better to skip the transitory
@@ -1452,7 +1550,7 @@ class Analyser():
         n_skip         = int(0.2*len(self.data))
         post_tran_data = self.data[n_skip:]
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
             if (value["show"]):
@@ -1466,17 +1564,22 @@ class Analyser():
 
         plt.xlabel('Frequency Offset Error (ppb)')
         plt.ylabel('Probability Density')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "foffset_err_hist."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "foffset_err_hist." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
-    def plot_pdv_vs_time(self, x_unit='time', save=True, save_format='png'):
+    def plot_pdv_vs_time(self, x_unit='time', save=True, save_format=None,
+                         dpi=None):
         """Plot PDV over time
 
         Each plotted value represents the measured difference of the current
@@ -1505,6 +1608,7 @@ class Analyser():
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot PDV vs. time")
@@ -1529,22 +1633,26 @@ class Analyser():
         diff_t2_1 = np.diff(t2_1)
         diff_t4_3 = np.diff(t4_3)
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.scatter(x_axis_vec[1:], diff_t2_1, s = 1.0, label="m-to-s")
         plt.scatter(x_axis_vec[1:], diff_t4_3, s = 1.0, label="s-to-m")
         plt.xlabel(x_axis_label)
         plt.ylabel('Delay Variation (ns)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "pdv_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "pdv_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
-    def plot_pdv_hist(self, n_bins=50, save=True, save_format='png'):
+    def plot_pdv_hist(self, n_bins=50, save=True, save_format=None, dpi=None):
         """Plot PDV histogram
 
         See explanation of "plot_pdv_vs_time".
@@ -1553,6 +1661,7 @@ class Analyser():
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot PDV histogram")
@@ -1565,25 +1674,29 @@ class Analyser():
         diff_t2_1 = np.diff(t2_1)
         diff_t4_3 = np.diff(t4_3)
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.hist(diff_t2_1, bins=n_bins, density=True, alpha=0.7,
                  label="m-to-s")
         plt.hist(diff_t4_3, bins=n_bins, density=True, alpha=0.7,
                  label="s-to-m")
         plt.xlabel('Delay Variation (ns)')
         plt.ylabel('Probability Density')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "pdv_hist."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "pdv_hist." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
     def plot_ptp_exchange_interval_vs_time(self, n_bins=200, save=True,
-                                           save_format='png'):
+                                           save_format=None, dpi=None):
         """Plot CDF of the interval between PTP exchanges
         """
 
@@ -1592,23 +1705,27 @@ class Analyser():
         # Exchange interval
         for t in ["t1", "t2", "t3", "t4"]:
             t_diff = np.diff(np.array([float(r[t]) for r in self.data]))/1e6
-            plt.figure()
+            plt.figure(figsize=self.figsize)
             plt.hist(t_diff, bins=n_bins, density=True, cumulative=True,
                      histtype='step', alpha=0.8, color='k')
             plt.xlabel('{0}[n] - {0}[n-1] (ms)'.format(t))
             plt.ylabel('CDF')
             plt.title('PTP exchange interval')
+            plt.grid(color='k', linewidth=.5, linestyle=':')
 
             if (save):
+                img_name   = self.prefix + f"{t}_delta_vs_time."
+                img_format = save_format or self.save_format
+                img_dpi    = dpi or self.dpi
                 plt.tight_layout()
-                plt.savefig(self.path + self.prefix + "{}_delta_vs_time.".format(t) +
-                            save_format, format=save_format, dpi=300)
+                plt.savefig(self.path + img_name+ img_format,
+                            format=img_format, dpi=img_dpi)
             else:
                 plt.show()
             plt.close()
 
     def plot_toffset_drift_vs_time(self, x_unit='time', save=True,
-                                   save_format='png'):
+                                   save_format=None, dpi=None):
         """Plot time offset drift vs. time
 
         It is useful to analyze how x[n] varies between consecutive PTP
@@ -1618,6 +1735,7 @@ class Analyser():
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot time offset drift vs. time")
@@ -1639,40 +1757,47 @@ class Analyser():
                                if "drift" in r])
         drift_est  = np.array([r["drift"] for r in self.data if "drift" in r])
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.scatter(x_axis_vec, true_drift, s = 1.0, label="True")
-        plt.scatter(x_axis_vec, drift_est, s = 1.0,
-                    label="Estimate")
+        plt.scatter(x_axis_vec, drift_est, s = 1.0, label="Estimate")
         plt.xlabel(x_axis_label)
         plt.ylabel('x[n] - x[n-1] (ns)')
         plt.title('Time offset drift')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
 
         if (save):
+            img_name   = self.prefix + "toffset_drift_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "toffset_drift_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name  + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
         cum_drift_err = drift_est.cumsum() - true_drift.cumsum()
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.scatter(x_axis_vec, cum_drift_err, s = 1.0)
         plt.xlabel(x_axis_label)
         plt.ylabel('(ns)')
         plt.title('Cumulative time offset drift error')
 
         if (save):
+            img_name   = self.prefix + "toffset_drift_cum_err_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "toffset_drift_cum_err_vs_time." +
-                        save_format, format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
-    def plot_toffset_drift_hist(self, n_bins=50, save=True, save_format='png'):
+    def plot_toffset_drift_hist(self, n_bins=50, save=True, save_format=None,
+                                dpi=None):
         """Plot time offset drift histogram
 
         Histogram of the drift (x[n] - x[n-1]).
@@ -1681,6 +1806,7 @@ class Analyser():
             n_bins      : Target number of bins
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot time offset drift histogram")
@@ -1688,23 +1814,28 @@ class Analyser():
         # True time offset
         x = np.array([r["x"] for r in self.data])
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.hist(np.diff(x), bins=n_bins, density=True)
         plt.xlabel('x[n] - x[n-1] (ns)')
         plt.ylabel('Probability Density')
         plt.title('True time offset drift histogram')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
 
         if (save):
+            img_name   = self.prefix + "toffset_drift_hist."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "toffset_drift_hist." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
     @dec_plot_filter
     def plot_mtie(self, show_raw=True, show_ls=True, show_pkts=True,
-                  show_kf=True, show_loop=True, save=True, save_format='png'):
+                  show_kf=True, show_loop=True, save=True, save_format=None,
+                  dpi=None):
         """Plot MTIE versus the observation interval(Tau)
 
         Plots MTIE. The time error (TE) samples are assumed to be equal to the
@@ -1735,10 +1866,11 @@ class Analyser():
             n_skip      : Number of initial samples to skip
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot MTIE")
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
@@ -1762,9 +1894,12 @@ class Analyser():
         plt.legend(loc=0)
 
         if (save):
+            img_name   = self.prefix + "mtie_vs_tau."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "mtie_vs_tau." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
@@ -1772,7 +1907,7 @@ class Analyser():
     @dec_plot_filter
     def plot_max_te(self, window_len, show_raw=True, show_ls=True,
                     show_pkts=True, show_kf=True, show_loop=True, n_skip=None,
-                    x_unit='time', save=True, save_format='png'):
+                    x_unit='time', save=True, save_format=None, dpi=None):
         """Plot Max|TE| vs time.
 
         Args:
@@ -1786,6 +1921,7 @@ class Analyser():
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot max|TE| vs. time")
@@ -1803,7 +1939,7 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
 
         for suffix, value in est_keys.items():
             if (value["show"]):
@@ -1828,20 +1964,25 @@ class Analyser():
         plt.legend(loc=0)
 
         if (save):
+            img_name   = self.prefix + "max_te_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "max_te_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
-    def plot_temperature(self, x_unit='time', save=True, save_format='png'):
+    def plot_temperature(self, x_unit='time', save=True, save_format=None,
+                         dpi=None):
         """Plot temperature vs time
 
         Args:
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot temperature")
@@ -1862,28 +2003,34 @@ class Analyser():
         temp1 = [r["temp"][0] for r in self.data if "temp" in r]
         temp2 = [r["temp"][1] for r in self.data if "temp" in r]
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         plt.scatter(x_axis_vec, temp1, s = 1.0, label="LM35")
         plt.scatter(x_axis_vec, temp2, s = 1.0, label="MCP9808")
         plt.xlabel(x_axis_label)
-        plt.legend()
         plt.ylabel('Temperature (C)')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
+        plt.legend()
 
         if (save):
+            img_name   = self.prefix + "temperature_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "temperature_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
-    def plot_occupancy(self, x_unit='time', save=True, save_format='png'):
+    def plot_occupancy(self, x_unit='time', save=True, save_format=None,
+                       dpi=None):
         """Plot BBU/RRU DAC interface buffer occupancy vs time
 
         Args:
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
+            dpi         : Image resolution in dots per inch
 
         """
         logger.info("Plot occupancy")
@@ -1897,7 +2044,7 @@ class Analyser():
             x_axis_label = 'Realization'
 
         # Plot BBU and RRU occupancies
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         for key, label in [("rru_occ", "RRU"), ("bbu_occ", "BBU"),
                            ("rru2_occ", "RRU2")]:
             if (x_unit == "time"):
@@ -1914,17 +2061,23 @@ class Analyser():
         plt.xlabel(x_axis_label)
         plt.ylim((0, 8191))
         plt.ylabel('Occupancy')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
+
         if (save):
+            img_name   = self.prefix + "occupancy_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + "occupancy_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
     def _plot_pps_rtc_metric(self, keys, labels, ylabel, name, x_unit='time',
-                             binwidth = 0.5, save=True, save_format='png'):
+                             binwidth = 0.5, save=True, save_format=None,
+                             dpi=None):
         """Plot PPS RTC metric
 
         Args:
@@ -1946,7 +2099,7 @@ class Analyser():
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         for key, label in zip(keys, labels):
             if (x_unit == "time"):
                 x_vec = [time_vec[i] for i, r in enumerate(self.data) \
@@ -1955,38 +2108,50 @@ class Analyser():
                 x_vec = [r["idx"] for r in self.data if key in r]
             y_vec = np.array([r[key] for r in self.data if key in r])
             plt.scatter(x_vec, y_vec, s = 1.0, label=label)
+
         plt.xlabel(x_axis_label)
         plt.ylabel(ylabel)
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
+
         if (save):
+            img_name   = self.prefix + name + "_vs_time."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + name + "_vs_time." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
         # Histogram
-        plt.figure()
+        plt.figure(figsize=self.figsize)
         for key,label in zip(keys, labels):
             y_vec = np.array([r[key] for r in self.data if key in r])
             if (len(y_vec) > 0):
                 bins  = np.arange(np.floor(y_vec.min()),
                                   np.ceil(y_vec.max()) + binwidth, binwidth)
                 plt.hist(y_vec, bins=bins, density=True, label=label)
+
         plt.xlabel(ylabel)
         plt.ylabel('Probability Density')
+        plt.grid(color='k', linewidth=.5, linestyle=':')
         plt.legend()
+
         if (save):
+            img_name   = self.prefix + name + "_hist."
+            img_format = save_format or self.save_format
+            img_dpi    = dpi or self.dpi
             plt.tight_layout()
-            plt.savefig(self.path + self.prefix + name + "_hist." + save_format,
-                        format=save_format, dpi=300)
+            plt.savefig(self.path + img_name + img_format,
+                        format=img_format, dpi=img_dpi)
         else:
             plt.show()
         plt.close()
 
     def plot_pps_err(self, x_unit='time', binwidth=0.5, save=True,
-                     save_format='png'):
+                     save_format=None, dpi=None):
         """Plot PPS synchronization error vs time and histogram
 
         Args:
@@ -2002,10 +2167,10 @@ class Analyser():
         ylabel = "PPS Sync Error (ns)"
         name   = "pps_err"
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
-                                  save, save_format)
+                                  save, save_format, dpi)
 
     def plot_pps_rtc_foffset_est(self, x_unit='time', binwidth=0.5, save=True,
-                                 save_format='png'):
+                                 save_format=None, dpi=None):
         """Plot frequency offset estimates according to the PPS RTC
 
         These are equivalent to the output of the PI controller that is used for
@@ -2024,5 +2189,5 @@ class Analyser():
         ylabel = "PPS frequency offset (ppb)"
         name   = "pps_foffset"
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
-                                  save, save_format)
+                                  save, save_format, dpi)
 
