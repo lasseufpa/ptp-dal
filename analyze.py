@@ -34,18 +34,21 @@ def _run_outlier_detection(data):
     outlier.process(c=2)
 
 
-def _run_drift_estimation(data, cache):
+def _run_drift_estimation(data, cache, cache_id='loop', run_loop_only=False):
     """Run frequency offset and time offset drift estimations"""
 
-    # Raw frequency estimations (mostly for visualization)
     freq_delta = 64
     freq_estimator = ptp.frequency.Estimator(data, delta=freq_delta)
-    freq_estimator.set_truth(delta=freq_delta)
-    freq_estimator.optimize_to_y()
-    freq_estimator.process()
+
+    if (not run_loop_only):
+        # Raw frequency estimations (mostly for visualization)
+        freq_estimator.set_truth(delta=freq_delta)
+        freq_estimator.optimize_to_y()
+        freq_estimator.process()
 
     # Time offset drift estimations through the PI control loop
-    damping, loopbw = freq_estimator.optimize_loop(cache=cache)
+    damping, loopbw = freq_estimator.optimize_loop(cache=cache,
+                                                   cache_id=cache_id)
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
 
