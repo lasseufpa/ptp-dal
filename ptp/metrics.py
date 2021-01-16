@@ -852,7 +852,7 @@ class Analyser():
             if (not (seq_ids[gap] == 65535 and seq_ids[gap+1] == 1)):
                 non_rollover_gaps.append(gap)
             elif (verbose):
-                logging.debug("Gap from {:d} to {:d} due to rollover".format(
+                logger.debug("Gap from {:d} to {:d} due to rollover".format(
                     seq_ids[gap], seq_ids[gap+1]))
 
         if (len(seq_ids) == 0):
@@ -863,7 +863,7 @@ class Analyser():
                 print("sequenceId gaps identified: {:d}".format(
                     len(non_rollover_gaps)), file=f)
                 for gap in non_rollover_gaps:
-                    logging.debug("Gap from {:d} to {:d}".format(
+                    logger.debug("Gap from {:d} to {:d}".format(
                         seq_ids[gap], seq_ids[gap+1]))
             elif (verbose):
                 print("Checking sequenceIDs: OK (no gaps)", file=f)

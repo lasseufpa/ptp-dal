@@ -4,6 +4,8 @@ import numpy as np
 import logging, os, json
 import ptp.cache
 import ptp.filters
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -459,7 +461,7 @@ class Estimator():
                     self.delta  = cached_cfg['N']
                     self.N_pkts = cached_cfg['N_pkts']
         else:
-            logging.info("Unable to find cached configuration file")
+            logger.info("Unable to find cached configuration file")
 
         # Window length ranges
         window_len, pkts_window_len = self._get_window_range(max_window_span)
@@ -685,7 +687,7 @@ class Estimator():
                     best_loopbw  = cached_cfg['loopbw']
                     return best_damping, best_loopbw
         else:
-            logging.info("Unable to find cached configuration file")
+            logger.info("Unable to find cached configuration file")
 
         damping_vec  = [0.5, 0.707, 1.0, 1.2, 1.5, 1.8, 2.0]
         loopbw_vec   = np.concatenate((

@@ -65,7 +65,7 @@ class Acquisition():
 
         self.json_ended = True
 
-        logging.info(f"Finalize {self.json_file} file")
+        logger.info(f"Finalize {self.json_file} file")
 
         # Get the metadata from the RoE manager
         metadata = self.roe.manager.get_config()
@@ -138,7 +138,7 @@ class Acquisition():
                 exit(-1)
 
         self._move()
-        logging.info("Run:\n./analyze.py -vvvv -f %s" %(
+        logger.info("Run:\n./analyze.py -vvvv -f %s" %(
             os.path.basename(self.xz_file)))
         exit()
 

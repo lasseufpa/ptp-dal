@@ -6,6 +6,8 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +77,7 @@ class Optimizer():
                 bias.compensate(corr=bias_est[metric],
                                 toffset_key=f"x_pkts_{metric}")
             else:
-                logging.warning(f"Can't compensate asymmetry of {metric}")
+                logger.warning(f"Can't compensate asymmetry of {metric}")
 
     def _eval_error(self, window_vec, estimator, error_metric,
                     early_stopping=True, patience=5):

@@ -16,6 +16,9 @@ from pprint import pprint
 import ptp.compression
 
 
+logger = logging.getLogger(__name__)
+
+
 class SimTime():
     def __init__(self, t_step):
         """Simulation Time
@@ -35,7 +38,6 @@ class SimTime():
     def advance(self, next_time):
         """Advance simulation time to a specified instant"""
         self.time = next_time
-        logger = logging.getLogger("SimTime")
         logger.debug("Advance simulation time to: %f ns" %(self.time*1e9))
 
     def step(self):
@@ -143,7 +145,7 @@ class Simulation():
         ds    = codec.decompress()
         self.data     = ds['data']
         self.metadata = ds['metadata']
-        logging.info("Imported data from %s" %(filename))
+        logger.info("Imported data from %s" %(filename))
 
     def dump(self):
         """Dump simulation metadata and data into stdout
@@ -154,7 +156,7 @@ class Simulation():
         print("Simulation configurations:")
         pprint(self.metadata)
 
-        logging.info("Simulation data:")
+        logger.info("Simulation data:")
         DelayReqResp.log_header(level=logging.INFO)
         for x in self.data:
             DelayReqResp.log(x, level=logging.INFO)

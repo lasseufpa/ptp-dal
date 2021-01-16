@@ -1,8 +1,11 @@
 """Timestamp definitions
 """
-
 import numpy as np
 import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 class Timestamp():
     def __init__(self, sec_0 = 0, ns_0 = 0):
@@ -68,7 +71,7 @@ class Timestamp():
         # Protect from the issue of subtracting small number.
         # See https://docs.python.org/3/library/math.html#math.fmod
         if (ns == 1e9):
-            logging.warning("Timestamp ns mod 1e9 resulted %e - set to 0" %(ns))
+            logger.warning("Timestamp ns mod 1e9 resulted %e - set to 0" %(ns))
             sec += 1
             ns   = 0
 

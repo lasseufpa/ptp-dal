@@ -1,6 +1,8 @@
 """Generate cache for optimal configurations
 """
 import logging, os, json
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +58,7 @@ class Cache():
         with open(cache_file, 'w') as fd:
             json.dump(data, fd)
 
-        logging.info("Saved {} cache on {}".format(identifier, cache_file))
+        logger.info("Saved {} cache on {}".format(identifier, cache_file))
 
     def load(self, identifier):
         """Load cache from JSON file
@@ -75,8 +77,8 @@ class Cache():
             with open(cache_file) as fd:
                 cached_data = json.load(fd)
 
-            logging.info("Loaded {} cache from {}".format(identifier,
-                                                          cache_file))
+            logger.info("Loaded {} cache from {}".format(identifier,
+                                                         cache_file))
         return cached_data
 
 
