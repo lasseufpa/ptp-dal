@@ -367,7 +367,7 @@ class Analyser():
                 print("{:20s}".format(key),
                       "Mean: {: 8.3f} ns".format(value), file=f)
 
-    def check_seq_id_gaps(self, save=False):
+    def check_seq_id_gaps(self, verbose=True, save=False):
         """Check whether there are gaps on sequenceIds"""
 
         # Print to stdout and, if so desired, to info.txt
@@ -385,7 +385,7 @@ class Analyser():
         for i, gap in enumerate(gaps):
             if (not (seq_ids[gap] == 65535 and seq_ids[gap+1] == 1)):
                 non_rollover_gaps.append(gap)
-            else:
+            elif (verbose):
                 logging.debug("Gap from {:d} to {:d} due to rollover".format(
                     seq_ids[gap], seq_ids[gap+1]))
 
@@ -393,13 +393,13 @@ class Analyser():
             logger.warning("Dataset doesn't contain sequenceIds")
 
         for f in files:
-            if (len(non_rollover_gaps) > 0):
-                print("Checking sequenceIds: {:d} gaps identified".format(len(gaps)),
-                      file=f)
+            if (len(non_rollover_gaps) > 0 and verbose):
+                print("sequenceId gaps identified: {:d}".format(
+                    len(non_rollover_gaps)), file=f)
                 for gap in non_rollover_gaps:
                     logging.debug("Gap from {:d} to {:d}".format(
                         seq_ids[gap], seq_ids[gap+1]))
-            else:
+            elif (verbose):
                 print("Checking sequenceIDs: OK (no gaps)", file=f)
 
         if (len(non_rollover_gaps) > 0):
