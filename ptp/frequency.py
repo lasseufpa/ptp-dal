@@ -327,17 +327,19 @@ class Estimator():
 
         return is_valid
 
-    def optimize_loop(self, error='cumulative', cache=None, force=False):
-        """Find loop parameters that minimize RMSE of drift estimates
+    def optimize_loop(self, error='cumulative', cache=None, cache_id='loop',
+                      force=False):
+        """Find loop parameters that minimize the RMSE of drift estimates
 
         Try some pre-defined damping factor and loop bandwidth values.
 
         Args:
-            error : Error criterion used for tuning: cumulative or absolute
-            cache : Cache handler used to save the optimized configuration in a
-                    json file
-            force : Force processing even if a configuration file with the
-                    optimized parameters already exists in cache.
+            error    : Error criterion used for tuning: cumulative or absolute
+            cache    : Cache handler used to save the optimized configuration in
+                       a json file
+            cache_id : Cache object identifier
+            force    : Force processing even if a configuration file with the
+                       optimized parameters already exists in cache.
 
         """
         assert(error in ['cumulative', 'absolute'])
@@ -345,7 +347,7 @@ class Estimator():
         # Check if a cached configuration file exists and is valid
         if (cache is not None):
             assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
-            cached_loop_cfg = cache.load('loop')
+            cached_loop_cfg = cache.load(cache_id)
 
             if (cached_loop_cfg and not force):
                 if (self._is_cfg_loop_valid(cached_loop_cfg, error)):
@@ -426,7 +428,7 @@ class Estimator():
                         'error'     : error,
                         'damping'   : best_damping,
                         'loopbw'    : best_loopbw},
-                       identifier='loop')
+                       identifier=cache_id)
 
         return best_damping, best_loopbw
 
