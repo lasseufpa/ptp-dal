@@ -33,7 +33,7 @@ est_keys = {
 
 class Analyser():
     def __init__(self, data, file=None, prefix=None, usetex=False,
-                 save_format='png', dpi=300, cache=None):
+                 save_format='png', dpi=300, cache=None, skip=0.2):
         """PTP metrics analyser
 
         Args:
@@ -43,6 +43,7 @@ class Analyser():
             usetex      : Whether to use latex interpreter
             save_format : Select image format: 'png' or 'eps'
             dpi         : Image resolution in dots per inch
+            skip        : Fraction of the dataset to skip on the analysis.
 
         """
         self.data        = data
@@ -53,6 +54,7 @@ class Analyser():
         self.dpi         = dpi
         self.usetex      = usetex
         self.cache       = cache
+        self.n_skip      = int(skip * len(self.data))
 
         if (cache is not None):
             assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
@@ -662,8 +664,7 @@ class Analyser():
             files.append(open(self.info, 'a'))
 
         # Skip the transitory (e.g. due to Kalman)
-        n_skip         = int(0.2*len(self.data))
-        post_tran_data = self.data[n_skip:]
+        post_tran_data = self.data[self.n_skip:]
 
         for f in files:
             print("\nTime offset estimation error statistics:\n", file=f)
@@ -747,10 +748,17 @@ class Analyser():
 
         """
 
-        # As a rule of thumb, we skip 20% of the dataset to ignore transients on
-        # the comparison.
-        n_skip = int(0.2*len(self.data))
-        post_tran_data = self.data[n_skip:]
+        # Analyze a restricted portion of the dataset that is deemed to contain
+        # data after all algorithm transients.
+        #
+        # When drift correction is used, the packet selection algorithms start
+        # to process the data only after drift estimates start. Thus, if drift
+        # correction is enabled, all elements of the post-transient dataset must
+        # contain a drift estimate. This should be guaranteed by properly
+        # setting the "n_skip" attribute of the Analyser object.
+        post_tran_data = self.data[self.n_skip:]
+        if (any([("drift" in r) for r in post_tran_data])):
+            assert(all([("drift" in r) for r in post_tran_data]))
 
         self.ranking[metric] = dict()
         for suffix, value in est_keys.items():
@@ -1027,7 +1035,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot time offset vs. time")
-        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
+        n_skip         = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
@@ -1096,7 +1104,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot time offset estimation error vs. time")
-        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
+        n_skip         = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
@@ -1155,8 +1163,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot time offset estimation error histogram")
-        n_skip         = int(0.2*len(self.data))
-        post_tran_data = self.data[n_skip:]
+        post_tran_data = self.data[self.n_skip:]
 
         plt.figure(figsize=self.figsize)
 
@@ -1474,7 +1481,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot frequency offset vs. time")
-        n_skip         = int(0.2*len(self.data)) if (not n_skip) else n_skip
+        n_skip         = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
@@ -1526,12 +1533,12 @@ class Analyser():
         plt.close()
 
     @analysis_plot("foffset_err_vs_time")
-    def plot_foffset_err_vs_time(self, n_skip_kf=0, x_unit='time', save=True,
+    def plot_foffset_err_vs_time(self, n_skip=None, x_unit='time', save=True,
                                  save_format=None, dpi=None, **kwargs):
         """Plot freq. offset estimation error vs time
 
         Args:
-            n_skip_kf   : Number of initial Kalman filter samples to skip
+            n_skip      : Number of initial samples to skip
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1542,7 +1549,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot frequency offset estimation error vs. time")
-        n_skip         = int(0.2*len(self.data))
+        n_skip         = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
@@ -1607,8 +1614,7 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot time offset estimation error histogram")
-        n_skip         = int(0.2*len(self.data))
-        post_tran_data = self.data[n_skip:]
+        post_tran_data = self.data[self.n_skip:]
 
         plt.figure(figsize=self.figsize)
 
@@ -1906,7 +1912,6 @@ class Analyser():
         logger.info("Plot MTIE")
         plt.figure(figsize=self.figsize)
 
-
         # Find the largest number of MTIE samples (windows) that has been
         # evaluated for **all** algorithms. Use this to restrict the horizontal
         # axis range such that it covers a range evaluated for all algorithms.
@@ -1964,8 +1969,7 @@ class Analyser():
             self._rank_algorithms(metric="max-te", max_te_win_len = window_len)
 
         logger.info("Plot max|TE| vs. time")
-        n_skip         = int(0.2*len(self.data))
-        post_tran_data = self.data[n_skip:]
+        post_tran_data = self.data[self.n_skip:]
 
         # Time axis
         t_start  = post_tran_data[0]["t1"]

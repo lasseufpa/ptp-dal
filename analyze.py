@@ -34,33 +34,79 @@ def _run_outlier_detection(data):
     outlier.process(c=2)
 
 
-def _run_foffset_estimation(data, N=64, optimize=True):
+def _calc_max_drift_est_transient(skip, drift_comp, optimizer_max_window,
+                                  n_data):
+    """Compute the maximum allowed transient for drift estimations
+
+    The window-based algorithms produce estimates by the end of the observation
+    windows, such that the first estimate is produced by the end of the first
+    window. Similarly, the TLL and Kalman filter produce estimates after the
+    their transients. To ensure that we have estimates throughout the portion of
+    the dataset that is analyzed (after skipping samples), we must limit the
+    window lengths and transient phases accordingly. This limitation is imposed
+    in terms of the maximum fraction of the dataset that a transient phase can
+    occupy.
+
+    With drift compensation on window-based algorithms, the first window can
+    only be computed once drift estimates become available in the
+    dataset. Hence, in this case, the two transients are added together (they
+    are consecutive). Otherwise, the two transients occur in parallel. In any
+    case, the value provided through command-line argument "--skip" controls the
+    maximum total transient as a fraction of the dataset length.
+
+    """
+
+    window_transient = optimizer_max_window / n_data
+    assert(window_transient < skip), \
+        "Max window set for the optimizer exceeds the max acceptable transient"
+
+    if (drift_comp):
+        max_drift_transient = skip - window_transient
+    else:
+        max_drift_transient = skip
+
+    if (drift_comp and max_drift_transient < 0.5*window_transient):
+        # Ideally, the maximum window used for packet selection/filtering still
+        # leaves sufficient room for the drift estimation transient. Otherwise,
+        # the drift estimation performance may deteriorate. For example, when
+        # estimating drifts based on the TLL, sometimes the best drift estimates
+        # come from TLL configurations with relatively long transients.
+        logging.warning("Drift estimator's transient is less than half of the "
+                        "maximum window transient")
+
+    return max_drift_transient
+
+
+def _run_foffset_estimation(data, N=64, optimize=True, max_transient=0.2):
     """Run frequency offset estimations"""
 
     freq_estimator = ptp.frequency.Estimator(data, delta=N)
 
     if (optimize):
         freq_estimator.set_truth()
-        freq_estimator.optimize_to_y()
+        freq_estimator.optimize_to_y(max_window_span=max_transient)
 
     freq_estimator.process()
 
 
 def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop',
-                          force=False):
+                          force=False, max_transient=0.2):
     """Run time offset drift estimations through the PI control loop"""
     assert(strategy in ["loop", "unbiased"])
 
     freq_estimator  = ptp.frequency.Estimator(data)
 
     if (strategy == "loop"):
-        damping, loopbw = freq_estimator.optimize_loop(loss="max-error",
-                                                       cache=cache,
-                                                       cache_id=cache_id,
-                                                       force=force)
+        damping, loopbw = freq_estimator.optimize_loop(
+            loss="max-error",
+            cache=cache,
+            cache_id=cache_id,
+            force=force,
+            max_transient=max_transient)
         freq_estimator.loop(damping = damping, loopbw = loopbw)
     else:
-        freq_estimator.optimize_to_drift(loss="max-error")
+        freq_estimator.optimize_to_drift(loss="max-error",
+                                         max_window_span=max_transient)
         freq_estimator.process()
         freq_estimator.estimate_drift()
 
@@ -202,7 +248,7 @@ def _run_pktselection(data, window_len, batch_size, drift_comp=True):
 
 
 def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
-                  uselatex, prefix=None, cache=None, save=True,
+                  uselatex, skip, prefix=None, cache=None, save=True,
                   no_processing=False):
     """Analyze results"""
 
@@ -210,7 +256,7 @@ def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
 
     analyser = ptp.metrics.Analyser(data, dataset_file, prefix=prefix,
                                     usetex=uselatex, save_format=save_format,
-                                    dpi=dpi, cache=cache)
+                                    dpi=dpi, cache=cache, skip=skip)
 
     analyser.save_metadata(metadata, save=save)
 
@@ -348,6 +394,11 @@ def parse_args():
                         type=int,
                         help='Maximum number of observation windows processed \
                         at once on window-based algorithms.')
+    parser.add_argument('--skip',
+                        default=0.2,
+                        type=float,
+                        help='Fraction of the dataset to skip on analysis to \
+                        ignore transient effects.')
     parser.add_argument('-N', '--num-iter',
                         default=0,
                         type=int,
@@ -423,11 +474,21 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
 
     # Nominal message period in nanoseconds
     T_ns = ds['data'].metadata["sync_period"]*1e9
+
     # Message rate
     ptp_rate = 1 / ds['data'].metadata["sync_period"]
 
+    # Drift compensation applied on packet selection algorithms during the main
+    # processing and the window optimization processing
+    drift_comp = not args.pkts_no_drift_comp
+
     if (detect_outliers):
         _run_outlier_detection(ds['data'].data)
+
+    # Compute the maximum fraction of the dataset to be occupied by the drift
+    # estimator's transient phase
+    max_drift_transient = _calc_max_drift_est_transient(
+        args.skip, drift_comp, args.optimizer_max_window, len(ds['data'].data))
 
     # Bias estimates
     bias_est = _compute_ideal_bias_estimates(ds['data'].data)
@@ -442,16 +503,14 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
     # NOTE: the truth values are accurate within +-8ns, so the difference
     # between two timestamps can contain an error within +-16ns. Use a window of
     # at least 32 seconds so that this error falls into the sub-ppb region.
-    _run_foffset_estimation(ds['data'].data, N=int(ptp_rate*32))
+    _run_foffset_estimation(ds['data'].data, N=int(ptp_rate*32),
+                            max_transient=max_drift_transient)
 
     # Estimate the time offset drifts used for drift compensation on packet
     # selection algorithms.
     _run_drift_estimation(ds['data'].data, strategy=args.drift_est_strategy,
-                          cache=ds['cache'], force=args.optimizer_force)
-
-    # Drift compensation applied on packet selection algorithms during the main
-    # processing and the window optimization processing
-    drift_comp = not args.pkts_no_drift_comp
+                          cache=ds['cache'], force=args.optimizer_force,
+                          max_transient=max_drift_transient)
 
     if (args.no_optimizer):
         window_lengths = default_window_lengths
@@ -487,7 +546,7 @@ def analyze(ds, args, no_processing=False, save=True):
     """Analyze results"""
     _run_analyzer(ds['data'].data, ds['data'].metadata, ds['path'],
                   ds['source'], eps_format=args.eps, dpi=args.dpi,
-                  uselatex=args.latex, prefix=args.plot_prefix,
+                  uselatex=args.latex, skip=args.skip, prefix=args.plot_prefix,
                   cache=ds['cache'], save=save, no_processing=no_processing)
 
 

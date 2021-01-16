@@ -110,8 +110,8 @@ class Estimator():
         for i,r in enumerate(self.data[self.delta:]):
             r["y_est"] = y_est[i]
 
-    def optimize_to_y(self, loss="mse"):
-        """"Optimize the observation interval used for freq. offset estimation
+    def optimize_to_y(self, loss="mse", max_window_span=0.2):
+        """Optimize the observation interval used for freq. offset estimation
 
         Optimizes the observation interval used for unbiased frequency offset
         estimations in order to minimize the error between the estimates and the
@@ -124,18 +124,25 @@ class Estimator():
         computation affects results and may render the optimization below less
         effective for drift compensation.
 
-        Args:
-            loss : Loss function (mse or max-error)
+        Args :
+            loss            : Loss function used to optimize the window length
+                              (mse or max-error),
+            max_window_span : Maximum fraction of the dataset to be occupied by
+                              the observation window. This parameter controls
+                              the maximum tolerable latency to obtain the first
+                              frequency offset estimate (by the end of the first
+                              observation window).
 
         """
         assert(loss in ["mse", "max-error"])
 
         log_min_window = 1
-        log_max_window = int(np.log2(len(self.data) / 2))
+        log_max_window = int(np.floor(np.log2(max_window_span*len(self.data))))
         log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
         window_len     = 2**log_window_len
         max_window_len = window_len[-1]
         n_samples      = len(self.data) - max_window_len
+        assert(n_samples > 0)
         # NOTE: n_samples is a number of samples that is guaranteed to be
         # available for all window lengths to be evaluated
 
@@ -173,7 +180,8 @@ class Estimator():
         logger.info("Optimum N: {}".format(N_opt))
         self.delta = N_opt
 
-    def optimize_to_drift(self, loss="mse", criterion='cumulative'):
+    def optimize_to_drift(self, loss="mse", criterion='cumulative',
+                          max_window_span=0.2):
         """Optimize the observation interval used for freq. offset estimation
 
         Optimize based on the time offset drift estimation errors. This
@@ -181,8 +189,16 @@ class Estimator():
         really care about is predicting drifts accurately.
 
         Args:
-            loss      : Loss function (mse or max-error)
-            criterion : Error criterion: cumulative or absolute
+            loss            : Loss function used to optimize the window length
+                              (mse or max-error).
+            criterion       : Whether the loss function is applied to the
+                              cumulative time offset drift or the absolute
+                              (instantaneous) time offset drift error.
+            max_window_span : Maximum fraction of the dataset to be occupied by
+                              the observation window. This parameter controls
+                              the maximum tolerable latency to obtain the first
+                              frequency offset and time offset drift estimates
+                              (by the end of the first observation window).
 
         Note:
             The cumulative criterion typically leads to better optimization
@@ -204,11 +220,12 @@ class Estimator():
         assert(loss in ["mse", "max-error"])
 
         log_min_window = 1
-        log_max_window = int(np.log2(len(self.data) / 2))
+        log_max_window = int(np.floor(np.log2(max_window_span*len(self.data))))
         log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
         window_len     = 2**log_window_len
         max_window_len = window_len[-1]
         n_samples      = len(self.data) - max_window_len
+        assert(n_samples > 0)
         # NOTE: n_samples is a number of samples that is guaranteed to be
         # available for all window lengths to be evaluated
 
@@ -314,7 +331,7 @@ class Estimator():
         """
         return int(4 / (damping * loopbw))
 
-    def loop(self, damping=1.0, loopbw=0.001):
+    def loop(self, damping=1.0, loopbw=0.001, max_settling=None):
         """Estimate time offset drifts using PI loop
 
         The PI loop tries to minimize the error between the input time offset
@@ -330,8 +347,9 @@ class Estimator():
         list, the loop is not locked yet at this point.
 
         Args:
-            damping : Damping factor
-            loopbw  : Loop bandwidth
+            damping      : Damping factor
+            loopbw       : Loop bandwidth
+            max_settling : Maximum acceptable settling time (in samples)
 
         """
         logger.debug("Run PI loop with damping {:f} and loop bw {:f}".format(
@@ -346,12 +364,13 @@ class Estimator():
         Ki = Kp_K0_K2; # integrator gain
 
         # Settling time
-        settling = self._settling_time(damping, loopbw)
+        settling     = self._settling_time(damping, loopbw)
+        max_settling = max_settling if max_settling else 0.2*len(self.data)
 
-        if (settling > 0.5*len(self.data)):
-            raise ValueError("Loop's settling time exceeds half the data length"
+        if (settling > max_settling):
+            raise ValueError("Loop's settling time exceeds {} samples"
                              "(damping: {:f}, loopbw: {:f})".format(
-                                 damping, loopbw))
+                                 max_settling, damping, loopbw))
 
         # Clean previous estimates
         for r in self.data:
@@ -396,19 +415,25 @@ class Estimator():
         return is_valid
 
     def optimize_loop(self, criterion='cumulative', loss="mse", cache=None,
-                      cache_id='loop', force=False):
+                      cache_id='loop', force=False, max_transient=0.2):
         """Find loop parameters that minimize the drift estimation error
 
         Tries some pre-defined damping factor and loop bandwidth values.
 
         Args:
-            criterion : Error criterion used for tuning: cumulative or absolute
-            loss      : Loss function (mse or max-error)
-            cache     : Cache handler used to save the optimized configuration
-                        in a json file
-            cache_id  : Cache object identifier
-            force     : Force processing even if a configuration file with the
-                        optimized parameters already exists in cache.
+            criterion     : Error criterion used for tuning: cumulative time
+                            offset drift error or absolute/instantaneous time
+                            offset drift error.
+            loss          : Loss function (mse or max-error).
+            cache         : Cache handler used to save the optimal configuration
+                            on a JSON file.
+            cache_id      : Cache object identifier
+            force         : Force processing even if a configuration file with
+                            the optimal parameters already exists in cache.
+            max_transient : Maximum fraction of the dataset to be occupied by
+                            the transient phase of the loop. This parameter
+                            controls the maximum tolerable latency to obtain the
+                            first drift estimates.
 
         """
         assert(criterion in ['cumulative', 'absolute'])
@@ -446,22 +471,24 @@ class Estimator():
         # the settling) that is guaranteed to exist for all parameters. This
         # result represents the number of samples that we can use to compare all
         # settings fairly, i.e., based on the same number of samples.
-        n_data       = len(self.data)
-        max_settling = 0
+        n_data         = len(self.data)
+        settling_limit = int(np.floor(max_transient * n_data))
+        settling_times = []
         for damping in damping_vec:
             for loopbw in loopbw_vec:
                 settling = self._settling_time(damping, loopbw)
-                if ((settling > max_settling) and (settling < int(0.5*n_data))):
-                    max_settling = settling
+                if (settling <= settling_limit):
+                    settling_times.append(settling)
 
-        n_samples = n_data - max_settling
+        n_samples = n_data - max(settling_times)
         # This is a number of steady-state drift estimates that is guaranteed to
         # be available for all damping and loopbw configurations
 
         for damping in damping_vec:
             for loopbw in loopbw_vec:
                 try:
-                    self.loop(damping = damping, loopbw = loopbw)
+                    self.loop(damping = damping, loopbw = loopbw,
+                              max_settling=settling_limit)
                 except ValueError as e:
                     logger.warning(e)
                     logger.warning("Skipping damping: {:f}, "
