@@ -1688,7 +1688,7 @@ class Analyser():
         plt.hist(np.diff(x), bins=n_bins, density=True)
         plt.xlabel('x[n] - x[n-1] (ns)')
         plt.ylabel('Probability Density')
-        plt.title('Time offset drift histogram')
+        plt.title('True time offset drift histogram')
 
         if (save):
             plt.tight_layout()
