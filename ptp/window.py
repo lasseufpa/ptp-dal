@@ -1,7 +1,7 @@
 """Helper class used to optimize processing window lengths
 """
 import logging, re, json, time, os
-import ptp.ls, ptp.pktselection, ptp.cache
+import ptp.ls, ptp.pktselection, ptp.cache, ptp.bias
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -60,6 +60,22 @@ class Optimizer():
         # Window configuration
         self._sample_skip = None
 
+    def _correct_pkts_bias(self, key):
+        """Correct the bias of packet selection algorithms"""
+        bias_corr_mode = self.pkts_opts['bias_corr_mode']
+        bias_est       = self.pkts_opts['bias_est']
+
+        if (not (bias_corr_mode == 'post' or bias_corr_mode == 'both')):
+            return
+
+        bias = ptp.bias.Bias(self.data)
+        for metric in ['median', 'min', 'max', 'mode']:
+            if (metric in bias_est and bias_est[metric]):
+                bias.compensate(corr=bias_est[metric],
+                                toffset_key=f"x_pkts_{metric}")
+            else:
+                logging.warning(f"Can't compensate asymmetry of {metric}")
+
     def _eval_error(self, window_vec, estimator, error_metric,
                     early_stopping=True, patience=5):
         """Evaluate the error for a given estimator and given window lengths
@@ -105,7 +121,33 @@ class Optimizer():
                 ls.process(impl=est_impl)
             else:
                 pkts    = ptp.pktselection.PktSelection(N, data)
-                pkts.process(strategy=est_impl, **self.pkts_opts)
+                pkts.process(strategy=est_impl,
+                             drift_comp=self.pkts_opts['drift_comp'])
+
+            # Correct bias if bias correction is enabled for packet selection
+            # algorithms
+            #
+            # NOTE: while packet selection algorithms use the bias
+            # post-compensation strategy (bias corrected on algorithm's output),
+            # LS can rely on the pre-compensation strategy (bias corrected on
+            # algorithms' input). Hence, if the goal is to apply bias correction
+            # on LS, it should be applied before calling the window
+            # optimizer. Refer to the implementation on analyze.py.
+            #
+            # Furthermore, note that bias compensation is important because the
+            # window optimizer must observe the same performance that will be
+            # obtained with the final processing of the algorithm (processed
+            # with the optimal window size). If bias correction is enabled for
+            # the final processing, then it must be considered here too.
+            #
+            # If the bias correction stage was ignored here, and if the bias is
+            # more significant than the variance, the optimizer would tend to
+            # converge to window sizes that coincidentally lead to the lowest
+            # bias. For example, if drift correction is not enabled, a specific
+            # window size may tend to accumulate enough time offset drift to
+            # counteract the algorithm's bias.
+            if (estimator != "ls"):
+                self._correct_pkts_bias(est_key)
 
             # The recursive moving average methods have transitories. Try to
             # skip them by throwing away an arbitrary number of initial values.

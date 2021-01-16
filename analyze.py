@@ -56,13 +56,18 @@ def _run_drift_estimation(data, cache, cache_id='loop'):
 
 
 def _run_window_optimizer(data, T_ns, metric, en_fine, force, max_window,
-                          early_stopping, cache, drift_comp):
+                          early_stopping, cache, drift_comp, bias, bias_est):
     """Run tuner of window lengths"""
 
-    window_optimizer = ptp.window.Optimizer(data, T_ns,
-                                            pkts_opts = {
-                                                'drift_comp' : drift_comp
-                                            })
+    # Options for packet selection algorithms executed internally within the
+    # optimizer
+    pkts_opts = {
+        'drift_comp' : drift_comp, # whether to apply drift compensation
+        'bias_corr_mode' : bias,   # bias correction mode
+        'bias_est' : bias_est      # bias estimates
+    }
+
+    window_optimizer = ptp.window.Optimizer(data, T_ns, pkts_opts)
     window_optimizer.process('all',
                              error_metric = metric,
                              fine_pass = en_fine,
@@ -397,6 +402,9 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
     bias_est = _compute_ideal_bias_estimates(ds['data'].data)
     if (args.bias == 'pre' or args.bias == 'both'):
         _run_pre_bias_compensation(ds['data'].data, bias_est)
+        # NOTE: this pre-compensation stage affects the window optimization. In
+        # contrast, the post-compensation stage below does not. Hence, the
+        # window optimizer includes its post-compensation stage internally.
 
     _run_foffset_estimation(ds['data'].data)
     _run_drift_estimation(ds['data'].data, cache=ds['cache'])
@@ -415,7 +423,9 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                                                args.optimizer_max_window,
                                                (not args.optimizer_no_stop),
                                                ds['cache'],
-                                               drift_comp)
+                                               drift_comp,
+                                               args.bias,
+                                               bias_est)
 
     if (ls):
         _run_ls(ds['data'].data, window_lengths['ls'], T_ns)
