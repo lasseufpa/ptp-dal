@@ -1112,12 +1112,13 @@ class Analyser():
                 plt.show()
             plt.close()
 
-    def plot_delay_vs_time(self, x_unit='time', split=False, save=True,
-                           save_format='png'):
+    def plot_delay_vs_time(self, x_unit='time', show_raw=True, split=False,
+                           save=True, save_format='png'):
         """Plot delay estimations vs time
 
         Args:
             x_unit      : Horizontal axis unit: 'time' in minutes or 'samples'
+            show_raw    : Show raw measurements
             split       : Whether to split m-to-s and s-to-m plots
             save        : Save the figure
             save_format : Select image format: 'png' or 'eps'
@@ -1139,7 +1140,9 @@ class Analyser():
 
         d      = [r["d"] for r in self.data]
         d_bw   = [r["d_bw"] for r in self.data]
-        d_est  = [r["d_est"] for r in self.data]
+
+        if (show_raw):
+            d_est  = [r["d_est"] for r in self.data]
 
         if (split):
             plt.figure()
@@ -1169,7 +1172,8 @@ class Analyser():
             plt.close()
         else:
             plt.figure()
-            plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
+            if (show_raw):
+                plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
             plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('Delay Estimation (ns)')
