@@ -81,6 +81,7 @@ def _run_kalman(data, T_ns, cache, force):
     kf.optimize(error_metric='mse', cache=cache, force=force)
     kf.process()
 
+
 def _run_ls(data, N_ls, T_ns):
     """Run Least-squares estimator"""
 
@@ -88,20 +89,39 @@ def _run_ls(data, N_ls, T_ns):
     ls.process("eff")
 
 
-def _run_pre_bias_compensation(data):
-    """Compensate the bias of two-way time offset measurements prior to
-     post-processing
+def _compute_ideal_bias_estimates(data):
+    """Compute the ideal bias estimates
 
-    NOTE: the raw time offset measurements are processed directly by some packet
-    selection operators (sample-average and EWMA), as well as by LS, Kalman and
-    the PI loop. Thus, with correction of the bias of "x_est" here it is
-    expected that the referred estimators also produce unbiased results.
+    Args:
+        data : Dataset.
+
+    Returns:
+        Dictionary with the ideal bias estimates.
 
     """
     bias = ptp.bias.Bias(data)
-    corr = {
-        'avg' : bias.calc_true_asymmetry(operator="raw")
-    }
+
+    bias_est = {}
+    for op in ['raw', 'median', 'min', 'max', 'mode']:
+        bias_est[op] = bias.calc_true_asymmetry(operator=op)
+
+    return bias_est
+
+
+def _run_pre_bias_compensation(data, corr):
+    """Compensate the bias of two-way time offset measurements before processing
+
+    The raw time offset measurements are processed directly by some packet
+    selection operators (sample-average and EWMA), as well as by LS, Kalman and
+    the PI loop. Thus, with correction of the bias of "x_est" here, it is
+    expected that the referred estimators also produce unbiased results.
+
+    Arguments:
+        data : Dataset.
+        corr : Dictionary with bias corrections to apply.
+
+    """
+    bias = ptp.bias.Bias(data)
 
     if ('avg' in corr and corr['avg']):
         bias.compensate(corr=corr['avg'], toffset_key="x_est")
@@ -109,40 +129,32 @@ def _run_pre_bias_compensation(data):
         logging.warning("Can't compensate average asymmetry")
 
 
-def _run_post_bias_compensation(data):
-    """Compensate bias of results produced by some packet selection operators"""
+def _run_post_bias_compensation(data, corr):
+    """Compensate bias of results produced by some packet selection operators
+
+    These operators process timestamp differences (t21 and t43) instead of the
+    raw time offset measurements "x_est". Furthermore, the packet selection
+    operators experience distinct asymmetries (max/min/mode/median). If the goal
+    was to pre-compensate their biases before running the algorithms, it would
+    be necessary to maintain different pre-compensated copies of t21 and t43,
+    each corrected by the specific asymmetry of interest. To avoid this
+    overhead, it's convenient to correct the estimates resulting from each
+    algorithm instead. This function corrects such estimates in place.
+
+    Args:
+        data : Dataset.
+        corr : Dictionary with bias corrections to apply.
+
+    """
 
     bias = ptp.bias.Bias(data)
-    corr = {
-        'median' : bias.calc_true_asymmetry(operator="median"),
-        'min'    : bias.calc_true_asymmetry(operator="min"),
-        'max'    : bias.calc_true_asymmetry(operator="max"),
-        'mode'   : bias.calc_true_asymmetry(operator="mode")
-    }
 
-    # Sample-median
-    if ('median' in corr and corr['median']):
-        bias.compensate(corr=corr['median'], toffset_key="x_pkts_median")
-    else:
-        logging.warning("Can't compensate asymmetry of median")
-
-    # Sample-minimum
-    if ('min' in corr and corr['min']):
-        bias.compensate(corr=corr['min'], toffset_key="x_pkts_min")
-    else:
-        logging.warning("Can't compensate asymmetry of minimum")
-
-    # Sample-maximum
-    if ('max' in corr and corr['max']):
-        bias.compensate(corr=corr['max'], toffset_key="x_pkts_max")
-    else:
-        logging.warning("Can't compensate asymmetry of maximum")
-
-    # Sample-mode
-    if ('mode' in corr and corr['mode']):
-        bias.compensate(corr=corr['mode'], toffset_key="x_pkts_mode")
-    else:
-        logging.warning("Can't compensate asymmetry of mode")
+    for metric in ['median', 'min', 'max', 'mode']:
+        if (metric in corr and corr[metric]):
+            bias.compensate(corr=corr[metric],
+                            toffset_key=f"x_pkts_{metric}")
+        else:
+            logging.warning(f"Can't compensate asymmetry of {metric}")
 
 
 def _run_pktselection(data, window_len, drift_comp=True):
@@ -381,8 +393,10 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
     if (detect_outliers):
         _run_outlier_detection(ds['data'].data)
 
+    # Bias estimates
+    bias_est = _compute_ideal_bias_estimates(ds['data'].data)
     if (args.bias == 'pre' or args.bias == 'both'):
-        _run_pre_bias_compensation(ds['data'].data)
+        _run_pre_bias_compensation(ds['data'].data, bias_est)
 
     _run_foffset_estimation(ds['data'].data)
     _run_drift_estimation(ds['data'].data, cache=ds['cache'])
@@ -415,7 +429,7 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                           drift_comp = drift_comp)
 
     if (args.bias == 'post' or args.bias == 'both'):
-        _run_post_bias_compensation(ds['data'].data)
+        _run_post_bias_compensation(ds['data'].data, bias_est)
 
 
 def analyze(ds, args, no_processing=False, save=True):
