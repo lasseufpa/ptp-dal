@@ -46,7 +46,8 @@ def _run_foffset_estimation(data, N=64, optimize=True):
     freq_estimator.process()
 
 
-def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop'):
+def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop',
+                          force=False):
     """Run time offset drift estimations through the PI control loop"""
     assert(strategy in ["loop", "unbiased"])
 
@@ -55,7 +56,8 @@ def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop'):
     if (strategy == "loop"):
         damping, loopbw = freq_estimator.optimize_loop(loss="max-error",
                                                        cache=cache,
-                                                       cache_id=cache_id)
+                                                       cache_id=cache_id,
+                                                       force=force)
         freq_estimator.loop(damping = damping, loopbw = loopbw)
     else:
         freq_estimator.optimize_to_drift(loss="max-error")
@@ -438,7 +440,7 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
     # Estimate the time offset drifts used for drift compensation on packet
     # selection algorithms.
     _run_drift_estimation(ds['data'].data, strategy=args.drift_est_strategy,
-                          cache=ds['cache'])
+                          cache=ds['cache'], force=args.optimizer_force)
 
     # Drift compensation applied on packet selection algorithms during the main
     # processing and the window optimization processing
