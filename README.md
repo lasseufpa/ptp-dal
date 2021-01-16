@@ -39,7 +39,7 @@ Main scripts:
   algorithms.
 * `capture.py` : Acquires timestamp data from the testbed in real-time.
 * `catalog.py` : Catalogs datasets acquired with the testbed.
-* `download.py` : Downloads a testbed dataset from our local repository (kept at
+* `dataset.py` : Downloads a testbed dataset from our local repository (kept at
   `Lasse100` machine).
 
 Complementary:
@@ -86,7 +86,7 @@ First download a dataset that was acquired with the testbed. They are kept at
 download a JSON dataset (such as `serial-20200107-111932.json`) as follows:
 
 ```
-./download.py serial-20200107-111932.json
+./dataset.py download -f serial-20200107-111932.json
 ```
 
 Then run `analyze.py` with the downloaded dataset. This script will

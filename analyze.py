@@ -11,7 +11,7 @@ import ptp.frequency
 import ptp.window
 import ptp.outlier
 import ptp.bias
-import ptp.download
+import ptp.datasets
 import ptp.cache
 
 
@@ -273,8 +273,8 @@ def main():
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
     # Download the dataset if not available
-    downloader = ptp.download.Download(args.file)
-    ds_path = downloader.run()
+    ds_manager = ptp.datasets.Datasets()
+    ds_path    = ds_manager.download(args.file)
 
     # Define cache handler
     cache = None if args.no_cache else ptp.cache.Cache(ds_path)
