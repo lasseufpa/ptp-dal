@@ -112,7 +112,7 @@ def main():
 
     # Time offset drift estimations through the PI control loop
     freq_estimator  = ptp.frequency.Estimator(ptp_src.data)
-    damping, loopbw = freq_estimator.optimize_loop(cache)
+    damping, loopbw = freq_estimator.optimize_loop(cache=cache)
     freq_estimator.loop(damping = damping, loopbw = loopbw)
 
     # Optimize window lengths
