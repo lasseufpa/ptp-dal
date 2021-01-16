@@ -77,38 +77,46 @@ def _calc_max_drift_est_transient(skip, drift_comp, optimizer_max_window,
     return max_drift_transient
 
 
-def _run_foffset_estimation(data, N=64, optimize=True, max_transient=0.2):
+def _run_foffset_estimation(data, N=64, strategy="two-way", loss="mse",
+                            max_transient=0.2, truth_only=False):
     """Run frequency offset estimations"""
-
     freq_estimator = ptp.frequency.Estimator(data, delta=N)
+    freq_estimator.set_truth()
 
-    if (optimize):
-        freq_estimator.set_truth()
-        freq_estimator.optimize_to_y(max_window_span=max_transient)
+    if (not truth_only):
+        freq_estimator.optimize_to_y(strategy, loss=loss,
+                                     max_window_span=max_transient)
+        freq_estimator.process(strategy)
 
-    freq_estimator.process()
 
-
-def _run_drift_estimation(data, cache, strategy="loop", cache_id='loop',
-                          force=False, max_transient=0.2):
+def _run_drift_estimation(data, strategy, pkts=False, loss="max-error",
+                          cache=None, cache_id='drift_est', force=False,
+                          max_transient=0.2):
     """Run time offset drift estimations through the PI control loop"""
-    assert(strategy in ["loop", "unbiased"])
+    assert(strategy in ["loop", "unbiased-two-way", "unbiased-one-way",
+                        "unbiased-one-way-reversed"])
 
-    freq_estimator  = ptp.frequency.Estimator(data)
+    freq_estimator  = ptp.frequency.Estimator(data, pkts=pkts)
 
     if (strategy == "loop"):
         damping, loopbw = freq_estimator.optimize_loop(
-            loss="max-error",
+            loss=loss,
             cache=cache,
-            cache_id=cache_id,
+            cache_id=cache_id + "_loop",
             force=force,
             max_transient=max_transient)
         freq_estimator.loop(damping = damping, loopbw = loopbw,
                             settling=max_transient)
     else:
-        freq_estimator.optimize_to_drift(loss="max-error",
-                                         max_window_span=max_transient)
-        freq_estimator.process()
+        # Select the unbiased frequency offset computation strategy
+        strategy = strategy.replace("unbiased-", "")
+        freq_estimator.optimize_to_drift(strategy,
+                                         loss=loss,
+                                         max_window_span=max_transient,
+                                         cache=cache,
+                                         cache_id=cache_id,
+                                         force=force)
+        freq_estimator.process(strategy)
         freq_estimator.estimate_drift()
 
 
@@ -444,12 +452,27 @@ def parse_args():
     d_opts = parser.add_argument_group('Drift Estimation Options')
     d_opts.add_argument('--drift-est-strategy',
                         default="loop",
-                        choices=["loop", "unbiased"],
+                        choices=["loop", "unbiased-two-way", "unbiased-one-way",
+                                 "unbiased-one-way-reversed"],
                         help='Drift estimation strategy. Select \"loop\" to \
                         use the drift estimates produced by the TLL PI loop or \
                         \"unbiased\" to use the conventional unbiased \
                         frequency offset estimator based on intervals measured \
-                        at the slave and the master.')
+                        at the slave and the master. Select specifically which \
+                        unbiased estimation formulation to use: two-way, \
+                        one-way, or reversed one-way.')
+    d_opts.add_argument('--drift-est-pkts',
+                        choices=["sample-min", "sample-max", None],
+                        default=None,
+                        help='Apply packet selection pre-filtering before \
+                        frequency offset and drift estimations. Valid when \
+                        using the unbiased frequency offset estimation \
+                        strategy.')
+    d_opts.add_argument('--drift-est-loss',
+                        default="max-error",
+                        choices=["max-error", "mse"],
+                        help='Loss function used to optimize the drift \
+                        estimator.')
 
     plot_opts = parser.add_argument_group('Plot Options')
     plot_opts.add_argument('--eps',
@@ -565,16 +588,32 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
 
     # Estimate the frequency offset throughout the acquisition
     #
-    # NOTE: the truth values are accurate within +-8ns, so the difference
-    # between two timestamps can contain an error within +-16ns. Use a window of
-    # at least 32 seconds so that this error falls into the sub-ppb region.
-    _run_foffset_estimation(ds['data'].data, N=int(ptp_rate*32),
-                            max_transient=max_drift_transient)
+    # NOTE:
+    #
+    # 1) The truth values are accurate within +-8ns, so the difference between
+    # two timestamps can contain an error within +-16ns. Use a window of at
+    # least 32 seconds so that this error falls into the sub-ppb region when
+    # divided by the interval. That is, (+-16 ns)/(32 sec) = +-1 ns/sec (ppb).
+    #
+    # 2) When the drift estimation executed by "_run_drift_estimation()" uses
+    # unbiased frequency offset estimates, it also estimates the frequency
+    # offset. With that, it overwrites any estimation produced by
+    # "_run_foffset_estimation()". In this case, it is useless to estimate the
+    # frequency offset here. Nevertheless, call the function regardless because
+    # it will at least compute the "true frequency offset", which is useful for
+    # visualization on plots (i.e., use argument "truth_only").
+    _run_foffset_estimation(ds['data'].data,
+                            N=int(ptp_rate * 32),
+                            loss=args.drift_est_loss,
+                            max_transient=max_drift_transient,
+                            truth_only=(args.drift_est_strategy != "loop"))
 
     # Estimate the time offset drifts used for drift compensation on packet
     # selection algorithms.
-    _run_drift_estimation(ds['data'].data, strategy=args.drift_est_strategy,
-                          cache=ds['cache'], force=args.optimizer_force,
+    _run_drift_estimation(ds['data'].data, args.drift_est_strategy,
+                          pkts=args.drift_est_pkts,
+                          loss=args.drift_est_loss, cache=ds['cache'],
+                          force=args.optimizer_force,
                           max_transient=max_drift_transient)
 
     if (args.no_optimizer):

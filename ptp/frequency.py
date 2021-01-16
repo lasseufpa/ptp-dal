@@ -3,27 +3,64 @@
 import numpy as np
 import logging, os, json
 import ptp.cache
+import ptp.filters
 logger = logging.getLogger(__name__)
 
 
 class Estimator():
     """Frequency offset estimator"""
-    def __init__(self, data, delta=1):
+    def __init__(self, data, delta=1, pkts=None, N_pkts=128):
         """Initialize the frequency offset estimator
 
         Args:
-            data  : Array of objects with simulation data
-            delta : (int > 0) Observation interval in samples. When set to 1,
-                    estimates the frequency offsets based on consecutive data
-                    entries.  When set to 2, estimates frequency offset i based
-                    on timestamps from the i-th iteration and from iteration
-                    'i-2', and so on.
+            data   : Array of objects with simulation data
+            delta  : (int > 0) Observation interval in samples. When set to 1,
+                     estimates the frequency offsets based on consecutive data
+                     entries.  When set to 2, estimates frequency offset i based
+                     on timestamps from the i-th iteration and from iteration
+                     'i-2', and so on.
+            pkts   : Packet selection/filtering strategy to apply before
+                     computing unbiased frequency offet estimates (sample-min
+                     or sample-max). When set to None, disables the
+                     pre-filtering stage.
+            N_pkts : Packet selection window length.
+
 
         """
         assert(delta > 0)
         assert(isinstance(delta, int))
+        assert(pkts in ["sample-min", "sample-max", None])
         self.data  = data
         self.delta = delta
+
+        # If using packet selection
+        self.pkts   = pkts
+        self.N_pkts = 128
+
+    def _is_cached_cfg_valid(self, cfg, target_cfg):
+        """Check if the cached configuration is valid
+
+        Compare the cached configuration to a target configuration
+
+        Args:
+            cfg           : Cached configuration.
+            target_cfg    : Target configuration.
+
+        Returns:
+            (bool) True when cached configuration is valid.
+
+        """
+        for k in target_cfg:
+            # All keys from the target configuration must be present on the
+            # cached configuration
+            if (k not in cfg):
+                return False
+
+            # All values must match
+            if (cfg[k] != target_cfg[k]):
+                return False
+
+        return True
 
     def _eval_drift_err(self, loss, criterion, n_samples=0, N=8192):
         """Evaluate the drift estimation error relative to true drift
@@ -117,6 +154,107 @@ class Estimator():
         elif (loss == "max-error"):
             return np.amax(np.abs(cum_drift_err))
 
+    def _get_window_range(self, max_window_span):
+        """Compute the range of window lengths for frequency offset estimates
+
+        Compute window ranges both for the unbiased frequency offset estimates
+        and for the packet filtering layer preceding it, if used.
+
+        Use a relatively short window range for the packet filtering layer,
+        given that, unlike the processing used for time offset estimates, there
+        is no drift correction prior to this packet filtering (for frequency
+        offset estimates). After all, we're still trying to estimate the drifts.
+
+        Args:
+            max_window_span : Maximum fraction of the dataset to be occupied by
+                              the observation window. This parameter controls
+                              the maximum tolerable latency to obtain the first
+                              frequency offset estimate (by the end of the first
+                              observation window).
+
+        Returns:
+            Tuple containing the arrays (np.ndarray) of window lengths to be
+            used for frequency offset estimation and by the preceding
+            packet filtering layer when active.
+
+        """
+        # Short packet filtering window range
+        if (self.pkts is not None):
+            pkts_window_len = 2**np.arange(2, 10) # 2**2 to 2**9
+        else:
+            pkts_window_len = [0]
+
+        # Window limit for the actual frequency offset estimation
+        window_len_lim = max_window_span * len(self.data)
+
+        # If using packet filtering, consider its transient on the window limit
+        if (self.pkts is not None):
+            window_len_lim -= np.max(pkts_window_len)
+
+        log_max_window = int(np.floor(np.log2(window_len_lim)))
+        window_len     = 2**np.arange(1, log_max_window + 1)
+
+        return window_len, pkts_window_len
+
+    def _pkts(self, strategy):
+        """Estimate the frequency offsets using packet selection pre-processing
+
+        Based on timestamp differences:
+
+            t21[n] = t2[n] - t1[n] = +x[n] + dms[n],
+            t43[n] = t4[n] - t3[n] = -x[n] + dsm[n],
+
+        process a window of t21[n] and/or t43[n] and estimate the frequency
+        offset using the filtered processed timestamps. Filter with a
+        moving-minimum or moving-maximum filter, so that the delays are more
+        consistently canceled out in the noise term that affects the unbiased
+        frequency offset estimates.
+
+        Args:
+            strategy   : Select between one-way, one-way-reversed, and two-way.
+                         The one-way strategy uses the m-to-s timestamps (t1 and
+                         t2) only. The two-way strategy relies on the two-way
+                         time offset measurements (x_est), namely on all
+                         timestamps (t1, t2, t3, and t4). The reversed one-way
+                         strategy uses the s-to-m timestamps (t3 and t4) only.
+
+        """
+        assert(self.pkts is not None)
+        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
+
+        # Packet filtering window and operator
+        N  = self.N_pkts
+        op = ptp.filters.moving_minimum if self.pkts == "sample-min" else \
+             ptp.filters.moving_maximum
+
+        if (strategy == "one-way"):
+            t1        = np.array([float(r["t1"]) for r in self.data])
+            t21       = np.array([float(r["t2"] - r["t1"]) for r in self.data])
+            t21_min   = op(N, t21)
+            delta_t1  = t1[(self.delta + N - 1):] - t1[(N-1):-self.delta]
+            delta_t21 = t21_min[self.delta:] - t21_min[:-self.delta]
+            y_est     = delta_t21 / delta_t1
+        elif (strategy == "one-way-reversed"):
+            t4        = np.array([float(r["t4"]) for r in self.data])
+            t43       = np.array([float(r["t4"] - r["t3"]) for r in self.data])
+            t43_min   = op(N, t43)
+            delta_t4  = t4[(self.delta + N - 1):] - t4[(N-1):-self.delta]
+            delta_t43 = t43_min[self.delta:] - t43_min[:-self.delta]
+            y_est     = -delta_t43 / delta_t4
+        elif (strategy == "two-way"):
+            t1        = np.array([float(r["t1"]) for r in self.data])
+            t21       = np.array([float(r["t2"] - r["t1"]) for r in self.data])
+            t43       = np.array([float(r["t4"] - r["t3"]) for r in self.data])
+            t21_min   = op(N, t21)
+            t43_min   = op(N, t43)
+            delta_t1  = t1[(self.delta + N - 1):] - t1[(N-1):-self.delta]
+            delta_t21 = t21_min[self.delta:] - t21_min[:-self.delta]
+            delta_t43 = t43_min[self.delta:] - t43_min[:-self.delta]
+            y_est     = 0.5 * (delta_t21 - delta_t43) / delta_t1
+
+        for i,r in enumerate(self.data[(self.delta + N -1):]):
+            r["y_est"] = y_est[i]
+
     def process(self, strategy="two-way"):
         """Process the data
 
@@ -124,6 +262,19 @@ class Estimator():
         data. Do so by comparing interval measurements of the slave and the
         master. This is equivalent to differentiating the time offset
         measurements.
+
+        Compute one of the following:
+
+            y_est_1[n] = (t21[n] - t21[n-N]) / (t1[n] - t1[n-N]),
+
+        or
+            y_est_2[n] = -(t43[n] - t43[n-N]) / (t4[n] - t4[n-N]),
+
+        or
+            y_est_3[n]   = (y_est_1[n] + y_est_2[n]) / 2.
+
+        These are the one-way, reversed one-way, and two-way implementations,
+        respectively.
 
         Args:
             strategy : Select between one-way, one-way-reversed, and two-way.
@@ -140,6 +291,10 @@ class Estimator():
         # Remove previous estimates in case they already exist
         for r in self.data:
             r.pop("y_est", None)
+
+        if (self.pkts is not None):
+            self._pkts(strategy)
+            return
 
         if (strategy == "one-way"):
             t1           = np.array([float(r["t1"]) for r in self.data])
@@ -163,7 +318,7 @@ class Estimator():
         for i,r in enumerate(self.data[self.delta:]):
             r["y_est"] = y_est[i]
 
-    def optimize_to_y(self, loss="mse", max_window_span=0.2):
+    def optimize_to_y(self, strategy, loss="mse", max_window_span=0.2):
         """Optimize the observation interval used for freq. offset estimation
 
         Optimizes the observation interval used for unbiased frequency offset
@@ -178,8 +333,9 @@ class Estimator():
         effective for drift compensation.
 
         Args :
+            strategy        : Unbiased frequency offset estimation strategy.
             loss            : Loss function used to optimize the window length
-                              (mse or max-error),
+                              (mse or max-error).
             max_window_span : Maximum fraction of the dataset to be occupied by
                               the observation window. This parameter controls
                               the maximum tolerable latency to obtain the first
@@ -187,61 +343,68 @@ class Estimator():
                               observation window).
 
         """
+        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
         assert(loss in ["mse", "max-error"])
 
-        log_min_window = 1
-        log_max_window = int(np.floor(np.log2(max_window_span*len(self.data))))
-        log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
-        window_len     = 2**log_window_len
-        max_window_len = window_len[-1]
-        n_samples      = len(self.data) - max_window_len
+        # Window length ranges
+        window_len, pkts_window_len = self._get_window_range(max_window_span)
+
+        # Number of samples guaranteed to be available for all window lengths
+        n_samples = int(np.floor((1 - max_window_span)*len(self.data)))
         assert(n_samples > 0)
-        # NOTE: n_samples is a number of samples that is guaranteed to be
-        # available for all window lengths to be evaluated
 
         logger.info("Optimize observation window" %())
-        logger.info("Try from N = %d to N = %d" %(
-            2**log_min_window, 2**log_max_window))
+        logger.info("Try from N = {} to N = {}".format(min(window_len),
+                                                       max(window_len)))
+        if (self.pkts is not None):
+            logger.info("Try {} from N = {} to N = {}".format(
+                self.pkts, min(pkts_window_len), max(pkts_window_len)))
 
-        min_error = np.inf
-        N_opt     = 0
+        min_error  = np.inf
+        N_opt      = 0
+        N_pkts_opt = 0
+        for N_pkts in pkts_window_len:
+            for N in window_len:
+                # Re-estimate using new window lengths
+                self.delta  = N
+                self.N_pkts = N_pkts
+                self.process(strategy)
 
-        for N in window_len:
-            for r in self.data:
-                r.pop("y_est", None)
+                # Estimation error
+                y_err = np.array([ 1e9*(r["y_est"] - r["rtc_y"])
+                                   for r in self.data[self.delta:]
+                                   if ("y_est" in r and "rtc_y" in r) ])
 
-            self.delta = N
-            self.process()
+                if (loss == "mse"):
+                    error = np.square(y_err[:n_samples]).mean()
+                    # Only use `n_samples` out of y_err. This way, all window
+                    # lengths are compared based on the same number of samples.
+                elif (loss == "max-error"):
+                    error = np.amax(np.abs(y_err[:n_samples]))
 
-            y_err = np.array([ 1e9*(r["y_est"] - r["rtc_y"])
-                               for r in self.data[self.delta:]
-                               if ("y_est" in r and "rtc_y" in r) ])
-
-            if (loss == "mse"):
-                error = np.square(y_err[:n_samples]).mean()
-                # Only use `n_samples` out of y_err. This way, all window
-                # lengths are compared based on the same number of samples.
-            elif (loss == "max-error"):
-                error = np.amax(np.abs(y_err[:n_samples]))
-
-            if (error < min_error):
-                N_opt     = N
-                min_error = error
+                if (error < min_error):
+                    N_opt      = N
+                    N_pkts_opt = N_pkts
+                    min_error = error
 
         loss_label = "MSE" if loss == "mse" else "Max|Error|"
         logger.info("Minimum {}: {} ppb".format(loss_label, error))
         logger.info("Optimum N: {}".format(N_opt))
-        self.delta = N_opt
+        logger.info("Optimum N_pkts: {}".format(N_pkts_opt))
+        self.delta  = N_opt
+        self.N_pkts = N_pkts_opt
 
-    def optimize_to_drift(self, loss="mse", criterion='cumulative',
-                          max_window_span=0.2):
+    def optimize_to_drift(self, strategy, loss="mse", criterion='cumulative',
+                          max_window_span=0.2, cache=None,
+                          cache_id='drift_estimator', force=False):
         """Optimize the observation interval used for freq. offset estimation
 
         Optimize based on the time offset drift estimation errors. This
         optimizer can lead to better performance because, in the end, what we
         really care about is predicting drifts accurately.
 
-        Args:
+        Args :
+            strategy        : Unbiased frequency offset estimation strategy.
             loss            : Loss function used to optimize the window length
                               (mse or max-error).
             criterion       : Whether the loss function is applied to the
@@ -252,6 +415,11 @@ class Estimator():
                               the maximum tolerable latency to obtain the first
                               frequency offset and time offset drift estimates
                               (by the end of the first observation window).
+            cache           : Cache handler used to save the optimal
+                              configuration on a JSON file.
+            cache_id        : Cache object identifier.
+            force           : Force processing even if a configuration file with
+                              the optimal parameters already exists in cache.
 
         Note:
             The cumulative criterion typically leads to better optimization
@@ -269,44 +437,81 @@ class Estimator():
             cumulative error considers the actual drift estimation errors.
 
         """
+        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
         assert(criterion in ['cumulative', 'instantaneous'])
         assert(loss in ["mse", "max-error"])
 
-        log_min_window = 1
-        log_max_window = int(np.floor(np.log2(max_window_span*len(self.data))))
-        log_window_len = np.arange(log_min_window, log_max_window + 1, 1)
-        window_len     = 2**log_window_len
-        max_window_len = window_len[-1]
-        n_samples      = len(self.data) - max_window_len
+        # Check if a cached configuration file exists and is valid
+        if (cache is not None):
+            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
+            cached_cfg = cache.load(cache_id)
+
+            if (cached_cfg and not force):
+                target_cfg = {
+                    'data_len'      : len(self.data),
+                    'max_transient' : max_window_span,
+                    'strategy'      : strategy,
+                    'loss'          : loss,
+                    'criterion'     : criterion,
+                    'pkts'          : self.pkts
+                }
+                if (self._is_cached_cfg_valid(cached_cfg, target_cfg)):
+                    self.delta  = cached_cfg['N']
+                    self.N_pkts = cached_cfg['N_pkts']
+        else:
+            logging.info("Unable to find cached configuration file")
+
+        # Window length ranges
+        window_len, pkts_window_len = self._get_window_range(max_window_span)
+
+        # Number of samples guaranteed to be available for all window lengths
+        n_samples = int(np.floor((1 - max_window_span)*len(self.data)))
         assert(n_samples > 0)
-        # NOTE: n_samples is a number of samples that is guaranteed to be
-        # available for all window lengths to be evaluated
 
-        logger.info("Optimize observation window" %())
-        logger.info("Try from N = %d to N = %d" %(
-            2**log_min_window, 2**log_max_window))
+        logger.info("Optimize observation window")
+        logger.info("Try from N = {} to N = {}".format(min(window_len),
+                                                       max(window_len)))
+        if (self.pkts is not None):
+            logger.info("Try {} from N = {} to N = {}".format(
+                self.pkts, min(pkts_window_len), max(pkts_window_len)))
 
-        m_error     = np.inf
-        N_opt       = 0
-        for N in window_len:
-            for r in self.data:
-                r.pop("y_est", None)
-                r.pop("drift", None)
+        m_error    = np.inf
+        N_opt      = 0
+        N_pkts_opt = 0
+        for N_pkts in pkts_window_len:
+            for N in window_len:
+                # Re-estimate using new window lengths
+                self.delta  = N
+                self.N_pkts = N_pkts
+                self.process(strategy)
+                self.estimate_drift()
 
-            self.delta = N
-            self.process()
-            self.estimate_drift()
+                # Estimation error
+                error = self._eval_drift_err(loss, criterion, n_samples)
 
-            error = self._eval_drift_err(loss, criterion, n_samples)
-
-            if (error < m_error):
-                m_error = error
-                N_opt   = N
+                if (error < m_error):
+                    m_error  = error
+                    N_opt    = N
+                    N_pkts_opt = N_pkts
 
         loss_label = "MSE" if loss == "mse" else "Max|Error|"
         logger.info("Minimum {}: {} ppb".format(loss_label, m_error))
         logger.info("Optimum N: {}".format(N_opt))
-        self.delta = N_opt
+        logger.info("Optimum N_pkts: {}".format(N_pkts_opt))
+        self.delta  = N_opt
+        self.N_pkts = N_pkts_opt
+
+        # Save optimal configuration and metadata to cache
+        if (cache is not None):
+            cache.save({'data_len'      : len(self.data),
+                        'max_transient' : max_window_span,
+                        'criterion'     : criterion,
+                        'loss'          : loss,
+                        'strategy'      : strategy,
+                        'pkts'          : self.pkts,
+                        'N'             : int(N_opt),
+                        'N_pkts'        : int(N_pkts_opt)},
+                       identifier=cache_id)
 
     def set_truth(self, delta=None):
         """Set "true" frequency offset based on "true" time offset measurements
@@ -434,25 +639,6 @@ class Estimator():
 
             dds += f_err
 
-    def _is_cfg_loop_valid(self, data, error):
-        """Check if the cached PI loop configuration is valid.
-
-        The configuration is assumed valid if 1) the number of samples contained
-        in the cached data is the same as the number of samples currently within
-        self.data; and 2) the error (absolute or cumulative) criterion used for
-        tuning the parameters is also the same.
-
-        Args:
-            data  : Cached optimal loop configuration
-            error : Error criterion used for tuning: cumulative or absolute
-
-        """
-        is_valid  = (data is not None) and \
-                    (data['n_samples'] == len(self.data)) and \
-                    (data['error'] == error)
-
-        return is_valid
-
     def optimize_loop(self, criterion='cumulative', loss="mse", cache=None,
                       cache_id='loop', force=False, max_transient=0.2):
         """Find loop parameters that minimize the drift estimation error
@@ -485,13 +671,18 @@ class Estimator():
         # Check if a cached configuration file exists and is valid
         if (cache is not None):
             assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
-            cached_loop_cfg = cache.load(cache_id)
+            cached_cfg = cache.load(cache_id)
 
-            if (cached_loop_cfg and not force):
-                if (self._is_cfg_loop_valid(cached_loop_cfg, criterion)):
-                    best_damping = cached_loop_cfg['damping']
-                    best_loopbw  = cached_loop_cfg['loopbw']
-
+            if (cached_cfg and not force):
+                target_cfg = {
+                    'data_len'      : len(self.data),
+                    'max_transient' : max_transient,
+                    'criterion'     : criterion,
+                    'loss'          : loss
+                }
+                if (self._is_cached_cfg_valid(cached_cfg, target_cfg)):
+                    best_damping = cached_cfg['damping']
+                    best_loopbw  = cached_cfg['loopbw']
                     return best_damping, best_loopbw
         else:
             logging.info("Unable to find cached configuration file")
@@ -530,12 +721,14 @@ class Estimator():
         logger.info("Damping factor: {:f}".format(best_damping))
         logger.info("Loop bandwidth: {:f}".format(best_loopbw))
 
+        # Save optimal configuration and metadata to cache
         if (cache is not None):
-            # Save optimal configuration
-            cache.save({'n_samples' : len(self.data),
-                        'error'     : criterion,
-                        'damping'   : best_damping,
-                        'loopbw'    : best_loopbw},
+            cache.save({'data_len'      : len(self.data),
+                        'max_transient' : max_transient,
+                        'criterion'     : criterion,
+                        'loss'          : loss,
+                        'damping'       : best_damping,
+                        'loopbw'        : best_loopbw},
                        identifier=cache_id)
 
         return best_damping, best_loopbw
