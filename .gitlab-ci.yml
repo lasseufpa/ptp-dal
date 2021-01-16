@@ -1,7 +1,7 @@
 before_script:
   - virtualenv --python=`which python3` ptp-env
   - source ptp-env/bin/activate
-  - pip install -r requirements.txt
+  - pip install -r test-requirements.txt
 
 after_script:
   - deactivate
