@@ -261,15 +261,15 @@ def main():
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)
 
-    # Define cache handler
-    cache = None if args.no_cache else ptp.cache.Cache(args.file)
-
     # Download the dataset if not available
     downloader = ptp.download.Download(args.file)
-    downloader.run()
+    ds_path = downloader.run()
+
+    # Define cache handler
+    cache = None if args.no_cache else ptp.cache.Cache(ds_path)
 
     # Run PTP simulation
-    reader = ptp.reader.Reader(args.file, infer_secs = args.infer_secs,
+    reader = ptp.reader.Reader(ds_path, infer_secs = args.infer_secs,
                                reverse_ms = True)
     reader.run(args.num_iter)
 
@@ -277,7 +277,7 @@ def main():
         reader.trim(args.time_interval)
 
     if (args.analyze_only):
-        _run_analyzer(reader.data, reader.metadata, args.file, stats=False)
+        _run_analyzer(reader.data, reader.metadata, ds_path, stats=False)
         return
 
     # Nominal message period in nanoseconds
@@ -293,7 +293,7 @@ def main():
     if (args.no_optimizer):
         window_lengths = default_window_lengths
     else:
-        window_lengths = _run_window_optimizer(reader.data, T_ns, args.file,
+        window_lengths = _run_window_optimizer(reader.data, T_ns, ds_path,
                                                args.optimizer_metric,
                                                args.no_optimizer_plots,
                                                args.optimizer_fine,
@@ -310,7 +310,7 @@ def main():
     if (args.bias == 'post' or args.bias == 'both'):
         _run_post_bias_compensation(reader.data)
 
-    _run_analyzer(reader.data, reader.metadata, args.file)
+    _run_analyzer(reader.data, reader.metadata, ds_path)
 
 
 if __name__ == "__main__":

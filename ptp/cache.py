@@ -25,7 +25,8 @@ class Cache():
         """
         this_file       = os.path.realpath(__file__)
         rootdir         = os.path.dirname(os.path.dirname(this_file))
-        self.ds_name    = os.path.splitext(os.path.basename(self.filename))[0]
+        no_ext_ds_name  = os.path.splitext(os.path.basename(self.filename))[0]
+        self.ds_name    = no_ext_ds_name.replace("-comp", "")
         cache_path      = os.path.join(rootdir, 'cache')
         self.cache_path = os.path.join(cache_path, self.ds_name)
         self.basename   = os.path.join(self.cache_path, self.ds_name)

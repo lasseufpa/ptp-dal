@@ -4,6 +4,7 @@ import logging, os, json, glob
 from ptp.timestamping import Timestamp
 from datetime import timedelta
 import json2html
+import ptp.compression
 
 logger = logging.getLogger(__name__)
 
@@ -50,25 +51,25 @@ class Docs():
             Dictionary containing the metadata
         """
         metadata = None
-        if (filename.endswith('.json')):
-            with open(filename) as fin:
-                dataset = json.load(fin)
 
-            # Check metadata for compatibility with old captures
-            if ('metadata' in dataset):
-                metadata = dataset['metadata']
-                # Add other relevat information
-                t_end       = Timestamp(dataset['data'][-1]["t2_sec"],
-                                        dataset['data'][-1]["t2"])
-                t_start     = Timestamp(dataset['data'][0]["t2_sec"],
-                                        dataset['data'][0]["t2"])
-                duration_ns = float(t_end - t_start)
-                duration_tdelta = timedelta(microseconds = (duration_ns / 1e3))
-                metadata['size']        = sizeof_fmt(os.path.getsize(filename))
-                metadata["n_exchanges"] = len(dataset['data'])
-                metadata["duration"]    = str(duration_tdelta)
-            else:
-                logger.info(f"File {filename} has no metadata")
+        codec = ptp.compression.Codec(filename=filename)
+        dataset = codec.decompress()
+
+        # Check metadata for compatibility with old captures
+        if ('metadata' in dataset):
+            metadata = dataset['metadata']
+            # Add other relevat information
+            t_end       = Timestamp(dataset['data'][-1]["t2_sec"],
+                                    dataset['data'][-1]["t2"])
+            t_start     = Timestamp(dataset['data'][0]["t2_sec"],
+                                    dataset['data'][0]["t2"])
+            duration_ns = float(t_end - t_start)
+            duration_tdelta = timedelta(microseconds = (duration_ns / 1e3))
+            metadata['size']        = sizeof_fmt(os.path.getsize(filename))
+            metadata["n_exchanges"] = len(dataset['data'])
+            metadata["duration"]    = str(duration_tdelta)
+        else:
+            logger.info(f"File {filename} does not have metadata")
 
         return metadata
 

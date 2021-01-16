@@ -1,5 +1,6 @@
 import logging, json, os
 import numpy as np
+import ptp.compression
 from ptp.timestamping import Timestamp
 from ptp.mechanisms import *
 logger = logging.getLogger(__name__)
@@ -207,26 +208,16 @@ class Reader():
 
         """
 
-        # If the dataset can't be found, check the local repo. Maybe the path
-        # provided to the dataset did not include the local repo.
-        if not os.path.exists(self.ds_file):
-            this_file   = os.path.realpath(__file__)
-            rootdir     = os.path.dirname(os.path.dirname(this_file))
-            local_repo  = os.path.join(rootdir, "data")
-            ds_basename = os.path.basename(self.ds_file)
-            local_path  = os.path.join(local_repo, ds_basename)
-            if os.path.exists(local_path):
-                self.ds_file = local_path
-
-        with open(self.ds_file) as fin:
-            fd = json.load(fin)
+        # Load and decompress dataset
+        codec = ptp.compression.Codec(filename=self.ds_file)
+        ds = codec.decompress()
 
         # Check metadata for compatibility with old captures
-        if ('metadata' in fd):
-            self.metadata = fd['metadata']
-            data          = fd['data']
+        if ('metadata' in ds):
+            self.metadata = ds['metadata']
+            data          = ds['data']
         else:
-            data = fd
+            data = ds
 
         # Debug print header
         DelayReqResp.log_header()

@@ -10,6 +10,7 @@ import threading
 from tabulate import tabulate
 import pandas as pd
 from collections import deque
+import ptp.compression
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,9 @@ class Serial():
 
         # Filename
         path = "data/"
-        self.filename = path + "serial-" + time.strftime("%Y%m%d-%H%M%S") + ".json"
+        basename         = path + "serial-" + time.strftime("%Y%m%d-%H%M%S")
+        self.json_file   = basename + ".json"
+        self.xz_file     = basename + "-comp.xz" # compressed file
 
         # Timestamp sets read from the RRU:
         self.ts_data = deque()
@@ -342,7 +345,7 @@ class Serial():
         testbed timestamps are saved to compose the data.
 
         """
-        with open(self.filename, 'a') as fd:
+        with open(self.json_file, 'a') as fd:
             fd.write('{"metadata": ')
             json.dump(self.metadata, fd)
             fd.write(', "data":[')
@@ -354,41 +357,54 @@ class Serial():
 
         self.json_ended = True
 
-        with open(self.filename, 'a') as fd:
+        logging.info(f"Finalize {self.json_file} file")
+
+        with open(self.json_file, 'a') as fd:
             fd.write(']}')
 
-    def save(self, data):
+    def save_json(self, data):
         """Save runner data on JSON file"""
 
-        with open(self.filename, 'a') as fd:
+        with open(self.json_file, 'a') as fd:
             if (data['idx'] > 0):
                 fd.write(',\n')
             json.dump(data, fd)
+
+    def save_to_bin(self):
+        """Read JSON file and save it in binary
+
+        @note: Protocol version 4 was added in Python 3.4.
+
+        """
+        codec = ptp.compression.Codec(filename=self.json_file)
+        codec.compress()
+        codec.dump(ext="xz")
 
     def move(self):
         """Move JSON file"""
 
         dst_dir  = "/opt/ptp_datasets/"
-        dst      = dst_dir + os.path.basename(self.filename)
-        raw_resp = input(f"Move {self.filename} to {dst}? [Y/n] ") or "Y"
+        dst      = dst_dir + os.path.basename(self.xz_file)
+        raw_resp = input(f"Move {self.xz_file} to {dst_dir}? [Y/n] ") or "Y"
         response = raw_resp.lower()
 
         # Move dataset to '/opt/ptp_datasets/' and add entry on the dataset
         # catalog at '/opt/ptp_datasets/README.md'
         if (response == 'y'):
             # Move
-            shutil.move(self.filename, dst)
+            shutil.move(self.xz_file, dst)
             # Add to catalog
             docs = Docs(cfg_path=dst_dir)
             docs.add_dataset(dst) # assume file has already moved to dst
 
     def catch(self, signum, frame):
         self.en_capture = False
+        logger.info("Terminating acquisition of dataset")
         self.end_json_file()
-        logger.info("Terminating acquisition of %s" %(self.filename))
+        self.save_to_bin()
         self.move()
-        logging.info("Run:\n./download.py %s" %(
-            os.path.basename(self.filename)))
+        logging.info("Run:\n./analyze.py -vvvv -f %s" %(
+            os.path.basename(self.xz_file)))
         exit()
 
     def run(self):
@@ -452,13 +468,14 @@ class Serial():
                         print(tabulate(df, headers='keys', tablefmt='psql'))
                         debug_buffer.clear()
 
-                # Append to output file
-                self.save(run_data)
+                # Append to output JSON file
+                self.save_json(run_data)
                 count += 1
             else:
                 time.sleep(0.1)
 
         self.end_json_file()
+        self.save_to_bin()
         self.move()
 
 

@@ -78,6 +78,7 @@ class Analyser():
         """
         if (file):
             basename = os.path.splitext(os.path.basename(file))[0]
+            basename = basename.replace("-comp", "")
             path     = 'plots/' + basename + '/'
         else:
             path = 'plots/'

@@ -60,7 +60,8 @@ class Optimizer():
         this_file      = os.path.realpath(__file__)
         rootdir        = os.path.dirname(os.path.dirname(this_file))
         self.plot_path = os.path.join(rootdir, 'plots')
-        self.ds_name   = os.path.splitext(os.path.basename(self.filename))[0]
+        no_ext_ds_name = os.path.splitext(os.path.basename(self.filename))[0]
+        self.ds_name   = no_ext_ds_name.replace("-comp", "")
 
     def _eval_error(self, window_vec, estimator, error_metric,
                     early_stopping=True, patience=5):

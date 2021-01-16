@@ -43,6 +43,7 @@ Main scripts:
   `Lasse100` machine).
 
 Complementary:
+* `compress.py` : Compress a given dataset captured with the testbed.
 * `ptp_plots.py`: Demonstrates several plots that can be generated using the
   `ptp.metrics` module.
 * `ptp_estimators.py`: Demonstrates several estimators that can be used to
