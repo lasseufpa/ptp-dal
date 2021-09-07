@@ -3,12 +3,12 @@
 import logging
 import time
 
-import ptp.ls, ptp.pktselection, ptp.cache, ptp.bias
-import matplotlib
-
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
 import numpy as np
+
+import ptp.ls
+import ptp.pktselection
+import ptp.cache
+import ptp.bias
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +109,12 @@ class Optimizer():
             error_metric   : Chosen error metric (Max|TE| or MSE)
             early_stopping : Whether to stop search when min{error} stalls
             patience       : Number of consecutive iterations without
-                             improvement to wait before signaling an early stop.
+                             improvement to wait before an early stop.
 
         Returns:
             N_best : Best evaluated window length
-            error  : Vector with the error computed for all given window lengths
-            i_stop : Index succeding the index where the evaluation halted
+            error  : Vector with the error computed for all window lengths
+            i_stop : Index succeeding the index where the evaluation halted
                      (if early stopping is active).
 
         """
@@ -158,11 +158,11 @@ class Optimizer():
             # algorithms
             #
             # NOTE: while packet selection algorithms use the bias
-            # post-compensation strategy (bias corrected on algorithm's output),
-            # LS can rely on the pre-compensation strategy (bias corrected on
-            # algorithms' input). Hence, if the goal is to apply bias correction
-            # on LS, it should be applied before calling the window
-            # optimizer. Refer to the implementation on analyze.py.
+            # post-compensation strategy (bias corrected on algorithm's
+            # output), LS can rely on the pre-compensation strategy (bias
+            # corrected on algorithms' input). Hence, if the goal is to apply
+            # bias correction on LS, it should be applied before calling the
+            # window optimizer. Refer to the implementation on analyze.py.
             #
             # Furthermore, note that bias compensation is important because the
             # window optimizer must observe the same performance that will be
@@ -183,8 +183,8 @@ class Optimizer():
             #
             # NOTE: Consider only the portion of the dataset that contains
             # estimates produced by all window lengths (n_f samples), such that
-            # the comparison becomes fair. Otherwise, the shortest windows would
-            # be assessed based on more data.
+            # the comparison becomes fair. Otherwise, the shortest windows
+            # would be assessed based on more data.
             x_err = np.array([
                 r[f"x_{est_key}"] - r["x"] for r in data[-n_f:]
                 if f"x_{est_key}" in r
@@ -261,7 +261,6 @@ class Optimizer():
 
         """
         t_start = time.time()
-        est_key = self.est_op[estimator]['est_key']
         est_name = self.est_op[estimator]['name']
 
         if (eval_all):
@@ -378,9 +377,8 @@ class Optimizer():
 
         """
         for v in data.values():
-            if (v["N_best"] is None or \
-                v["error_metric"] != metric or \
-                v["n_samples"] != self.n_data):
+            if (v["N_best"] is None or v["error_metric"] != metric
+                    or v["n_samples"] != self.n_data):
 
                 logger.warning(
                     "Window configuration cache file is incomplete.")
@@ -447,8 +445,8 @@ class Optimizer():
 
         # Estimators to optimize
         if (target == 'all'):
-            # All estimators, except the ones that are already optimized (within
-            # the results that were loaded from cache)
+            # All estimators, except the ones that are already optimized
+            # (within the results that were loaded from cache)
             estimators = [
                 k for k in self.est_op.keys()
                 if (self.est_op[k]["N_best"] is None

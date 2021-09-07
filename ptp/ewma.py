@@ -21,8 +21,8 @@ class Ewma():
     def set_equivalent_window(self, N):
         """Define alpha and beta based on the equivalent window length
 
-        Due to exponentially decaying weights, there is an equivalent window for
-        a given alpha/beta setting. A good approximation is that the window
+        Due to exponentially decaying weights, there is an equivalent window
+        for a given alpha/beta setting. A good approximation is that the window
         encompasses 1/alpha samples.
 
         Args:

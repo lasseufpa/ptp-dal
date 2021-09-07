@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 
-from ptp.mechanisms import *
+from ptp.mechanisms import DelayReqResp
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,6 @@ class Outlier():
 
         """
         d_asym = np.array([r['asym'] for r in self.data])
-        x = np.array([r['idx'] for r in self.data])
 
         # Identify outliers
         outliers = self._iqr(d_asym)
@@ -102,6 +101,6 @@ class Outlier():
         for out in outliers:
             self.data[out]['outlier'] = True
 
-            if (logger.root.level == logging.INFO and out > 1 and out <
-                (len(self.data) - 1)):
+            if ((logger.root.level == logging.INFO) and (out > 1)
+                    and (out < (len(self.data) - 1))):
                 self._debug_outlier_context(out)

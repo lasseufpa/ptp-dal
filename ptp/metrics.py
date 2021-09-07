@@ -13,9 +13,9 @@ from scipy import stats
 import matplotlib
 
 matplotlib.use('agg')
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
-import ptp.cache
+import ptp.cache  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +219,8 @@ class Analyser():
 
         """
         # The name of the output file includes the plot name and the plot
-        # count. If the same plot is called multiple times, the file is saved as
-        # "plot_name.xx", then "plot_name-1.xx", "plot_name-2.xx" and so on.
+        # count. If the same plot is called multiple times, the file is saved
+        # as "plot_name.xx", then "plot_name-1.xx", "plot_name-2.xx" and so on.
         assert (self.current_plot is not None)
         name = self.current_plot
         cnt = self.plot_cnt[name]
@@ -286,11 +286,11 @@ class Analyser():
                           cdf=False):
         """Generate scatter plot followed by the marginal density (or histogram)
 
-        Generate a plot with two "boxes". The first and main box is the ordinary
-        scatter plot. The second, to the right, is the marginal density (PDF or
-        CDF) corresponding to the time-series in the scatter plot. The density
-        plot is rotated by 90 degrees (has horizontal orientation) such that its
-        x-axis shares the scatter plot's y-axis.
+        Generate a plot with two "boxes". The first and main box is the
+        ordinary scatter plot. The second, to the right, is the marginal
+        density (PDF or CDF) corresponding to the time-series in the scatter
+        plot. The density plot is rotated by 90 degrees (has horizontal
+        orientation) such that its x-axis shares the scatter plot's y-axis.
 
         Args:
             x         : Array with x-axis data
@@ -431,12 +431,13 @@ class Analyser():
             # On each store-and-forward hop, approximate the two frames (reduce
             # the interval between them).
             #
-            # The exception is in the last hop of the DL direction, when the BBU
-            # serves two RRUs. There is a chance that the PTP message (going to
-            # RRU1) departs behind a FH frame addressed to RRU2. In this case,
-            # the PTP message does not need to wait the FH frame in the last
-            # hop. Hence, the two messages do not approximate in this hop. Also,
-            # the PTP message does not experience queueing delay in this case.
+            # The exception is in the last hop of the DL direction, when the
+            # BBU serves two RRUs. There is a chance that the PTP message
+            # (going to RRU1) departs behind a FH frame addressed to RRU2. In
+            # this case, the PTP message does not need to wait the FH frame in
+            # the last hop. Hence, the two messages do not approximate in this
+            # hop. Also, the PTP message does not experience queueing delay in
+            # this case.
             if (direction == "dl" and n_rru == 2 and (i_hop + 1) == hops):
                 continue
             else:
@@ -444,31 +445,31 @@ class Analyser():
 
             # Check if the two frames have "touched" each other
             if (ptp_fh_interval < 0 and ptp_fh_interval >= -approx_per_hop):
-                # PTP is "reaching" the FH frame in this hop. There will be some
-                # queueing delay, but it won't be the full t_fh interval.
+                # PTP is "reaching" the FH frame in this hop. There will be
+                # some queueing delay, but it won't be the full t_fh interval.
                 #
                 # Example: suppose t_fh is 2.0 us and t_ptp is 0.2 us. Suppose
                 # also that the initial interval between them is of 1.0 us
-                # (between the end of the FH packet and the beginning of the PTP
-                # packet). On initialization, the FH packet departs on instant 0
-                # and finishes serialization on instant 2.0 us. The PTP packet
-                # departs 1.0 sec later, on instant 3.0 us. If it weren't for
-                # the preceding FH frame, the PTP frame would arrive completely
-                # on the first hop (switch) on instant 3.2 us and would depart
-                # to the next hop. However, the first hop has its output
-                # interface occupied by the preceding FH frame until instant 4.0
-                # us. As a result, the PTP packet only departs on instant 4.0 us
-                # from the switch to the next hop, i.e., 0.8 us later than what
-                # it would in the absence of the preceding FH packet. What
-                # happened is that in this first hop the PTP-FH approximation
-                # was of (2.0 - 0.2) = 1.8 us. However, the starting interval
-                # between the end of the FH frame and the start of the PTP frame
-                # was only of 1.0 us. So in the first hop, the approximation is
-                # larger than the interval between the packets, which means the
-                # PTP packet "reaches" the FH packet. The remaining part of the
-                # difference "approximation - interval", i.e., of "1.8 - 1.0" is
-                # 0.8 us. That's the queuing delay experienced by the PTP packet
-                # in this hop.
+                # (between the end of the FH packet and the beginning of the
+                # PTP packet). On initialization, the FH packet departs on
+                # instant 0 and finishes serialization on instant 2.0 us. The
+                # PTP packet departs 1.0 sec later, on instant 3.0 us. If it
+                # weren't for the preceding FH frame, the PTP frame would
+                # arrive completely on the first hop (switch) on instant 3.2 us
+                # and would depart to the next hop. However, the first hop has
+                # its output interface occupied by the preceding FH frame until
+                # instant 4.0 us. As a result, the PTP packet only departs on
+                # instant 4.0 us from the switch to the next hop, i.e., 0.8 us
+                # later than what it would in the absence of the preceding FH
+                # packet. What happened is that in this first hop the PTP-FH
+                # approximation was of (2.0 - 0.2) = 1.8 us. However, the
+                # starting interval between the end of the FH frame and the
+                # start of the PTP frame was only of 1.0 us. So in the first
+                # hop, the approximation is larger than the interval between
+                # the packets, which means the PTP packet "reaches" the FH
+                # packet. The remaining part of the difference "approximation -
+                # interval", i.e., of "1.8 - 1.0" is 0.8 us. That's the queuing
+                # delay experienced by the PTP packet in this hop.
                 b_q_delay += -ptp_fh_interval
             elif (ptp_fh_interval < -approx_per_hop):
                 # PTP frame has already "reached" FH frames in previous hops
@@ -497,12 +498,13 @@ class Analyser():
 
         """
         # PTP transmission (serialization) delay over 1GbE interface
-        t_ptp = 80 * 8 / 1e9  # PDelayReq/Resp messages are 54 bytes long + plus 26
-        # bytes of Ethernet header (8B preamble + 14B MAC
-        # untagged header + 4B FCS)
+        t_ptp = 80 * 8 / 1e9
+        # PDelayReq/Resp messages are 54 bytes long + plus 26 bytes of Ethernet
+        # header (8B preamble + 14B MAC untagged header + 4B FCS)
 
-        # Overhead bits on FH frames (8B preamble + 18 bytes Ethernet MAC header
-        # w/ 802.1Q tag + 12 bytes FH metadata + 2 bytes of stuffing + 4B FCS)
+        # Overhead bits on FH frames (8B preamble + 18 bytes Ethernet MAC
+        # header w/ 802.1Q tag + 12 bytes FH metadata + 2 bytes of stuffing +
+        # 4B FCS)
         fh_overhead_bits = (8 * 44)
 
         # Inter-packet gap
@@ -545,10 +547,12 @@ class Analyser():
             i_fh_ul = (n_spf_ul / n_axc_per_frame) * Ts
 
             # Idle iterval between consecutive FH frames
-            n_rru_dl = metadata["fh_traffic"]["n_rru_dl"] if "n_rru_dl" in \
-                metadata["fh_traffic"] else metadata["fh_traffic"]["n_rru"]["dl"]
-            n_rru_ul  = metadata["fh_traffic"]["n_rru_ul"] if "n_rru_ul" in \
-                metadata["fh_traffic"] else metadata["fh_traffic"]["n_rru"]["ul"]
+            n_rru_dl = metadata["fh_traffic"]["n_rru_dl"] \
+                if "n_rru_dl" in metadata["fh_traffic"] \
+                else metadata["fh_traffic"]["n_rru"]["dl"]
+            n_rru_ul = metadata["fh_traffic"]["n_rru_ul"] \
+                if "n_rru_ul" in metadata["fh_traffic"] \
+                else metadata["fh_traffic"]["n_rru"]["ul"]
             t_idle_dl = i_fh_dl - ((t_fh_dl + ipg) * n_rru_dl)
             t_idle_ul = i_fh_ul - (t_fh_ul + ipg)
 
@@ -590,19 +594,20 @@ class Analyser():
             # (with no interval) to the preceding FH frame. Consequently, the
             # PTP frame has to wait the entire FH transmission delay on every
             # hop, due to store-and-forward. For example, say the FH
-            # transmission delay (t_fh) is 1.0 us, and that the PTP transmission
-            # delay (t_ptp) is 0.4 us. Suppose the FH frame departs on instant 0
-            # and that the PTP frame departs immediately after, on instant 1.0
-            # us. On instant 1.0, the first switch completes reception of the FH
-            # frame and can start sending it forward. The output of the first
-            # switch remains occupied by the FH frame until instant 2.0. If it
-            # were not for the FH frame, the PTP frame would depart on instant
-            # 1.0 from the sender and on instant 1.4 from the first switch to
-            # the next. However, due to the preceding FH frame, the PTP frame
-            # departs only on instant 2.0. As a result, the PTP frame waits an
-            # additional 0.6 us (i.e., t_fh - t_ptp) of delay with respect the
-            # instant that it would normally depart from the switch (instant
-            # 1.4 us). This is the queueing delay component.
+            # transmission delay (t_fh) is 1.0 us, and that the PTP
+            # transmission delay (t_ptp) is 0.4 us. Suppose the FH frame
+            # departs on instant 0 and that the PTP frame departs immediately
+            # after, on instant 1.0 us. On instant 1.0, the first switch
+            # completes reception of the FH frame and can start sending it
+            # forward. The output of the first switch remains occupied by the
+            # FH frame until instant 2.0. If it were not for the FH frame, the
+            # PTP frame would depart on instant 1.0 from the sender and on
+            # instant 1.4 from the first switch to the next. However, due to
+            # the preceding FH frame, the PTP frame departs only on instant
+            # 2.0. As a result, the PTP frame waits an additional 0.6 us (i.e.,
+            # t_fh - t_ptp) of delay with respect the instant that it would
+            # normally depart from the switch (instant 1.4 us). This is the
+            # queueing delay component.
             #
             # Also, in the UL, when there are 2 RRUs, and in the tree topology
             # that we typically consider, the PTP frame may need to wait an
@@ -611,8 +616,8 @@ class Analyser():
             # connected to the two RRUs and has a single shared output to the
             # next hop in the UL direction. Hence, the frames arriving from the
             # two RRUs compete for this shared output. In the worst-case
-            # scenario, the PTP frame waits for the full serialization of the FH
-            # frame preceding it (coming from the same RRU) plus the
+            # scenario, the PTP frame waits for the full serialization of the
+            # FH frame preceding it (coming from the same RRU) plus the
             # serialization of a FH frame from the other RRU that arrived
             # earlier and already holds the outbound interface.
             if (metadata["fh_traffic"] is not None):
@@ -629,11 +634,11 @@ class Analyser():
             # interval possible relative to the preceding FH frame. This
             # interval corresponds to the idle interval between two consecutive
             # FH frames. In this scenario, it is possible that the PTP frame
-            # does not experience queueing delays for some hops. However, due to
-            # the "approximation" between frames caused by the store-and-forward
-            # procedure, eventually (after some hops) the PTP frame can still
-            # reach the FH frame. From that point on, the PTP frame will
-            # experience queueing delays.
+            # does not experience queueing delays for some hops. However, due
+            # to the "approximation" between frames caused by the
+            # store-and-forward procedure, eventually (after some hops) the PTP
+            # frame can still reach the FH frame. From that point on, the PTP
+            # frame will experience queueing delays.
             if (metadata["fh_traffic"] is not None):
                 b_dl_q_delay = self._calc_best_case_queueing(
                     hops, t_idle_dl, t_fh_dl, t_ptp, "dl", n_rru_dl)
@@ -899,8 +904,8 @@ class Analyser():
         #
         # When drift correction is used, the packet selection algorithms start
         # to process the data only after drift estimates start. Thus, if drift
-        # correction is enabled, all elements of the post-transient dataset must
-        # contain a drift estimate. This should be guaranteed by properly
+        # correction is enabled, all elements of the post-transient dataset
+        # must contain a drift estimate. This should be guaranteed by properly
         # setting the "n_skip" attribute of the Analyser object.
         post_tran_data = self.data[self.n_skip:]
         if (any([("drift" in r) for r in post_tran_data])):
@@ -932,12 +937,12 @@ class Analyser():
             # necessary. This applies only to max|TE| and MTIE results (which
             # can be cached).
             needs_x_err = metric in ["rms", "std"] or \
-                          key not in self.results[metric.replace("-","_")]
-            # FIXME: there is an inconsistency between 'max-te' (on ranking) and
-            # 'max_te' on cached results, solved above using replace.
+                key not in self.results[metric.replace("-", "_")]
+            # FIXME: there is an inconsistency between 'max-te' (on ranking)
+            # and 'max_te' on cached results, solved above using replace.
             if (needs_x_err):
-                x_err = np.array([r[key] - r["x"] for r in post_tran_data \
-                                  if key in r])
+                x_err = np.array(
+                    [r[key] - r["x"] for r in post_tran_data if key in r])
                 if (len(x_err) == 0):
                     continue
 
@@ -1053,8 +1058,8 @@ class Analyser():
 
         Returns:
 
-            Window matrix with all windows as rows. That is, if n_windows is the
-            number of windows, the result has dimensions:
+            Window matrix with all windows as rows. That is, if n_windows is
+            the number of windows, the result has dimensions:
 
             (n_windows, window_size)
 
@@ -1129,8 +1134,7 @@ class Analyser():
             i_tau += 1
 
         # Have all expected tau values been evaluated?
-        assert(n_tau == i_tau), \
-            "n_tau = %d, i_tau = %d" %(n_tau, i_tau)
+        assert (n_tau == i_tau), "n_tau = %d, i_tau = %d" % (n_tau, i_tau)
 
         return tau_array, mtie_array
 
@@ -1219,8 +1223,8 @@ class Analyser():
 
         # Time axis
         t_start = post_tran_data[0]["t1"]
-        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
-                   / NS_PER_MIN
+        time_vec = np.array([float(r["t1"] - t_start)
+                             for r in post_tran_data]) / NS_PER_MIN
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
@@ -1297,8 +1301,8 @@ class Analyser():
 
         # Time axis
         t_start = post_tran_data[0]["t1"]
-        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
-                   / NS_PER_MIN
+        time_vec = np.array([float(r["t1"] - t_start)
+                             for r in post_tran_data]) / NS_PER_MIN
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
@@ -1533,8 +1537,8 @@ class Analyser():
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
             t_start = self.data[0]["t1"]
-            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
-                                     self.data]) / NS_PER_MIN
+            x_axis_vec = np.array(
+                [float(r["t1"] - t_start) for r in self.data]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
@@ -1621,8 +1625,8 @@ class Analyser():
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
             t_start = self.data[0]["t1"]
-            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
-                                     self.data]) / NS_PER_MIN
+            x_axis_vec = np.array(
+                [float(r["t1"] - t_start) for r in self.data]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
@@ -1692,8 +1696,8 @@ class Analyser():
 
         # Time axis
         t_start = self.data[0]["t1"]
-        time_vec = np.array([float(r["t1"] - t_start) for r in self.data])\
-                   / NS_PER_MIN
+        time_vec = np.array([float(r["t1"] - t_start)
+                             for r in self.data]) / NS_PER_MIN
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
@@ -1742,8 +1746,8 @@ class Analyser():
 
         # Time axis
         t_start = post_tran_data[0]["t1"]
-        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
-                   / NS_PER_MIN
+        time_vec = np.array([float(r["t1"] - t_start)
+                             for r in post_tran_data]) / NS_PER_MIN
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
@@ -1820,8 +1824,8 @@ class Analyser():
 
         # Time axis
         t_start = post_tran_data[0]["t1"]
-        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
-                   / NS_PER_MIN
+        time_vec = np.array([float(r["t1"] - t_start)
+                             for r in post_tran_data]) / NS_PER_MIN
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
@@ -1936,7 +1940,8 @@ class Analyser():
         previous Sync/DelayReq. Note that the actual delay is not measurable,
         but the difference in delay between consecutive messages is.
 
-        Timestamp differences can be used for this computation. Recall they are:
+        Timestamp differences can be used for this computation. Recall they
+        are:
 
         t_{2,1}[n] = t_2[n] - t_1[n] = x[n] + d_{ms}[n]
         t_{4,3}[n] = t_4[n] - t_3[n] = -x[n] + d_{sm}[n]
@@ -1966,8 +1971,8 @@ class Analyser():
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
             t_start = self.data[0]["t1"]
-            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
-                                     self.data]) / NS_PER_MIN
+            x_axis_vec = np.array(
+                [float(r["t1"] - t_start) for r in self.data]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
@@ -2100,8 +2105,9 @@ class Analyser():
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
             t_start = self.data[0]["t1"]
-            x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
-                                     self.data if "drift" in r]) / NS_PER_MIN
+            x_axis_vec = np.array(
+                [float(r["t1"] - t_start)
+                 for r in self.data if "drift" in r]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
@@ -2190,20 +2196,21 @@ class Analyser():
         Plots MTIE. The time error (TE) samples are assumed to be equal to the
         time offset estimation errors. The underlying assumption is that, in
         practice, these estimations would be used to correct the clock and thus
-        the resulting TE would correspond to the residual error of the imperfect
-        (noisy) time offset estimation. The time interval error (TIE), in turn,
-        is the difference between TE samples over a given interval. Essentially,
-        it assesses how accurately the RTC can measure elapsed intervals. If the
-        time offset is constant during an interval measurement, i.e., the ending
-        TE is the same as the starting TE, the TIE is zero, meaning the RTC
-        measures the interval perfectly. The TE variations experienced by the
-        clock during an interval are the reason why the corresponding interval
-        measurements are noisy and, thus, there is TIE.
+        the resulting TE would correspond to the residual error of the
+        imperfect (noisy) time offset estimation. The time interval error
+        (TIE), in turn, is the difference between TE samples over a given
+        interval. Essentially, it assesses how accurately the RTC can measure
+        elapsed intervals. If the time offset is constant during an interval
+        measurement, i.e., the ending TE is the same as the starting TE, the
+        TIE is zero, meaning the RTC measures the interval perfectly. The TE
+        variations experienced by the clock during an interval are the reason
+        why the corresponding interval measurements are noisy and, thus, there
+        is TIE.
 
         In our implementation, the observation window durations of the
-        associated TIE samples are taken in terms of number of samples that they
-        contain, rather than their actual durations. This is not strictly how
-        MTIE is computed, but useful for the evaluation and simpler to
+        associated TIE samples are taken in terms of number of samples that
+        they contain, rather than their actual durations. This is not strictly
+        how MTIE is computed, but useful for the evaluation and simpler to
         implement. In the end, we simply multiply the number of samples in each
         window by the nominal period between samples, so that we can plot the
         horizontal MTIE axis in units of time.
@@ -2297,8 +2304,8 @@ class Analyser():
 
         # Time axis
         t_start = post_tran_data[0]["t1"]
-        time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
-                   / NS_PER_MIN
+        time_vec = np.array([float(r["t1"] - t_start)
+                             for r in post_tran_data]) / NS_PER_MIN
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
@@ -2356,7 +2363,7 @@ class Analyser():
                          linestyle=value["linestyle"])
 
             plt.xlabel(x_axis_label)
-            plt.ylabel('$\max|$TE$|$ (ns)')
+            plt.ylabel('$\max|$TE$|$ (ns)')  # noqa: W605
 
         elif (plottype == 'bar'):
             position = range(len(labels))
@@ -2370,7 +2377,7 @@ class Analyser():
                     color=colors)
 
             plt.xticks(position, labels)
-            plt.ylabel('$\max|$TE$|$ (ns)')
+            plt.ylabel('$\max|$TE$|$ (ns)')  # noqa: W605
 
         elif (plottype == 'boxplot'):
             box = plt.boxplot(max_te_est,
@@ -2383,7 +2390,7 @@ class Analyser():
                                   'color': 'black'
                               })
 
-            plt.xlabel('$\max|$TE$|$ (ns)')
+            plt.xlabel('$\max|$TE$|$ (ns)')  # noqa: W605
 
             for b, color in zip(box['boxes'], colors):
                 b.set_facecolor(color)
@@ -2395,7 +2402,7 @@ class Analyser():
                                          showmeans=True,
                                          vert=False)
 
-            plt.xlabel('$\max|$TE$|$ (ns)')
+            plt.xlabel('$\max|$TE$|$ (ns)')  # noqa: W605
             plt.yticks(position, labels)
 
             for part in ['cbars', 'cmins', 'cmaxes', 'cmeans']:
@@ -2436,10 +2443,11 @@ class Analyser():
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
             t_start = self.data[0]["t1"]
-            time_vec     = np.array([float(r["t1"] - t_start) for r in \
-                                    self.data]) / NS_PER_MIN
-            x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
-                            if "temp" in r]
+            time_vec = np.array([float(r["t1"] - t_start)
+                                 for r in self.data]) / NS_PER_MIN
+            x_axis_vec = [
+                time_vec[i] for i, r in enumerate(self.data) if "temp" in r
+            ]
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
@@ -2483,8 +2491,8 @@ class Analyser():
         if (x_unit == "time"):
             t_start = self.data[0]["t1"]
             x_axis_label = 'Time (min)'
-            time_vec     = np.array([float(r["t1"] - t_start) for r in \
-                                     self.data]) / NS_PER_MIN
+            time_vec = np.array([float(r["t1"] - t_start)
+                                 for r in self.data]) / NS_PER_MIN
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
@@ -2493,8 +2501,10 @@ class Analyser():
         for key, label in [("rru_occ", "RRU"), ("bbu_occ", "BBU"),
                            ("rru2_occ", "RRU2")]:
             if (x_unit == "time"):
-                x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
-                                if key in r and isinstance(r[key], int)]
+                x_axis_vec = [
+                    time_vec[i] for i, r in enumerate(self.data)
+                    if key in r and isinstance(r[key], int)
+                ]
             elif (x_unit == "samples"):
                 x_axis_vec = [
                     r["idx"] for r in self.data
@@ -2536,7 +2546,8 @@ class Analyser():
             labels      : labels for the plot legend
             ylabel      : y axis label
             name        : target filename
-            x_unit      : Ynit for vs. time plot: 'time' in minutes or 'samples'
+            x_unit      : Unit for vs. time plot: 'time' in minutes or
+                          'samples'
             binwidth    : Target histogram bin width
             save        : Save the figures
             save_format : Image format: 'png' or 'eps'
@@ -2545,16 +2556,17 @@ class Analyser():
         if (x_unit == "time"):
             t_start = self.data[0]["t1"]
             x_axis_label = 'Time (min)'
-            time_vec     = np.array([float(r["t1"] - t_start) for r in \
-                                     self.data]) / NS_PER_MIN
+            time_vec = np.array([float(r["t1"] - t_start)
+                                 for r in self.data]) / NS_PER_MIN
         elif (x_unit == "samples"):
             x_axis_label = 'Realization'
 
         plt.figure(figsize=self.figsize)
         for key, label in zip(keys, labels):
             if (x_unit == "time"):
-                x_vec = [time_vec[i] for i, r in enumerate(self.data) \
-                           if key in r]
+                x_vec = [
+                    time_vec[i] for i, r in enumerate(self.data) if key in r
+                ]
             elif (x_unit == "samples"):
                 x_vec = [r["idx"] for r in self.data if key in r]
             y_vec = np.array([r[key] for r in self.data if key in r])
@@ -2605,7 +2617,8 @@ class Analyser():
         """Plot PPS synchronization error vs time and histogram
 
         Args:
-            x_unit      : Unit for vs. time plot: 'time' in minutes or 'samples'
+            x_unit      : Unit for vs. time plot: 'time' in minutes or
+                          'samples'
             binwidth    : Target histogram bin width
             save        : Save the figures
             save_format : Image format: 'png' or 'eps'
@@ -2628,11 +2641,12 @@ class Analyser():
                                  dpi=None):
         """Plot frequency offset estimates according to the PPS RTC
 
-        These are equivalent to the output of the PI controller that is used for
-        PPS synchronization.
+        These are equivalent to the output of the PI controller that is used
+        for PPS synchronization.
 
         Args:
-            x_unit      : Unit for vs. time plot: 'time' in minutes or 'samples'
+            x_unit      : Unit for vs. time plot: 'time' in minutes or
+                          'samples'
             binwidth    : Target histogram bin width
             save        : Save the figures
             save_format : Image format: 'png' or 'eps'
@@ -2691,8 +2705,9 @@ class Analyser():
             plt.yscale(yscale)
             self._plt_title(est_name)
             plt.xlabel("Window Length $N$ (samples)")
-            plt.ylabel("{} (ns)".format("$\max|$TE$|$" if error_metric ==
-                                        "max-te" else "RMSE"))
+            y_label = "$\max|$TE$|$" if error_metric == "max-te" \
+                else "RMSE"  # noqa: W605
+            plt.ylabel("{} (ns)".format(y_label))
             plt.grid()
 
             if (plot_info):
@@ -2743,8 +2758,9 @@ class Analyser():
             plt.yscale(yscale)
 
         plt.xlabel("Window Length $N$ (samples)")
-        plt.ylabel("{} (ns)".format("$\max|$TE$|$" if error_metric ==
-                                    "max-te" else "RMSE"))
+        y_label = "$\max|$TE$|$" if error_metric == "max-te" \
+            else "RMSE"  # noqa: W605
+        plt.ylabel("{} (ns)".format(y_label))
         plt.grid()
         self._plt_legend()
 

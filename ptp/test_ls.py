@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from ptp.ls import *
+from ptp.ls import Ls
 
 
 class TestLs(unittest.TestCase):
@@ -32,7 +32,6 @@ class TestLs(unittest.TestCase):
     def run_ls(self, impl, batch_mode=True, batch_size=3):
         data = self.data
         N = 4
-        T_ns = 250e3
         ls = Ls(N, data)
         ls.process(impl=impl, batch_mode=batch_mode, batch_size=batch_size)
 

@@ -40,9 +40,9 @@ class Codec():
         if (filename != ""):
             # When the filename is provided, but also the dataset (ds) is
             # provided, assume that the file doesn't exist. The name is just
-            # there so that we can set "out_name" (output file name). Otherwise,
-            # when the ds argument is empty, assume there is a file from which
-            # we will load the data.
+            # there so that we can set "out_name" (output file name).
+            # Otherwise, when the ds argument is empty, assume there is a file
+            # from which we will load the data.
             self.orig_size = None if (ds != {}) else os.path.getsize(filename)
             no_ext_name = os.path.splitext(filename)[0]
             self.name = no_ext_name
@@ -70,7 +70,7 @@ class Codec():
             with lzma.open(filename, "rb") as fd:
                 self.ds = pickle.load(fd)
         else:
-            raise ValueError("Unsupported extension {}".format(ext))
+            raise ValueError("Unsupported extension")
         toc = time.time()
         logger.debug("Deserialization took {:5.2f} secs".format(toc - tic))
 
@@ -81,15 +81,15 @@ class Codec():
         each containing several metrics. This is is very inefficient for
         storage, since the keys (strings) are repeated on every dictionary.
 
-        Some of the metrics in the dataset are present on all
-        dictionaries. Hence, they can be stored in lists directly. Other metrics
-        are not present in all dictionaries, in which case they should be stored
-        in a pair of lists, one containing the actual time-series, the other
+        Some of the metrics in the dataset are present on all dictionaries.
+        Hence, they can be stored in lists directly. Other metrics are not
+        present in all dictionaries, in which case they should be stored in a
+        pair of lists, one containing the actual time-series, the other
         containing the indexes where the elements are present in the dataset.
 
         Args:
-            data : Dataset dictionary formatted as {'metadata' : x, 'data' : y},
-                   i.e.\ as a dictionary containing the metadata and data keys.
+            data : Dataset dictionary formatted as {'metadata': x, 'data': y},
+                   i.e., as a dictionary containing the metadata and data keys.
 
         Returns:
             (dict) The compressed dataset
@@ -120,8 +120,8 @@ class Codec():
             if always_present:
                 always_present_keys.append(key)
 
-        # For keys that are always present, move to non-indexed lists and remove
-        # from the original dictionaries in self.ds['data']
+        # For keys that are always present, move to non-indexed lists and
+        # remove from the original dictionaries in self.ds['data']
         for key in sorted(always_present_keys):
             logger.debug("Non-indexed key {}".format(key))
             ts = [x[key] for x in self.ds['data']]

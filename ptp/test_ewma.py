@@ -1,8 +1,6 @@
 import unittest
 
-import numpy as np
-
-from ptp.ewma import *
+from ptp.ewma import Ewma
 
 
 class TestEwma(unittest.TestCase):

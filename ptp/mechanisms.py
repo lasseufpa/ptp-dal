@@ -2,8 +2,6 @@
 """
 import logging
 
-from .timestamping import *
-
 logger = logging.getLogger("DelayReqResp")
 
 

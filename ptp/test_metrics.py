@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from ptp.metrics import *
+from ptp.metrics import Analyser
 
 
 class TestMetrics(unittest.TestCase):

@@ -28,7 +28,8 @@ class KalmanFilter():
         s[n] = [ x[n] ]
                [ y[n] ]
 
-        that is, composed by the time offset (x[n]) and frequency offset (y[n]).
+        that is, composed by the time offset (x[n]) and frequency offset
+        (y[n]).
 
         The recursive model for the time offset is:
 
@@ -55,16 +56,16 @@ class KalmanFilter():
         state noise covariance matrix.
 
         The state noise covariance matrix takes the expected variability of the
-        true state into account. The true frequency offset changes over time due
-        to several oscillator noise sources. Similarly, the time offset
+        true state into account. The true frequency offset changes over time
+        due to several oscillator noise sources. Similarly, the time offset
         uncertainty comes from phase noise and other effects. Both of these
         uncertainties are small in magnitude, so that the transition covariance
         matrix is expected to have small values.
 
-        The model in [1] considers random-walk in both time and frequency. These
-        are given in terms of normalized variances, which must be scaled by the
-        observation period (Sync message period). Here, in contrast, we consider
-        non-normalized variances, "var_y" and "var_x".
+        The model in [1] considers random-walk in both time and frequency.
+        These are given in terms of normalized variances, which must be scaled
+        by the observation period (Sync message period). Here, in contrast, we
+        consider non-normalized variances, "var_y" and "var_x".
 
         Q = [ var_x,   0,  ]
             [   0,   var_y ]
@@ -91,8 +92,8 @@ class KalmanFilter():
 
         where z[n] is (2x1).
 
-        The observed values come directly from the raw time and frequency offset
-        measurements that are taken after each delay request-response
+        The observed values come directly from the raw time and frequency
+        offset measurements that are taken after each delay request-response
         exchange. That is, z[n] = [x_est[n], y_est[n]]^T.
 
         The observation covariance matrix reflects the confidence on the
@@ -113,23 +114,23 @@ class KalmanFilter():
 
         when the vector-observation model is used.
 
-        The former (scalar-observation) is easier to compute in practice because
-        it can be computed by "Var{d_est}", namely the variance of the delay
-        estimates taken from PTP two-way exchanges. In contrast, the latter
-        (vector-observation) requires the knowledge of the individual m-to-s and
-        s-to-m variances, which a practical slave does not know. This
-        formulation also assumes that m-to-s and s-to-m delays are independent
-        (distinct) WSS and white discrete-time random processes.
+        The former (scalar-observation) is easier to compute in practice
+        because it can be computed by "Var{d_est}", namely the variance of the
+        delay estimates taken from PTP two-way exchanges. In contrast, the
+        latter (vector-observation) requires the knowledge of the individual
+        m-to-s and s-to-m variances, which a practical slave does not know.
+        This formulation also assumes that m-to-s and s-to-m delays are
+        independent (distinct) WSS and white discrete-time random processes.
 
         References:
 
         [1] G. Giorgi and C. Narduzzi, "Performance Analysis of
-            Kalman-Filter-Based Clock Synchronization in IEEE 1588 Networks," in
-            IEEE Transactions on Instrumentation and Measurement, vol. 60,
+            Kalman-Filter-Based Clock Synchronization in IEEE 1588 Networks,"
+            in IEEE Transactions on Instrumentation and Measurement, vol. 60,
             no. 8, pp. 2902-2909, Aug. 2011.
-        [2] G. Giorgi, "An Event-Based Kalman Filter for Clock Synchronization,"
-            in IEEE Transactions on Instrumentation and Measurement, vol. 64,
-            no. 2, pp. 449-457, Feb. 2015.
+        [2] G. Giorgi, "An Event-Based Kalman Filter for Clock
+            Synchronization," in IEEE Transactions on Instrumentation and
+            Measurement, vol. 64, no. 2, pp. 449-457, Feb. 2015.
         [3] Brown, R. and Hwang, P., Introduction To Random Signals And Applied
             Kalman Filtering With Matlab Exercises, 4Th Edition. John Wiley &
             Sons, 2012.
@@ -198,7 +199,7 @@ class KalmanFilter():
         self.S = np.zeros((self.dim_obs, self.dim_obs))  # System uncertainty
 
         # Identity matrix
-        self.I = np.eye(self.dim_state)
+        self.I = np.eye(self.dim_state)  # noqa: E741
 
     def _set_initial_state(self):
         """Define the initial state vector
@@ -255,10 +256,10 @@ class KalmanFilter():
         # Observation noise covariance matrix
         #
         # In the scalar observation model, the measurements noise covariance
-        # matrix reduces to a scalar value, which corresponds to the variance of
-        # the estimated delay experienced by the PTP messages. Interestingly,
-        # this variance can be computed based on two-way delay measurements that
-        # the PTP slave has in practice, as follows:
+        # matrix reduces to a scalar value, which corresponds to the variance
+        # of the estimated delay experienced by the PTP messages.
+        # Interestingly, this variance can be computed based on two-way delay
+        # measurements that the PTP slave has in practice, as follows:
         d_est = np.array([r['d_est'] for r in self.data])
         var_d = np.var(d_est)
         self.R = np.array([[var_d]])
@@ -324,8 +325,8 @@ class KalmanFilter():
             error_metric   : Chosen error metric: 'max-te' or 'mse'
             early_stopping : Whether to stop search when min{erro} stalls
             n_samples      : Number of samples to consider for the analysis,
-                             so that the acceptable transient phase is neglected
-                             on the error assessment.
+                             so that the acceptable transient phase is
+                             neglected on the error assessment.
             patience       : Number of consecutive iterations without
                              improvement to wait before signaling an early stop
 
@@ -339,8 +340,8 @@ class KalmanFilter():
         min_err = np.inf
         patience_count = 0
         error = np.zeros(len(q_vec)**2)
-        Q_matrix       = np.array([np.diag([var_x, var_y]) for var_x in q_vec \
-                                   for var_y in q_vec])
+        Q_matrix = np.array(
+            [np.diag([var_x, var_y]) for var_x in q_vec for var_y in q_vec])
 
         for i, Q in enumerate(Q_matrix):
 
@@ -378,8 +379,8 @@ class KalmanFilter():
             # Stop search if the Q matrix with minimum error remains the same
             # for a number of consecutive matrices.
             #
-            # NOTE: patience count tracks the number of iterations with no error
-            # reduction (or improvement).
+            # NOTE: patience count tracks the number of iterations with no
+            # error reduction (or improvement).
 
             # Update min{error}
             if (error[i] < min_err):
@@ -416,7 +417,7 @@ class KalmanFilter():
 
         # Iterate over observations
         for i, z in enumerate(self.z):
-            ##### Prediction #####
+            #  ----- Prediction -----
 
             # Predict the next state of the system (a priori)
 
@@ -426,7 +427,7 @@ class KalmanFilter():
             # A priori state estimate's covariance matrix
             self.P = np.dot(np.dot(self.A, self.P), self.A.T) + self.Q
 
-            ##### Update #####
+            # ----- Update -----
 
             # Update the next state estimate based on a new measurement
 

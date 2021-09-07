@@ -1,6 +1,6 @@
 import unittest
 
-from ptp.timestamping import *
+from ptp.timestamping import Timestamp
 
 
 class TestTimestamping(unittest.TestCase):
@@ -99,7 +99,7 @@ class TestTimestamping(unittest.TestCase):
         self.assertEqual(z.sec, 1)
         self.assertEqual(z.ns, 320)
 
-    def test_add_float_wrap(self):
+    def test_add_int_wrap(self):
         """Add int with wrapping"""
         x = Timestamp(1, 999999900)
         y = 120

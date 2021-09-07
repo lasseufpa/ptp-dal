@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from ptp.frequency import *
+from ptp.frequency import Estimator
 
 immutable_data = [{
     "t1": 0,
@@ -64,8 +64,8 @@ class TestFrequency(unittest.TestCase):
     def _estimate_drift(self, N=3):
         self.estimator.estimate_drift()
 
-        # The drift estimates are only added to the dataset entries that contain
-        # a corresponding frequency offset estimate.
+        # The drift estimates are only added to the dataset entries that
+        # contain a corresponding frequency offset estimate.
         assert (all([not ("drift" in r) for r in self.data[:N]]))
         assert ("drift" in self.data[N])
 
@@ -102,8 +102,8 @@ class TestFrequency(unittest.TestCase):
         self._estimate_foffset(strategy="two-way")
         self._estimate_drift()
 
-        # Check estimates. The drift estimate at the n-th sample is given by the
-        # n-th frequency offset estimate multiplied by the interval between
+        # Check estimates. The drift estimate at the n-th sample is given by
+        # the n-th frequency offset estimate multiplied by the interval between
         # sample n-1 and sample n.
         drift_est = [r["drift"] for r in self.data if "drift" in r]
         expected_y_est = [(2.5 - 1) / 30, (1.5 - 2) / 30]

@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from ptp.bias import *
+from ptp.bias import Bias
 
 immutable_data = [{
     "x_est": 20,

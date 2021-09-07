@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 """Analyse the estimators performance as a function of window length
 """
-import argparse, logging, sys
-import ptp.simulation
-import ptp.reader
-import ptp.window
-import ptp.frequency
+import argparse
+import logging
+import sys
+
 import ptp.cache
 import ptp.datasets
+import ptp.frequency
 import ptp.metrics
-import matplotlib
-
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import numpy as np
-import time, re
+import ptp.reader
+import ptp.simulation
+import ptp.window
 
 
 def main():

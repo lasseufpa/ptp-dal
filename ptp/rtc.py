@@ -25,9 +25,9 @@ class Rtc():
         The model incorporates random-walk frequency noise and random-walk time
         noise. These are controlled by the normalized variance of the frequency
         offset random-walk iid step (norm_var_freq_rw) and the normalized
-        variance of the time offset random-walk (norm_var_time_rw). Importantly,
-        these normalized variances are ultimately multiplied by the update
-        period of the model as suggested in [1].
+        variance of the time offset random-walk (norm_var_time_rw).
+        Importantly, these normalized variances are ultimately multiplied by
+        the update period of the model as suggested in [1].
 
         References:
 
@@ -66,8 +66,8 @@ class Rtc():
         freq_offset_0 = freq_offset_0_ppb * 1e-9
         freq_hz = nom_freq_hz * (1 + freq_offset_0)
 
-        # The phase is the instant within the period of the driving clock signal
-        # where the rising edge is located
+        # The phase is the instant within the period of the driving clock
+        # signal where the rising edge is located
         phase_0_ns = random.uniform(0, inc_val_ns)
 
         # Constants
@@ -85,10 +85,10 @@ class Rtc():
 
         # Clock modeling
         self._model_update_period_ns = 1e7
-        self._model_sdev_freq_rw     = math.sqrt(1e-9 * norm_var_freq_rw * \
-                                                 self._model_update_period_ns)
-        self._model_sdev_time_rw     = math.sqrt(1e-9 * norm_var_time_rw * \
-                                                 self._model_update_period_ns)
+        self._model_sdev_freq_rw = math.sqrt(1e-9 * norm_var_freq_rw *
+                                             self._model_update_period_ns)
+        self._model_sdev_time_rw = math.sqrt(1e-9 * norm_var_time_rw *
+                                             self._model_update_period_ns)
         self._model_t_last_update = 0
 
         logger = logging.getLogger('Rtc')
@@ -112,7 +112,7 @@ class Rtc():
         """
 
         t_next_update = self._model_t_last_update + \
-                        self._model_update_period_ns
+            self._model_update_period_ns
 
         # Is it time to update the frequency/phase?
         if (t_sim_ns >= t_next_update):

@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from ptp.compression import *
+from ptp.compression import Codec
 
 original_ds = {
     'metadata': {},

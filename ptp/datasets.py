@@ -48,8 +48,9 @@ class Datasets():
             ".json"
         ]
         all_ds_names = [ds_prefix + suffix for suffix in ds_suffixes]
-        all_local_paths = [os.path.join(self.local_repo, d) for d in \
-                           all_ds_names]
+        all_local_paths = [
+            os.path.join(self.local_repo, d) for d in all_ds_names
+        ]
 
         return all_local_paths, all_ds_names
 
@@ -187,7 +188,7 @@ class Datasets():
             local_ds_path = os.path.join(self.local_repo, ds_name)
             open(local_ds_path, 'wb').write(req.content)
             found = True
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             pass
 
         if (found):

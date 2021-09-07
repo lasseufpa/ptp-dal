@@ -39,8 +39,8 @@ class Bias():
 
     which is also known as the "delay asymmetry".
 
-    The asymmetry w[n] typically has a non-zero mean, since the distributions of
-    the master-to-slave (m-to-s) and slave-to-master (s-to-m) delays usually
+    The asymmetry w[n] typically has a non-zero mean, since the distributions
+    of the master-to-slave (m-to-s) and slave-to-master (s-to-m) delays usually
     have distinct mean and differ also on other statistics (like minimum value,
     maximum, mode, etc).
 
@@ -119,19 +119,19 @@ class Bias():
         """Compensate the bias of time offset estimations due to delay asymmetry
 
         In order to correct the asymmetry, a correction value can be either
-        added directly to the raw time offset measurements ('x_est') or added to
-        one of the four timestamps of a two-way exchange. For timestamp
+        added directly to the raw time offset measurements ('x_est') or added
+        to one of the four timestamps of a two-way exchange. For timestamp
         compensation, this function adds a correction to timestamp 't4'. The
         rationale is elaborated in the sequel.
 
         1) Correcting time offset estimates
 
-        When compensating time offset estimates/measurements, the goal is either
-        to compensate the raw w[n] (see the expression above) or the bias that
-        arises by processing m-to-s and s-to-m timestamp differences through
-        packet selection. For example, when raw time offset measurements
-        x_est[n] are considered, the compensation value should be the mean of
-        w[n], like so:
+        When compensating time offset estimates/measurements, the goal is
+        either to compensate the raw w[n] (see the expression above) or the
+        bias that arises by processing m-to-s and s-to-m timestamp differences
+        through packet selection. For example, when raw time offset
+        measurements x_est[n] are considered, the compensation value should be
+        the mean of w[n], like so:
 
         x_est_corr[n] = x_est[n] - mean{w[n]}
                      ~= x[n] + (w[n] - mean{w[n]}).
@@ -150,15 +150,15 @@ class Bias():
 
         w_sm[n] = (min{d_ms[n]} - min{d_sm[n]})/2
 
-        Thus, the asymmetry to be compensated is "w_sm[n]" in this case. Similar
-        expressions can be derived by considering other packet selection
-        operators.
+        Thus, the asymmetry to be compensated is "w_sm[n]" in this case.
+        Similar expressions can be derived by considering other packet
+        selection operators.
 
         2) Correcting timestamps
 
         The idea of correcting timestamps is that it can be done before any
-        post-processing. In practice, this would be done by the PTP slave itself
-        directly, in which case the slave would correct a known static
+        post-processing. In practice, this would be done by the PTP slave
+        itself directly, in which case the slave would correct a known static
         asymmetry. Ultimately, the timestamps delivered for post-processing
         stages would already be compensated and ideally symmetric on average.
 

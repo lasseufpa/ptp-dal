@@ -1,13 +1,14 @@
 #!/usr/bin/env python
+import logging
+import sys
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
 import ptp.compression
-import argparse, logging, sys
-from argparse import ArgumentDefaultsHelpFormatter
 
 
 def parser():
-    parser = argparse.ArgumentParser(
-        description="Compress JSON dataset",
-        formatter_class=ArgumentDefaultsHelpFormatter)
+    parser = ArgumentParser(description="Compress JSON dataset",
+                            formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('file', help='JSON or Pickle dataset file.')
     parser.add_argument('-f',
                         '--format',

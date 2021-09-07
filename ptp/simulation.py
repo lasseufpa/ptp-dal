@@ -12,12 +12,12 @@ import heapq
 import random
 import time
 from pathlib import Path
-
-from ptp.rtc import *
-from ptp.messages import *
-from ptp.mechanisms import *
 from pprint import pprint
+
 import ptp.compression
+from ptp.rtc import Rtc
+from ptp.messages import PtpEvt
+from ptp.mechanisms import DelayReqResp
 
 logger = logging.getLogger(__name__)
 

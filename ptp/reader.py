@@ -4,7 +4,7 @@ import numpy as np
 
 import ptp.compression
 from ptp.timestamping import Timestamp
-from ptp.mechanisms import *
+from ptp.mechanisms import DelayReqResp
 
 logger = logging.getLogger(__name__)
 
@@ -261,8 +261,8 @@ class Reader():
 
         ns_per_hour = 1e9 * 60 * 60
         t_start = self.data[0]["t1"]
-        t_h = np.array([float(r["t1"] - t_start) for r in self.data]) / \
-              ns_per_hour
+        t_h = np.array([float(r["t1"] - t_start)
+                        for r in self.data]) / ns_per_hour
         i_s = np.where(t_h > start)[0][0]
         i_e = np.where(t_h <= end)[0][-1]
 

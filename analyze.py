@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 
-import logging, sys
+import logging
+import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-import ptp.reader
+
+import ptp.bias
+import ptp.cache
+import ptp.datasets
+import ptp.frequency
+import ptp.kalman
 import ptp.ls
 import ptp.metrics
-import ptp.pktselection
-import ptp.kalman
-import ptp.frequency
-import ptp.window
 import ptp.outlier
-import ptp.bias
-import ptp.datasets
-import ptp.cache
+import ptp.pktselection
+import ptp.reader
 import ptp.simulation
+import ptp.window
 
 default_window_lengths = {
     'ls': 105,
@@ -40,17 +42,17 @@ def _calc_max_drift_est_transient(skip, drift_comp, optimizer_max_window,
     The window-based algorithms produce estimates by the end of the observation
     windows, such that the first estimate is produced by the end of the first
     window. Similarly, the TLL and Kalman filter produce estimates after the
-    their transients. To ensure that we have estimates throughout the portion of
-    the dataset that is analyzed (after skipping samples), we must limit the
+    their transients. To ensure that we have estimates throughout the portion
+    of the dataset that is analyzed (after skipping samples), we must limit the
     window lengths and transient phases accordingly. This limitation is imposed
     in terms of the maximum fraction of the dataset that a transient phase can
     occupy.
 
     With drift compensation on window-based algorithms, the first window can
-    only be computed once drift estimates become available in the
-    dataset. Hence, in this case, the two transients are added together (they
-    are consecutive). Otherwise, the two transients occur in parallel. In any
-    case, the value provided through command-line argument "--skip" controls the
+    only be computed once drift estimates become available in the dataset.
+    Hence, in this case, the two transients are added together (they are
+    consecutive). Otherwise, the two transients occur in parallel. In any case,
+    the value provided through command-line argument "--skip" controls the
     maximum total transient as a fraction of the dataset length.
 
     """
@@ -68,8 +70,9 @@ def _calc_max_drift_est_transient(skip, drift_comp, optimizer_max_window,
         # Ideally, the maximum window used for packet selection/filtering still
         # leaves sufficient room for the drift estimation transient. Otherwise,
         # the drift estimation performance may deteriorate. For example, when
-        # estimating drifts based on the TLL, sometimes the best drift estimates
-        # come from TLL configurations with relatively long transients.
+        # estimating drifts based on the TLL, sometimes the best drift
+        # estimates come from TLL configurations with relatively long
+        # transients.
         logging.warning("Drift estimator's transient is less than half of the "
                         "maximum window transient")
 
@@ -232,10 +235,10 @@ def _run_post_bias_compensation(data, corr):
 
     These operators process timestamp differences (t21 and t43) instead of the
     raw time offset measurements "x_est". Furthermore, the packet selection
-    operators experience distinct asymmetries (max/min/mode/median). If the goal
-    was to pre-compensate their biases before running the algorithms, it would
-    be necessary to maintain different pre-compensated copies of t21 and t43,
-    each corrected by the specific asymmetry of interest. To avoid this
+    operators experience distinct asymmetries (max/min/mode/median). If the
+    goal was to pre-compensate their biases before running the algorithms, it
+    would be necessary to maintain different pre-compensated copies of t21 and
+    t43, each corrected by the specific asymmetry of interest. To avoid this
     overhead, it's convenient to correct the estimates resulting from each
     algorithm instead. This function corrects such estimates in place.
 
@@ -524,12 +527,12 @@ def parse_args():
                             "unbiased-one-way-reversed"
                         ],
                         help='Drift estimation strategy. Select \"loop\" to \
-                        use the drift estimates produced by the TLL PI loop or \
-                        \"unbiased\" to use the conventional unbiased \
-                        frequency offset estimator based on intervals measured \
-                        at the slave and the master. Select specifically which \
-                        unbiased estimation formulation to use: two-way, \
-                        one-way, or reversed one-way.')
+                        use the drift estimates produced by the TLL PI loop \
+                        or \"unbiased\" to use the conventional unbiased \
+                        frequency offset estimator based on intervals \
+                        measured at the slave and the master. Select \
+                        specifically which unbiased estimation formulation \
+                        to use: two-way, one-way, or reversed one-way.')
     d_opts.add_argument('--drift-est-pkts',
                         choices=["sample-min", "sample-max", None],
                         default=None,

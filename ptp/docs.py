@@ -146,7 +146,7 @@ class Docs():
 </head><body>
 <!-- Latest compiled and minified JavaScript -->
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
-        """
+        """  # noqa: E501
 
         table_class = "class=\"table table-bordered table-hover\""
         html_body = json2html.json2html.convert(json=json_data,

@@ -7,8 +7,8 @@ import ptp.ewma
 def ewma(N, x_array):
     """Exponentially weighted moving average (EWMA)
 
-    Uses the Ewma class from the ewma.py module to implement an EWMA filter. The
-    coefficients are set based on a target window length.
+    Uses the Ewma class from the ewma.py module to implement an EWMA filter.
+    The coefficients are set based on a target window length.
 
     Args:
         N       : Window length
@@ -147,8 +147,8 @@ def moving_maximum(N, x_array):
 def moving_mode(N, x_array, bin_width=10):
     """Moving-mode
 
-    Slides a window of length N over a given data array and re-computes the mode
-    recursively on each window.
+    Slides a window of length N over a given data array and re-computes the
+    mode recursively on each window.
 
     Args:
         N       : Window length

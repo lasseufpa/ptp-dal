@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from pykalman import KalmanFilter as PyKalman
 
-from ptp.kalman import *
+from ptp.kalman import KalmanFilter
 
 immutable_data = [{
     "d": 700,

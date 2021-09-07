@@ -4,7 +4,6 @@ import numpy as np
 from scipy import stats
 
 import ptp.filters
-from ptp.ewma import Ewma
 
 logger = logging.getLogger(__name__)
 
@@ -143,8 +142,8 @@ class PktSelection():
         offset.
 
         Within a window of N message exchanges, find the earliest-arriving Sync
-        and the earliest-arriving Delay_Req, that is, the ones that were subject
-        to minimum delay. To find the Sync, observe the index where the
+        and the earliest-arriving Delay_Req, that is, the ones that were
+        subject to minimum delay. To find the Sync, observe the index where the
         difference (t2 - t1) was the minimum. To find the Delay_Req, look for
         the minimum of the difference (t4 - t3). In the end, use these minimum
         differences to compute the time offset estimate.
@@ -213,8 +212,8 @@ class PktSelection():
         """Compute the time offset based on latest arrivals
 
         Vectorized version of the above (`_sample_maximum`). Instead of
-        processing a single observation window, this function processes a matrix
-        with many (or all) observation windows.
+        processing a single observation window, this function processes a
+        matrix with many (or all) observation windows.
 
         Args:
             t2_minus_t1_mtx : Matrix of (t2 - t1) differences
@@ -239,8 +238,8 @@ class PktSelection():
         """Compute the time offset based on sample-mode
 
         Regarding the bin adjustment algorithm, note that a higher
-        `cnt_threshold` will lead to more frequent adjustments (enlargements) of
-        the bin width. A lower patience will also enlarge the bin width more
+        `cnt_threshold` will lead to more frequent adjustments (enlargements)
+        of the bin width. A lower patience will also enlarge the bin width more
         frequently. Moreover, note that if the bin becomes too wide, the
         estimation resolution reduces. Hence, loosely speaking the
         `cnt_threshold` should be relatively small and `stall_patience`
@@ -271,8 +270,7 @@ class PktSelection():
                                      return_counts=True)
         mode_cnt_fw = np.amax(counts)
         mode_idx_fw = idx[np.argmax(counts)]
-        t2_minus_t1      = t2_minus_t1_q[mode_idx_fw] * bin_width + \
-                           half_bin_width
+        t2_minus_t1 = t2_minus_t1_q[mode_idx_fw] * bin_width + half_bin_width
 
         # Find the mode for (t4 - t3)
         (_, idx, counts) = np.unique(t4_minus_t3_q,
@@ -280,14 +278,13 @@ class PktSelection():
                                      return_counts=True)
         mode_cnt_bw = np.amax(counts)
         mode_idx_bw = idx[np.argmax(counts)]
-        t4_minus_t3      = t4_minus_t3_q[mode_idx_bw] * bin_width + \
-                           half_bin_width
+        t4_minus_t3 = t4_minus_t3_q[mode_idx_bw] * bin_width + half_bin_width
 
         # Detect when we can't find a mode
         #
         # In case the occurrence count of the mode bin is below a threshold for
-        # some consecutive number of iterations (denominated patience), we infer
-        # that the mode detection is stalled and increase the bin width.
+        # some consecutive number of iterations (denominated patience), we
+        # infer that the mode detection is stalled and increase the bin width.
         if (mode_cnt_fw < cnt_threshold and mode_cnt_bw < cnt_threshold):
             self._mode_stall_cnt += 1
         else:
@@ -348,9 +345,10 @@ class PktSelection():
                 t4_minus_t3_mode, mode_cnt_bw = stats.mode(t4_minus_t3_q,
                                                            axis=1)
 
-                # Adjust the bin such that less than 10% of the realizations (of
-                # the windows) have a mode count below threshold. That is, we
-                # want the mode to be significant, rather than close to a tie.
+                # Adjust the bin such that less than 10% of the realizations
+                # (of the windows) have a mode count below threshold. That is,
+                # we want the mode to be significant, rather than close to a
+                # tie.
                 done = True
                 if ((mode_cnt_fw < cnt_threshold).sum() > int(0.1 * n_tuning)):
                     bin_width_fw += 10
@@ -408,10 +406,10 @@ class PktSelection():
             drift_corr = np.zeros(len(self.data))
 
         # Drift-compensated timetamp difference arrays
-        t21 = np.array([float(r["t2"] - r["t1"]) for r in self.data]) \
-              - drift_corr
-        t43 = np.array([float(r["t4"] - r["t3"]) for r in self.data]) \
-              + drift_corr
+        t21 = np.array([float(r["t2"] - r["t1"])
+                        for r in self.data]) - drift_corr
+        t43 = np.array([float(r["t4"] - r["t3"])
+                        for r in self.data]) + drift_corr
 
         # Recursive moving-minimum/maximum of t21 and t43
         filter_map = {
@@ -456,8 +454,8 @@ class PktSelection():
         x_obs = np.array([r["x_est"] for r in self.data]) - drift_corr
 
         # Filter the measurements
-        filter_op = ptp.filters.moving_average if (strategy == "avg") else \
-                    ptp.filters.ewma
+        filter_op = ptp.filters.moving_average if (
+            strategy == "avg") else ptp.filters.ewma
         x_est = filter_op(self.N, x_obs)
 
         # Re-add cumulative drift and save on global data records after the
@@ -500,10 +498,10 @@ class PktSelection():
         """Window-by-window processing
 
         Args:
-            strategy      : Window-based packet selection strategy of interest.
-            drift_comp    : Whether to compensate drift of timestamp differences
-                            or time offset measuremrents prior to computing
-                            packet selection operators.
+            strategy   : Window-based packet selection strategy of interest.
+            drift_comp : Whether to compensate drift of timestamp differences
+                         or time offset measurements prior to computing packet
+                         selection operators.
 
         """
         for i in range(0, (len(self.data) - self.N) + 1):
@@ -555,7 +553,7 @@ class PktSelection():
                     raise ValueError("Strategy choice %s unknown" % (strategy))
 
             # Re-add the drift that was accumulated during this observation
-            # window to the estimate that was produced by the selection operator
+            # window to the estimate produced by the selection operator
             if (drift_comp):
                 x_est = x_est + cum_drift_w[-1]
 
@@ -578,21 +576,20 @@ class PktSelection():
 
         Args:
             strategy      : Window-based packet selection strategy of interest.
-            drift_comp    : Whether to compensate drift of timestamp differences
-                            or time offset measuremrents prior to computing
-                            packet selection operators.
+            drift_comp    : Whether to compensate drift of timestamp
+                            differences or time offset measurements before
+                            computing packet selection operators.
             batch         : Whether to split dataset into batches.
             batch_size    : Number of observation windows on each batch.
 
         """
-        win_overlap = self.N - 1  # samples repeated on a window from past window
+        win_overlap = self.N - 1  # samples repeated from past window
         new_per_win = self.N - win_overlap  # new samples per window
         # NOTE: assume each window of size N has N-1 entries from the previous
         # window (i.e. fully overlapping windows)
 
         # Corresponding number of windows and batches
         n_windows = int((len(self.data) - win_overlap) / new_per_win)
-        n_batches = np.ceil(n_windows / batch_size) if batch else 1
         batch_size = batch_size if batch else n_windows
 
         for i_w_s in range(0, n_windows, batch_size):
@@ -646,16 +643,17 @@ class PktSelection():
                                              self.N,
                                              shift=new_per_win)
 
-                # If batch processing is enabled, process each batch separately.
-                # Otherwise, process all observation windows at once.
+                # If batch processing is enabled, process each batch
+                # separately. Otherwise, process all observation windows at
+                # once.
                 x_est = self._vectorized(strategy=strategy,
                                          drift_comp=drift_comp,
                                          cum_drift_est=cum_drift_est_w,
                                          t2_minus_t1=t2_minus_t1_w,
                                          t4_minus_t3=t4_minus_t3_w)
 
-            # There is one estimate per window of this batch, except if we don't
-            # have windows to fill the entire batch
+            # There is one estimate per window of this batch, except if we
+            # don't have windows to fill the entire batch
             assert (len(x_est) == batch_size or i_w_e > n_windows)
 
             # Save results on global data records
@@ -678,9 +676,9 @@ class PktSelection():
 
         Args:
             strategy      : Select the strategy of interest.
-            drift_comp    : Whether to compensate drift of timestamp differences
-                            or time offset measuremrents prior to computing
-                            packet selection operators.
+            drift_comp    : Whether to compensate drift of timestamp
+                            differences or time offset measurements before
+                            computing packet selection operators.
             cum_drift_est : Matrix with the estimates of the cumulative time
                             offset drift due to frequency offset.
             x_obs         : Matrix with time offset observations windows.
@@ -725,7 +723,7 @@ class PktSelection():
             elif (strategy == 'max'):
                 x_est = self._sample_maximum_vec(t2_minus_t1, t4_minus_t3)
             elif (strategy == 'mode'):
-                #FIXME: Sample-mode need to be adjusted for batch processing.
+                # FIXME: Sample-mode need to be adjusted for batch processing.
                 x_est = self._sample_mode_vec(t2_minus_t1, t4_minus_t3)
             else:
                 raise ValueError("Strategy choice %s unknown" % (strategy))
@@ -762,8 +760,8 @@ class PktSelection():
         ----------------------------------------
         Drift compensation:
 
-        If drift compensation is enabled, use vector of drifts to compensate the
-        differences of timestamps along the observation window.
+        If drift compensation is enabled, use vector of drifts to compensate
+        the differences of timestamps along the observation window.
 
         Note that:
             x[n] = t2[n] - (t1[n] + dms[n])
@@ -788,11 +786,11 @@ class PktSelection():
             t2[n] - t1[n] - drift[n] = +x_0 + dms[n],
             t4[n] - t3[n] + drift[n] = -x_0 + dsm[n]
 
-        In the end, this means that drift-compensated timestamp differences will
-        lead to an approximately constant time offset corrupted by variable
-        delay realizations. This is the ideal input to packet selection
-        operators. Once the operators process the drift-compensated timestamp
-        differences, ideally its result would approach:
+        In the end, this means that drift-compensated timestamp differences
+        will lead to an approximately constant time offset corrupted by
+        variable delay realizations. This is the ideal input to packet
+        selection operators. Once the operators process the drift-compensated
+        timestamp differences, ideally its result would approach:
 
             x_est -> x_0
 
@@ -815,8 +813,8 @@ class PktSelection():
         algorithms also have corresponding vectorized implementations. The
         difference on the vectorized implementations is that, instead of
         processing one window at a time, they process several windows at once,
-        i.e. process a matrix with windows stacked on top of each other. This is
-        referred to as matrix-by-matrix processing.
+        i.e. process a matrix with windows stacked on top of each other. This
+        is referred to as matrix-by-matrix processing.
 
         Depending on the dataset size, it may become infeasible to stack all
         available windows and process the resulting matrix at once. This could
@@ -832,8 +830,8 @@ class PktSelection():
         Args:
             strategy   : Select the strategy of interest: "avg", "ewma",
                          "median", "min", "max", or "mode"
-            drift_comp : Whether to compensate drift of timestamp differences or
-                         time offset measuremrents prior to computing packet
+            drift_comp : Whether to compensate drift of timestamp differences
+                         or time offset measurements prior to computing packet
                          selection operators.
             vectorize  : Whether to use vectorized implementation of selection
                          operators. When enabled, all observation windows will
@@ -850,9 +848,9 @@ class PktSelection():
             calc_drift : Compute the cumulative time offset drift estimates and
                          save them on self.data before running the algorithms.
                          In the end, remove the results from self.data. On
-                         multiprocessing worker objects, set this to false given
-                         that the parent object will already calculate the
-                         cumulative drifts and make them available to all
+                         multiprocessing worker objects, set this to false
+                         given that the parent object will already calculate
+                         the cumulative drifts and make them available to all
                          workers through the shared self.data.
             recursive  : Prefer a recursive implementation when available.
 
@@ -873,9 +871,9 @@ class PktSelection():
         for r in self.data:
             r.pop(key, None)
 
-        # If drift compensation is to be used, find where drift estimates start
-        # and restrict the dataset to be processed by packet selection such that
-        # all of its entries contain cumulative time offset drift estimates.
+        # If drift compensation is enabled, find where drift estimates start
+        # and restrict the dataset to be processed by packet selection such
+        # that all entries contain cumulative time offset drift estimates.
         if (drift_comp and calc_drift):
             for i, r in enumerate(self._original_data):
                 if ("drift" in r):

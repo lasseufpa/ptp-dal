@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from ptp.pktselection import *
+from ptp.pktselection import PktSelection
 
 immutable_data = [{
     "x_est": 6,
@@ -119,8 +119,9 @@ class TestPktSelection(unittest.TestCase):
                      drift_comp=drift_comp,
                      vectorize=vectorize,
                      batch=batch)
-        x_est_median = [r["x_pkts_median"] for r in data if \
-                         "x_pkts_median" in r]
+        x_est_median = [
+            r["x_pkts_median"] for r in data if "x_pkts_median" in r
+        ]
 
         # Check values
         if (drift_comp):

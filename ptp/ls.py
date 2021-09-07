@@ -12,14 +12,15 @@ class Ls():
         """Least-squares Time Offset Estimator
 
         Args:
-            N    : observation window length (number of measurements per window)
+            N    : observation window length (number of measurements per
+                   window)
             data : Array of objects with simulation data
             T_ns : nominal time offset measurement period in nanoseconds, used
                    for **debugging only**. It is used to obtain the fractional
                    frequency offset y (drift in sec/sec) when using the
                    efficient LS implementation, since the latter only estimates
-                   y*T_ns (drif in nanoseconds/measurement). In the end, this is
-                   used for plotting the frequency offset.
+                   y*T_ns (drif in nanoseconds/measurement). In the end, this
+                   is used for plotting the frequency offset.
 
         """
         self.N = N
@@ -55,12 +56,12 @@ class Ls():
         implementation below) would be the true values of timestamps "t2",
         according to the reference time, not the slave time. However, the
         problem with using timestamps "t2" directly is that they are subject to
-        slave impairments. When observing a long window, the last timestamp "t2"
-        in the window may have drifted substantially with respect to the true
-        "t2". In contrast, timestamps "t1" are taken at the master side, so they
-        are directly from the reference time. However, the disadvantage of using
-        "t1" is that they do not reflect the actual Sync arrival time after the
-        message's PDV.
+        slave impairments. When observing a long window, the last timestamp
+        "t2" in the window may have drifted substantially with respect to the
+        true "t2". In contrast, timestamps "t1" are taken at the master side,
+        so they are directly from the reference time. However, the disadvantage
+        of using "t1" is that they do not reflect the actual Sync arrival time
+        after the message's PDV.
 
         Returns:
             Tuple containing the arrays of time and frequency offset estimates
@@ -272,8 +273,8 @@ class Ls():
 
             batch_mode : Whether to process observation windows in batches,
                          rather than trying to process all windows at
-                         once. Especially important for the vectorized efficient
-                         (eff-vec) implementation.
+                         once. Especially important for the vectorized
+                         efficient (eff-vec) implementation.
 
             batch_size : Number of observation windows that compose a batch.
 
@@ -285,14 +286,13 @@ class Ls():
         logger.info("Processing with N=%d" % (self.N))
 
         n_data = len(self.data)
-        win_overlap = self.N - 1  # samples repeated on a window from past window
+        win_overlap = self.N - 1  # samples repeated from past window
         new_per_win = self.N - win_overlap  # new samples per window
         # NOTE: assume each window of size N has N-1 entries from the previous
         # window (i.e. fully overlapping windows)
 
         # Corresponding number of windows and batches
         n_windows = int((n_data - win_overlap) / new_per_win)
-        n_batches = np.ceil(n_windows / batch_size) if batch_mode else 1
         batch_size = batch_size if batch_mode else n_windows
 
         # Iterate over batches

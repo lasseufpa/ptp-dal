@@ -19,9 +19,9 @@ class Estimator():
             data   : Array of objects with simulation data
             delta  : (int > 0) Observation interval in samples. When set to 1,
                      estimates the frequency offsets based on consecutive data
-                     entries.  When set to 2, estimates frequency offset i based
-                     on timestamps from the i-th iteration and from iteration
-                     'i-2', and so on.
+                     entries.  When set to 2, estimates frequency offset i
+                     based on timestamps from the i-th iteration and from
+                     iteration 'i-2', and so on.
             pkts   : Packet selection/filtering strategy to apply before
                      computing unbiased frequency offet estimates (sample-min
                      or sample-max). When set to None, disables the
@@ -91,8 +91,8 @@ class Estimator():
         the cumulative drifts relative to the true cumulative drift since the
         beginning of the dataset is not important. What matters the most is the
         accuracy of drift estimates within the observation window. Try to
-        optimize the drifts such that they do not deviate too much from the true
-        drifts over short-term windows.
+        optimize the drifts such that they do not deviate too much from the
+        true drifts over short-term windows.
 
         This function uses the drift estimates and true time offset values that
         are available internally on self.data.
@@ -146,8 +146,8 @@ class Estimator():
         # of 100 ns. If we estimate cumulative drifts of 9 ns and 90 ns,
         # respectively, the absolute errors are 1 ns and 10 ns, respectively,
         # which are unfair to compare (e.g., the max-error loss will focus on
-        # high frequency offsets). In contrast, the normalized errors are 0.1 in
-        # both cases, which can be compared fairly.
+        # high frequency offsets). In contrast, the normalized errors are 0.1
+        # in both cases, which can be compared fairly.
         #
         # To avoid Inf values, return zero for the normalized error everywhere
         # the true cumulative drift (the normalization factor) presents zero
@@ -173,14 +173,15 @@ class Estimator():
         Use a relatively short window range for the packet filtering layer,
         given that, unlike the processing used for time offset estimates, there
         is no drift correction prior to this packet filtering (for frequency
-        offset estimates). After all, we're still trying to estimate the drifts.
+        offset estimates). After all, we're still trying to estimate the
+        drifts.
 
         Args:
             max_window_span : Maximum fraction of the dataset to be occupied by
                               the observation window. This parameter controls
                               the maximum tolerable latency to obtain the first
-                              frequency offset estimate (by the end of the first
-                              observation window).
+                              frequency offset estimate (by the end of the
+                              first observation window).
 
         Returns:
             Tuple containing the arrays (np.ndarray) of window lengths to be
@@ -222,11 +223,12 @@ class Estimator():
 
         Args:
             strategy   : Select between one-way, one-way-reversed, and two-way.
-                         The one-way strategy uses the m-to-s timestamps (t1 and
-                         t2) only. The two-way strategy relies on the two-way
-                         time offset measurements (x_est), namely on all
-                         timestamps (t1, t2, t3, and t4). The reversed one-way
-                         strategy uses the s-to-m timestamps (t3 and t4) only.
+                         The one-way strategy uses the m-to-s timestamps (t1
+                         and t2) only. The two-way strategy relies on the
+                         two-way time offset measurements (x_est), namely on
+                         all timestamps (t1, t2, t3, and t4). The reversed
+                         one-way strategy uses the s-to-m timestamps (t3 and
+                         t4) only.
 
         """
         assert (self.pkts is not None)
@@ -235,7 +237,7 @@ class Estimator():
         # Packet filtering window and operator
         N = self.N_pkts
         op = ptp.filters.moving_minimum if self.pkts == "sample-min" else \
-             ptp.filters.moving_maximum
+            ptp.filters.moving_maximum
 
         if (strategy == "one-way"):
             t1 = np.array([float(r["t1"]) for r in self.data])
@@ -289,10 +291,10 @@ class Estimator():
         Args:
             strategy : Select between one-way, one-way-reversed, and two-way.
                        The one-way strategy uses the m-to-s timestamps (t1 and
-                       t2) only. The two-way strategy relies on the two-way time
-                       offset measurements (x_est), namely on all timestamps
-                       (t1, t2, t3, and t4). The reversed one-way strategy
-                       uses the s-to-m timestamps (t3 and t4) only.
+                       t2) only. The two-way strategy relies on the two-way
+                       time offset measurements (x_est), namely on all
+                       timestamps (t1, t2, t3, and t4). The reversed one-way
+                       strategy uses the s-to-m timestamps (t3 and t4) only.
 
         """
         assert (strategy in ["one-way", "one-way-reversed", "two-way"])
@@ -332,9 +334,9 @@ class Estimator():
         """Optimize the observation interval used for freq. offset estimation
 
         Optimizes the observation interval used for unbiased frequency offset
-        estimations in order to minimize the error between the estimates and the
-        true frequency offset. This minimization can be either in terms of the
-        mean square error (MSE) or the maximum absolute error (max|error|).
+        estimations in order to minimize the error between the estimates and
+        the true frequency offset. This minimization can be either in terms of
+        the mean square error (MSE) or the maximum absolute error (max|error|).
 
         The problem with this approach is that the truth in "y" (the true
         frequency offset) is questionable. Since the true y values are also
@@ -349,8 +351,8 @@ class Estimator():
             max_window_span : Maximum fraction of the dataset to be occupied by
                               the observation window. This parameter controls
                               the maximum tolerable latency to obtain the first
-                              frequency offset estimate (by the end of the first
-                              observation window).
+                              frequency offset estimate (by the end of the
+                              first observation window).
 
         """
         assert (strategy in ["one-way", "one-way-reversed", "two-way"])
@@ -363,7 +365,7 @@ class Estimator():
         n_samples = int(np.floor((1 - max_window_span) * len(self.data)))
         assert (n_samples > 0)
 
-        logger.info("Optimize observation window" % ())
+        logger.info("Optimize observation window")
         logger.info("Try from N = {} to N = {}".format(min(window_len),
                                                        max(window_len)))
         if (self.pkts is not None):
@@ -435,14 +437,14 @@ class Estimator():
             cache           : Cache handler used to save the optimal
                               configuration on a JSON file.
             cache_id        : Cache object identifier.
-            force           : Force processing even if a configuration file with
-                              the optimal parameters already exists in cache.
+            force           : Force processing even if a configuration file
+                              with the optimal parameters already exists in
+                              cache.
 
-        Note:
-            The cumulative criterion typically leads to better optimization
-            performance. The absolute criterion considers estimation errors that
-            are often masked by the uncertainty on dataset labels. For example,
-            if the truth labels have an uncertainty of +-8 ns and the
+        Note: The cumulative criterion typically leads to better optimization
+            performance. The absolute criterion considers estimation errors
+            that are often masked by the uncertainty on dataset labels. For
+            example, if the truth labels have an uncertainty of +-8 ns and the
             instantaneos drift error is < 1 ns, then the instataneous drift
             error becomes negligible relative to the uncertainty. In contrast,
             the cumulative criterion accumulates error such that the cumulative
@@ -561,9 +563,9 @@ class Estimator():
     def estimate_drift(self):
         """Estimate the incremental drifts due to frequency offset
 
-        On each iteration, the true time offset changes due to the instantaneous
-        frequency offset. On iteration n, with freq. offset y[n], it will
-        roughly change w.r.t. the previous iteration by:
+        On each iteration, the true time offset changes due to the
+        instantaneous frequency offset. On iteration n, with freq. offset y[n],
+        it will roughly change w.r.t. the previous iteration by:
 
         drift[n] = y[n] * (t1[n] - t1[n-1])
 
@@ -614,20 +616,21 @@ class Estimator():
         locked. In other words, if the "drift" key is not in a dict of the data
         list, the loop is not locked yet at this point.
 
-        Note that the convergence of the loop is not explicitly tested
-        here. Instead, we simply define the portion of the dataset that can be
-        used for settling. All estimates produced past this portion of the
-        dataset are saved, the other values are discarded. The rationale is that
-        the optimizer also considers the same settling time margin. Hence, if
-        the damping and loopbw parameters came from the optimizer, the values
-        past the chosen settling time are already optimal and very likely
+        Note that the convergence of the loop is not explicitly tested here.
+        Instead, we simply define the portion of the dataset that can be used
+        for settling. All estimates produced past this portion of the dataset
+        are saved, the other values are discarded. The rationale is that the
+        optimizer also considers the same settling time margin. Hence, if the
+        damping and loopbw parameters came from the optimizer, the values past
+        the chosen settling time are already optimal and very likely
         effectively settled (converged).
 
         Args:
             damping  : Damping factor
             loopbw   : Loop bandwidth
             settling : Fraction of the dataset over which the loop can settle.
-                       Results are only saved after this portion of the dataset.
+                       Results are only saved after this portion of the
+                       dataset.
 
         """
         logger.debug("Run PI loop with damping {:f} and loop bw {:f}".format(
@@ -674,21 +677,22 @@ class Estimator():
         By default the damping factor and loop bandwidth are tuned using the
         cumulative drift instead of the absolute. This is because the latter
         leads to a time offset drift estimation that is very close to the
-        'optimize_to_y', while the former yield the best estimation performance.
+        'optimize_to_y', while the former yield the best estimation
+        performance.
 
         Args:
             criterion     : Error criterion used for tuning: cumulative or
                             instantaneous time offset drift error.
             loss          : Loss function (mse or max-error).
-            cache         : Cache handler used to save the optimal configuration
-                            on a JSON file.
+            cache         : Cache handler used to save the optimal
+                            configuration on a JSON file.
             cache_id      : Cache object identifier
             force         : Force processing even if a configuration file with
                             the optimal parameters already exists in cache.
             max_transient : Maximum fraction of the dataset to be occupied by
                             the transient phase of the loop. This parameter
-                            controls the maximum tolerable latency to obtain the
-                            first drift estimates.
+                            controls the maximum tolerable latency to obtain
+                            the first drift estimates.
 
         """
         assert (criterion in ['cumulative', 'instantaneous'])
