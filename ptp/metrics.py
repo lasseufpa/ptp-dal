@@ -1,38 +1,78 @@
 """PTP metrics
 """
-import math, logging, re, os, json
-import ptp.cache
+import json
+import logging
+import math
+import os
+import re
 from datetime import timedelta
+from cycler import cycler
+
+import numpy as np
 from scipy import stats
 import matplotlib
+
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from cycler import cycler
-import numpy as np
-logger = logging.getLogger(__name__)
 
+import ptp.cache
+
+logger = logging.getLogger(__name__)
 
 NS_PER_MIN = (60 * 1e9)
 est_keys = {
-    "raw"                : {"label": "Raw"},
-    "true"               : {"label": "True Values"},
-    "pkts_avg"           : {"label": "Sample average"},
-    "pkts_median"        : {"label": "Sample median"},
-    "pkts_min"           : {"label": "Sample min"},
-    "pkts_max"           : {"label": "Sample max"},
-    "pkts_mode"          : {"label": "Sample mode"},
-    "ls_eff"             : {"label": "LS"},
-    "kf"                 : {"label": "KF"},
-    "loop"               : {"label": "TLL"},
-    "pkts_ewma"          : {"label": "EWMA"},
-    "ls_t2"              : {"label": "LS (t2)"},
-    "ls_t1"              : {"label": "LS (t1)"}
+    "raw": {
+        "label": "Raw"
+    },
+    "true": {
+        "label": "True Values"
+    },
+    "pkts_avg": {
+        "label": "Sample average"
+    },
+    "pkts_median": {
+        "label": "Sample median"
+    },
+    "pkts_min": {
+        "label": "Sample min"
+    },
+    "pkts_max": {
+        "label": "Sample max"
+    },
+    "pkts_mode": {
+        "label": "Sample mode"
+    },
+    "ls_eff": {
+        "label": "LS"
+    },
+    "kf": {
+        "label": "KF"
+    },
+    "loop": {
+        "label": "TLL"
+    },
+    "pkts_ewma": {
+        "label": "EWMA"
+    },
+    "ls_t2": {
+        "label": "LS (t2)"
+    },
+    "ls_t1": {
+        "label": "LS (t1)"
+    }
 }
 
 
 class Analyser():
-    def __init__(self, data, file=None, prefix=None, usetex=False,
-                 save_format='png', dpi=300, cache=None, skip=0.2):
+    def __init__(self,
+                 data,
+                 file=None,
+                 prefix=None,
+                 usetex=False,
+                 save_format='png',
+                 dpi=300,
+                 cache=None,
+                 skip=0.2):
         """PTP metrics analyser
 
         Args:
@@ -45,18 +85,18 @@ class Analyser():
             skip        : Fraction of the dataset to skip on the analysis.
 
         """
-        self.data        = data
-        self.path        = self._set_path(file)
-        self.prefix      = "" if prefix is None else prefix + "_"
-        self.info        = os.path.join(self.path, self.prefix + 'info.txt')
+        self.data = data
+        self.path = self._set_path(file)
+        self.prefix = "" if prefix is None else prefix + "_"
+        self.info = os.path.join(self.path, self.prefix + 'info.txt')
         self.save_format = save_format
-        self.dpi         = dpi
-        self.usetex      = usetex
-        self.cache       = cache
-        self.n_skip      = int(skip * len(self.data))
+        self.dpi = dpi
+        self.usetex = usetex
+        self.cache = cache
+        self.n_skip = int(skip * len(self.data))
 
         if (cache is not None):
-            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
+            assert (isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
 
         # Configure matplotlib plot parameters
         self._set_matplotlib_params(usetex)
@@ -65,15 +105,12 @@ class Analyser():
         self._init_est_plot_configs()
 
         # Save some metrics results
-        self.results  = {
-            "max_te" : {},
-            "mtie" : {}
-        }
+        self.results = {"max_te": {}, "mtie": {}}
 
         # State
-        self.current_plot = None # plot currently under processing
-        self.plot_cnt     = {}   # track how many times each plot is called
-        self.ranking      = {}   # performance ranking of estimators
+        self.current_plot = None  # plot currently under processing
+        self.plot_cnt = {}  # track how many times each plot is called
+        self.ranking = {}  # performance ranking of estimators
 
     def _set_matplotlib_params(self, usetex):
         """Set matplotlib plot parameters
@@ -83,22 +120,22 @@ class Analyser():
 
         """
         params = {
-            'axes.labelsize' : 8,
-            'axes.titlesize' : 8,
-            'font.size'      : 8,
+            'axes.labelsize': 8,
+            'axes.titlesize': 8,
+            'font.size': 8,
             'legend.fontsize': 8,
             'xtick.labelsize': 8,
             'ytick.labelsize': 8,
-            'grid.color'     : 'grey',
-            'grid.linestyle' : ':',
-            'grid.linewidth' : 0.25
+            'grid.color': 'grey',
+            'grid.linestyle': ':',
+            'grid.linewidth': 0.25
         }
         aspect_ratio = 1.4
-        max_width    = 3.39
+        max_width = 3.39
         if (usetex):
             params['text.usetex'] = True
         matplotlib.rcParams.update(params)
-        self.figsize = (max_width, max_width/aspect_ratio)
+        self.figsize = (max_width, max_width / aspect_ratio)
 
     def _init_est_plot_configs(self):
         """Initialize the plot configurations for each estimator
@@ -107,16 +144,17 @@ class Analyser():
         style, and marker.
 
         """
-        color_cycle     = plt.rcParams['axes.prop_cycle']()
-        linestyle_cycle = cycler('linestyle', ['-','--',':','-.'])()
-        marker_cycle    = cycler('marker',
-                                 ['*', 'o', 'v', '^', 'h', 's', 'x',
-                                  'p', 'd', ',', '.', '1', '>', '<'])()
+        color_cycle = plt.rcParams['axes.prop_cycle']()
+        linestyle_cycle = cycler('linestyle', ['-', '--', ':', '-.'])()
+        marker_cycle = cycler('marker', [
+            '*', 'o', 'v', '^', 'h', 's', 'x', 'p', 'd', ',', '.', '1', '>',
+            '<'
+        ])()
         for k in est_keys:
-            est_keys[k]['show']      = True
-            est_keys[k]['color']     = next(color_cycle)['color']
+            est_keys[k]['show'] = True
+            est_keys[k]['color'] = next(color_cycle)['color']
             est_keys[k]['linestyle'] = next(linestyle_cycle)['linestyle']
-            est_keys[k]['marker']    = next(marker_cycle)['marker']
+            est_keys[k]['marker'] = next(marker_cycle)['marker']
 
     def _set_path(self, file):
         """Define path to save results
@@ -132,7 +170,7 @@ class Analyser():
         if (file):
             basename = os.path.splitext(os.path.basename(file))[0]
             basename = basename.replace("-comp", "")
-            path     = 'results/' + basename + '/'
+            path = 'results/' + basename + '/'
         else:
             path = 'results/'
 
@@ -153,8 +191,11 @@ class Analyser():
 
     def _plt_legend(self):
         """Wrapper to enable the plot legend"""
-        plt.legend(fontsize='small', bbox_to_anchor=(1.0, 1.02),
-                   loc='upper left', frameon=False, prop={'size': 5.})
+        plt.legend(fontsize='small',
+                   bbox_to_anchor=(1.0, 1.02),
+                   loc='upper left',
+                   frameon=False,
+                   prop={'size': 5.})
 
     def _plt_title(self, title):
         """Wrapper for setting the plot title
@@ -180,9 +221,9 @@ class Analyser():
         # The name of the output file includes the plot name and the plot
         # count. If the same plot is called multiple times, the file is saved as
         # "plot_name.xx", then "plot_name-1.xx", "plot_name-2.xx" and so on.
-        assert(self.current_plot is not None)
-        name     = self.current_plot
-        cnt      = self.plot_cnt[name]
+        assert (self.current_plot is not None)
+        name = self.current_plot
+        cnt = self.plot_cnt[name]
         img_name = self.prefix + name
         if (cnt > 0):
             img_name += "_" + str(cnt)
@@ -190,12 +231,14 @@ class Analyser():
         if (suffix is not None):
             img_name += "_" + suffix
 
-        img_dpi    = dpi or self.dpi
+        img_dpi = dpi or self.dpi
         img_format = save_format or self.save_format
 
         handler.tight_layout()
         handler.savefig(self.path + img_name + "." + img_format,
-                        format=img_format, dpi=img_dpi, bbox_inches="tight")
+                        format=img_format,
+                        dpi=img_dpi,
+                        bbox_inches="tight")
 
     def _plot_filter(self, kwargs):
         """Filter the results to be included/excluded from the plot
@@ -213,13 +256,15 @@ class Analyser():
         for k, v in kwargs.items():
             if (not v):
                 # Extract the preffix_keys from 'show_' variables
-                prefix_re  = (re.search(r'(?<=show_).*', k))
+                prefix_re = (re.search(r'(?<=show_).*', k))
                 if (prefix_re is None):
                     continue
                 prefix_key = prefix_re.group(0)
                 # Find the dict keys that match with the preffix_keys
-                key_values  = [key for key in est_keys if
-                               re.match(r'^{}_*'.format(prefix_key), key)]
+                key_values = [
+                    key for key in est_keys
+                    if re.match(r'^{}_*'.format(prefix_key), key)
+                ]
                 # Set show key to 'False' on global 'est_keys' dict
                 for suffix, v in est_keys.items():
                     if (suffix in key_values):
@@ -230,8 +275,15 @@ class Analyser():
         for v in est_keys.values():
             v["show"] = True
 
-    def _plt_scatter_hist(self, x, y,  xlabel, ylabel, bins='auto',
-                          edgecolor='black', grid=True, cdf=False):
+    def _plt_scatter_hist(self,
+                          x,
+                          y,
+                          xlabel,
+                          ylabel,
+                          bins='auto',
+                          edgecolor='black',
+                          grid=True,
+                          cdf=False):
         """Generate scatter plot followed by the marginal density (or histogram)
 
         Generate a plot with two "boxes". The first and main box is the ordinary
@@ -252,18 +304,28 @@ class Analyser():
                         of the probability density function (PDF)
 
         """
-        _ , axs = plt.subplots(1, 2, sharey=True, figsize=self.figsize,
-                               gridspec_kw={'width_ratios': [5, 1],
-                                            'wspace': 0.05})
+        _, axs = plt.subplots(1,
+                              2,
+                              sharey=True,
+                              figsize=self.figsize,
+                              gridspec_kw={
+                                  'width_ratios': [5, 1],
+                                  'wspace': 0.05
+                              })
 
         # Scatter plot
-        axs[0].scatter(x, y, s = 1.0)
+        axs[0].scatter(x, y, s=1.0)
         axs[0].set_xlabel(xlabel)
         axs[0].set_ylabel(ylabel)
 
         # Horizontal histogram
-        axs[1].hist(y, bins=bins, orientation='horizontal', density=True,
-                    cumulative=cdf, edgecolor=edgecolor, linewidth=1.0,
+        axs[1].hist(y,
+                    bins=bins,
+                    orientation='horizontal',
+                    density=True,
+                    cumulative=cdf,
+                    edgecolor=edgecolor,
+                    linewidth=1.0,
                     histtype='step')
 
         # Remove y-axis from histogram
@@ -286,12 +348,12 @@ class Analyser():
         """
 
         # Augment the metadata
-        duration_ns     = float(self.data[-1]["t1"] - self.data[0]["t1"])
-        duration_tdelta = timedelta(microseconds = (duration_ns / 1e3))
+        duration_ns = float(self.data[-1]["t1"] - self.data[0]["t1"])
+        duration_tdelta = timedelta(microseconds=(duration_ns / 1e3))
 
         metadata["n_exchanges"] = len(self.data)
-        metadata["sync_rate"]   = int(1 / metadata["sync_period"])
-        metadata["duration"]    = str(duration_tdelta)
+        metadata["sync_rate"] = int(1 / metadata["sync_period"])
+        metadata["duration"] = str(duration_tdelta)
 
         files = [None]
         if (save):
@@ -320,7 +382,7 @@ class Analyser():
 
     def load_maxte_and_mtie_cache(self):
         """Load cached max|TE| and MTIE results"""
-        assert(self.cache is not None), "Cache handler is unavailable"
+        assert (self.cache is not None), "Cache handler is unavailable"
 
         logger.info("Load max|TE| and MTIE results from cache file")
 
@@ -331,7 +393,8 @@ class Analyser():
 
             cached_res = self.cache.load(key)
 
-            assert(cached_res is not None), f"{label} unavailable on cache file"
+            assert (cached_res
+                    is not None), f"{label} unavailable on cache file"
 
             # Save internally as np.array
             for k, v in cached_res.items():
@@ -356,11 +419,11 @@ class Analyser():
                         the FH traffic
 
         """
-        ptp_fh_interval = t_idle # starting interval btw PTP and FH frames
+        ptp_fh_interval = t_idle  # starting interval btw PTP and FH frames
         # Approximation between FH and PTP frames on every hop due to the
         # store-and-forward procedure (which delays the large FH frames more
         # than the small PTP frames)
-        approx_per_hop  = (t_fh - t_ptp)
+        approx_per_hop = (t_fh - t_ptp)
 
         # Compute the best-case queueing delay iteratively
         b_q_delay = 0
@@ -434,19 +497,19 @@ class Analyser():
 
         """
         # PTP transmission (serialization) delay over 1GbE interface
-        t_ptp = 80*8 / 1e9 # PDelayReq/Resp messages are 54 bytes long + plus 26
-                           # bytes of Ethernet header (8B preamble + 14B MAC
-                           # untagged header + 4B FCS)
+        t_ptp = 80 * 8 / 1e9  # PDelayReq/Resp messages are 54 bytes long + plus 26
+        # bytes of Ethernet header (8B preamble + 14B MAC
+        # untagged header + 4B FCS)
 
         # Overhead bits on FH frames (8B preamble + 18 bytes Ethernet MAC header
         # w/ 802.1Q tag + 12 bytes FH metadata + 2 bytes of stuffing + 4B FCS)
-        fh_overhead_bits = (8*44)
+        fh_overhead_bits = (8 * 44)
 
         # Inter-packet gap
         ipg = 96e-9
 
         if (metadata["fh_traffic"] is not None):
-            l_iq_info  = metadata["fh_traffic"]["iq_size"]
+            l_iq_info = metadata["fh_traffic"]["iq_size"]
             n_spf_info = metadata["fh_traffic"]["n_spf"]
 
             if (isinstance(l_iq_info, dict)):
@@ -467,19 +530,19 @@ class Analyser():
             frame_size_bits_ul = (l_iq_ul * n_spf_ul) + fh_overhead_bits
 
             # Frame transmission (serialization) delay, assuming 1GbE
-            t_fh_dl  = frame_size_bits_dl / 1e9
-            t_fh_ul  = frame_size_bits_ul / 1e9
+            t_fh_dl = frame_size_bits_dl / 1e9
+            t_fh_ul = frame_size_bits_ul / 1e9
 
             # Fundamental assumption of the ensuing analysis
-            assert(t_fh_dl > t_ptp)
-            assert(t_fh_ul > t_ptp)
+            assert (t_fh_dl > t_ptp)
+            assert (t_fh_ul > t_ptp)
 
             # Nominal FH frame inter-departure interval
-            fs              = metadata["fh_traffic"]["fs"] # sample rate in Hz
-            Ts              = 1/fs # sample period in sec
+            fs = metadata["fh_traffic"]["fs"]  # sample rate in Hz
+            Ts = 1 / fs  # sample period in sec
             n_axc_per_frame = 2
-            i_fh_dl         = (n_spf_dl / n_axc_per_frame) * Ts
-            i_fh_ul         = (n_spf_ul / n_axc_per_frame) * Ts
+            i_fh_dl = (n_spf_dl / n_axc_per_frame) * Ts
+            i_fh_ul = (n_spf_ul / n_axc_per_frame) * Ts
 
             # Idle iterval between consecutive FH frames
             n_rru_dl = metadata["fh_traffic"]["n_rru_dl"] if "n_rru_dl" in \
@@ -512,8 +575,8 @@ class Analyser():
             # processing delay per hop. Likewise, for the best-case queueing
             # delays, we consider the best-case processing delay per hop. The
             # values below are based on analysis of some experiments.
-            w_p_delay = 3.6e-6 * hops # worst-case processing delay
-            b_p_delay = 3.5e-6 * hops # best-case processing delay
+            w_p_delay = 3.6e-6 * hops  # worst-case processing delay
+            b_p_delay = 3.5e-6 * hops  # best-case processing delay
 
             # Transmission delays
             #
@@ -572,12 +635,10 @@ class Analyser():
             # reach the FH frame. From that point on, the PTP frame will
             # experience queueing delays.
             if (metadata["fh_traffic"] is not None):
-                b_dl_q_delay = self._calc_best_case_queueing(hops, t_idle_dl,
-                                                             t_fh_dl, t_ptp,
-                                                             "dl", n_rru_dl)
-                b_ul_q_delay = self._calc_best_case_queueing(hops, t_idle_ul,
-                                                             t_fh_ul, t_ptp,
-                                                             "ul", n_rru_ul)
+                b_dl_q_delay = self._calc_best_case_queueing(
+                    hops, t_idle_dl, t_fh_dl, t_ptp, "dl", n_rru_dl)
+                b_ul_q_delay = self._calc_best_case_queueing(
+                    hops, t_idle_ul, t_fh_ul, t_ptp, "ul", n_rru_ul)
             else:
                 b_dl_q_delay = b_ul_q_delay = 0
 
@@ -593,15 +654,15 @@ class Analyser():
                       "worst-case: {:.4f} us "
                       "span: {:.4f} us".format(
                           dev, (b_dl_delay * 1e6), (w_dl_delay * 1e6),
-                          ((w_dl_delay - b_dl_delay) * 1e6)
-                ), file=f)
+                          ((w_dl_delay - b_dl_delay) * 1e6)),
+                      file=f)
                 print("UL FH delay for {}: "
                       "best-case: {:.4f} us "
                       "worst-case: {:.4f} us "
                       "span: {:.4f} us".format(
                           dev, (b_ul_delay * 1e6), (w_ul_delay * 1e6),
-                          ((w_ul_delay - b_ul_delay) * 1e6)
-                ), file=f)
+                          ((w_ul_delay - b_ul_delay) * 1e6)),
+                      file=f)
 
             # Save expected delays
             expected_delays[dev] = {
@@ -612,7 +673,6 @@ class Analyser():
             }
 
         return expected_delays
-
 
     def ptp_exchanges_per_sec(self, save=False):
         """Compute average number of PTP exchanges per second
@@ -626,9 +686,9 @@ class Analyser():
         """
         logger.info("Analyze PTP exchanges per second")
         start_time = self.data[0]["t1"]
-        end_time   = self.data[-1]["t1"]
-        duration   = float(end_time - start_time)
-        n_per_sec  = 1e9 * len(self.data) / duration
+        end_time = self.data[-1]["t1"]
+        duration = float(end_time - start_time)
+        n_per_sec = 1e9 * len(self.data) / duration
 
         # Print to stdout and, if so desired, to info.txt
         files = [None]
@@ -636,7 +696,7 @@ class Analyser():
             files.append(open(self.info, 'a'))
 
         for f in files:
-            print("Average no. of PTP exchanges per second: %f" %(n_per_sec),
+            print("Average no. of PTP exchanges per second: %f" % (n_per_sec),
                   file=f)
 
         return n_per_sec
@@ -656,8 +716,8 @@ class Analyser():
         """
         logger.info("Analyze delay asymmetry")
         d_asym = np.array([r['asym'] for r in self.data])
-        d_ms   = np.array([r["d"] for r in self.data])
-        d_sm   = np.array([r["d_bw"] for r in self.data])
+        d_ms = np.array([r["d"] for r in self.data])
+        d_sm = np.array([r["d_bw"] for r in self.data])
 
         # Mode
         d_ms_mode = stats.mode(np.round(d_ms))[0]
@@ -671,23 +731,29 @@ class Analyser():
         if (verbose):
             for f in files:
                 print("\nDelay asymmetry analysis:\n", file=f)
-                print("Metric \t%12s\t%12s\t%12s" %("m-to-s", "s-to-m",
-                                                    "asymmetry"))
-                print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                    np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)), file=f)
-                print("Std Dev\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                    np.std(d_ms), np.std(d_sm), np.std(d_asym)), file=f)
-                print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                    np.amin(d_ms), np.amin(d_sm),
-                    (np.amin(d_ms) - np.amin(d_sm))/2), file=f)
-                print("Maximum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                    np.amax(d_ms), np.amax(d_sm),
-                    (np.amax(d_ms) - np.amax(d_sm))/2), file=f)
-                print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                    np.median(d_ms), np.median(d_sm),
-                    (np.median(d_ms) - np.median(d_sm))/2), file=f)
-                print("Mode\t%9.2f ns\t%9.2f ns\t%9.2f ns" %(
-                    d_ms_mode, d_sm_mode, (d_ms_mode - d_sm_mode)/2), file=f)
+                print("Metric \t%12s\t%12s\t%12s" %
+                      ("m-to-s", "s-to-m", "asymmetry"))
+                print("Average\t%9.2f ns\t%9.2f ns\t%9.2f ns" %
+                      (np.mean(d_ms), np.mean(d_sm), np.mean(d_asym)),
+                      file=f)
+                print("Std Dev\t%9.2f ns\t%9.2f ns\t%9.2f ns" %
+                      (np.std(d_ms), np.std(d_sm), np.std(d_asym)),
+                      file=f)
+                print("Minimum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %
+                      (np.amin(d_ms), np.amin(d_sm),
+                       (np.amin(d_ms) - np.amin(d_sm)) / 2),
+                      file=f)
+                print("Maximum\t%9.2f ns\t%9.2f ns\t%9.2f ns" %
+                      (np.amax(d_ms), np.amax(d_sm),
+                       (np.amax(d_ms) - np.amax(d_sm)) / 2),
+                      file=f)
+                print("Median\t%9.2f ns\t%9.2f ns\t%9.2f ns" %
+                      (np.median(d_ms), np.median(d_sm),
+                       (np.median(d_ms) - np.median(d_sm)) / 2),
+                      file=f)
+                print("Mode\t%9.2f ns\t%9.2f ns\t%9.2f ns" %
+                      (d_ms_mode, d_sm_mode, (d_ms_mode - d_sm_mode) / 2),
+                      file=f)
 
         return np.mean(d_asym)
 
@@ -698,7 +764,7 @@ class Analyser():
         window_cfg = self.cache.load('window') if (self.cache) else None
         if (window_cfg is None):
             logger.warning("Unable to find cached file with window"
-                            "optimization parameters")
+                           "optimization parameters")
             return
 
         # Print to stdout and, if so desired, to info.txt
@@ -710,21 +776,22 @@ class Analyser():
             print("\nTuned window lengths:\n", file=f)
             for estimator in window_cfg.keys():
                 est_name = window_cfg[estimator]['name']
-                N_best   = window_cfg[estimator]['N_best']
+                N_best = window_cfg[estimator]['N_best']
                 print("{:20s} {}".format(est_name, N_best), file=f)
 
     def _print_err_stats(self, f, key, e, unit):
 
-        mean   = np.mean(e)
-        sdev   = np.std(e)
-        rms    = np.sqrt(np.square(e).mean())
+        mean = np.mean(e)
+        sdev = np.std(e)
+        rms = np.sqrt(np.square(e).mean())
         maxabs = np.amax(np.abs(e))
 
         print("{:20s} ".format(key),
               "Mean: {: 8.3f} {} ".format(mean, unit),
               "Sdev: {: 8.3f} {} ".format(sdev, unit),
               "RMS:  {: 8.3f} {}".format(rms, unit),
-              "MaxAbs: {: 8.3f} {}".format(maxabs, unit), file=f)
+              "MaxAbs: {: 8.3f} {}".format(maxabs, unit),
+              file=f)
 
     def toffset_err_stats(self, save=False):
         """Print the time offset estimation error statistics
@@ -747,7 +814,7 @@ class Analyser():
             print("\nTime offset estimation error statistics:\n", file=f)
 
         for suffix, value in est_keys.items():
-            key   = "x_est" if (suffix == "raw") else "x_" + suffix
+            key = "x_est" if (suffix == "raw") else "x_" + suffix
             x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
 
             if (len(x_err) > 0):
@@ -772,9 +839,11 @@ class Analyser():
             print("\nFrequency offset estimation error statistics:\n", file=f)
 
         for suffix, value in est_keys.items():
-            key   = "y_est" if (suffix == "raw") else "y_" + suffix
-            y_err = [1e9*(r[key] - r["rtc_y"]) for r in self.data
-                     if (key in r) and ("rtc_y" in r)]
+            key = "y_est" if (suffix == "raw") else "y_" + suffix
+            y_err = [
+                1e9 * (r[key] - r["rtc_y"]) for r in self.data
+                if (key in r) and ("rtc_y" in r)
+            ]
 
             if (len(y_err) > 0):
                 for f in files:
@@ -797,24 +866,23 @@ class Analyser():
         for f in files:
             print("\nTime offset drift estimation error statistics:\n", file=f)
 
-
         # Absolute drift
-        true_drift = np.array([(r["x"] - self.data[i-1]["x"])
-                               for i,r in enumerate(self.data)
+        true_drift = np.array([(r["x"] - self.data[i - 1]["x"])
+                               for i, r in enumerate(self.data)
                                if "drift" in r])
-        drift_est  = np.array([r["drift"] for r in self.data
-                               if "drift" in r])
-        drift_err  = drift_est - true_drift
+        drift_est = np.array([r["drift"] for r in self.data if "drift" in r])
+        drift_err = drift_est - true_drift
 
         # Cumulative drift
         true_cum_drift = true_drift.cumsum()
-        cum_drif_est   = drift_est.cumsum()
-        cum_drif_err   = cum_drif_est - true_cum_drift
+        cum_drif_est = drift_est.cumsum()
+        cum_drif_err = cum_drif_est - true_cum_drift
 
         if (len(drift_err) > 0):
             for f in files:
                 self._print_err_stats(f, "Drift", drift_err, "ns")
-                self._print_err_stats(f, "Cumulative Drift", cum_drif_err, "ns")
+                self._print_err_stats(f, "Cumulative Drift", cum_drif_err,
+                                      "ns")
 
     def _rank_algorithms(self, metric, max_te_win_len=1000, force=False):
         """Rank algorithms based on a chosen performance metric
@@ -836,7 +904,7 @@ class Analyser():
         # setting the "n_skip" attribute of the Analyser object.
         post_tran_data = self.data[self.n_skip:]
         if (any([("drift" in r) for r in post_tran_data])):
-            assert(all([("drift" in r) for r in post_tran_data]))
+            assert (all([("drift" in r) for r in post_tran_data]))
 
         # Check if it is necessary to rank the results, since the ranking may
         # already be available (cached).
@@ -898,7 +966,7 @@ class Analyser():
                 res = np.std(x_err)
 
             else:
-                raise ValueError("Metric choice %s unknown" %(metric))
+                raise ValueError("Metric choice %s unknown" % (metric))
 
             # Save the result
             self.ranking[metric][suffix] = res
@@ -924,10 +992,12 @@ class Analyser():
             print(f"\nPerformance ranking based on {metric}:\n", file=f)
 
         # Print ranking in increasing order
-        for key, value in sorted(self.ranking[metric].items(), key=lambda x: x[1]):
+        for key, value in sorted(self.ranking[metric].items(),
+                                 key=lambda x: x[1]):
             for f in files:
                 print("{:20s}".format(key),
-                      "Mean: {: 8.3f} ns".format(value), file=f)
+                      "Mean: {: 8.3f} ns".format(value),
+                      file=f)
 
     def check_seq_id_gaps(self, verbose=True, save=False):
         """Check whether there are gaps on sequenceIds"""
@@ -938,18 +1008,18 @@ class Analyser():
             files.append(open(self.info, 'a'))
 
         seq_ids = np.array([r["seq_id"] for r in self.data if "seq_id" in r])
-        diff    = np.mod(np.diff(seq_ids), 2**16)
-        gaps    = np.where(diff != 1)[0]
+        diff = np.mod(np.diff(seq_ids), 2**16)
+        gaps = np.where(diff != 1)[0]
 
         # Fix rollovers: apparently our HW (maybe by standard behavior) rolls
         # back to 1, instead of 0.
         non_rollover_gaps = list()
         for i, gap in enumerate(gaps):
-            if (not (seq_ids[gap] == 65535 and seq_ids[gap+1] == 1)):
+            if (not (seq_ids[gap] == 65535 and seq_ids[gap + 1] == 1)):
                 non_rollover_gaps.append(gap)
             elif (verbose):
                 logger.debug("Gap from {:d} to {:d} due to rollover".format(
-                    seq_ids[gap], seq_ids[gap+1]))
+                    seq_ids[gap], seq_ids[gap + 1]))
 
         if (len(seq_ids) == 0):
             logger.warning("Dataset doesn't contain sequenceIds")
@@ -957,10 +1027,11 @@ class Analyser():
         for f in files:
             if (len(non_rollover_gaps) > 0 and verbose):
                 print("sequenceId gaps identified: {:d}".format(
-                    len(non_rollover_gaps)), file=f)
+                    len(non_rollover_gaps)),
+                      file=f)
                 for gap in non_rollover_gaps:
                     logger.debug("Gap from {:d} to {:d}".format(
-                        seq_ids[gap], seq_ids[gap+1]))
+                        seq_ids[gap], seq_ids[gap + 1]))
             elif (verbose):
                 print("Checking sequenceIDs: OK (no gaps)", file=f)
 
@@ -993,13 +1064,13 @@ class Analyser():
         if window_size > x.shape[-1]:
             raise ValueError("`window_size` is too long.")
 
-        shape   = x.shape[:-1] + (x.shape[-1] - window_size + 1, window_size)
-        strides = x.strides + (x.strides[-1],)
+        shape = x.shape[:-1] + (x.shape[-1] - window_size + 1, window_size)
+        strides = x.strides + (x.strides[-1], )
 
         return np.lib.stride_tricks.as_strided(x, shape=shape,
                                                strides=strides)[0::shift]
 
-    def mtie(self, te, window_step = 2, starting_window = 16):
+    def mtie(self, te, window_step=2, starting_window=16):
         """Maximum time interval error (MTIE)
 
         Computes the MTIE based on time error (TE) samples. The MTIE computes
@@ -1016,31 +1087,31 @@ class Analyser():
             mtie_array : The calculated MTIE for each observation interval
 
         """
-        assert(isinstance(te, np.ndarray))
+        assert (isinstance(te, np.ndarray))
 
-        n_samples = len(te) # total number of samples
+        n_samples = len(te)  # total number of samples
 
         # Number of different intervals to be evaluated
-        log_max_win_size   = math.floor(math.log2(n_samples/2))
-        max_win_size       = 2**log_max_win_size
+        log_max_win_size = math.floor(math.log2(n_samples / 2))
+        max_win_size = 2**log_max_win_size
         log_start_win_size = math.floor(math.log2(starting_window))
-        n_tau              = log_max_win_size - log_start_win_size + 1
+        n_tau = log_max_win_size - log_start_win_size + 1
 
         # Preallocate results
-        mtie_array    = np.zeros(n_tau)
-        tau_array     = np.zeros(n_tau)
+        mtie_array = np.zeros(n_tau)
+        tau_array = np.zeros(n_tau)
 
         # Try until the window occupies half of the data length, so that the
         # maximum window size still fits twice on the data
-        i_tau       = 0
+        i_tau = 0
         window_size = starting_window
         while (window_size <= max_win_size):
             # Get all possible windows with the current window size:
             parted_array = self.rolling_window_mtx(te, window_size)
 
             # Get maximum and minimum TE values of each window
-            window_max = np.max(parted_array, axis = 1)
-            window_min = np.min(parted_array, axis = 1)
+            window_max = np.max(parted_array, axis=1)
+            window_min = np.min(parted_array, axis=1)
 
             # MTIE candidates (maximum TIE of each window):
             mtie_candidates = window_max - window_min
@@ -1050,7 +1121,7 @@ class Analyser():
 
             # Save MTIE and current window duration within outputs
             mtie_array[i_tau] = mtie
-            tau_array[i_tau]  = window_size
+            tau_array[i_tau] = window_size
 
             # Update window size
             window_size = window_size * window_step
@@ -1078,7 +1149,7 @@ class Analyser():
             max_te     : The calculated Max|TE| over a sliding window
 
         """
-        assert(isinstance(te, np.ndarray))
+        assert (isinstance(te, np.ndarray))
 
         te_mtx = self.rolling_window_mtx(te, window_len, shift=window_len)
         max_te = np.amax(np.abs(te_mtx), axis=1)
@@ -1121,8 +1192,13 @@ class Analyser():
         return decorator
 
     @analysis_plot("toffset_vs_time")
-    def plot_toffset_vs_time(self, n_skip=None, x_unit='time', save=True,
-                             save_format=None, dpi=None, **kwargs):
+    def plot_toffset_vs_time(self,
+                             n_skip=None,
+                             x_unit='time',
+                             save=True,
+                             save_format=None,
+                             dpi=None,
+                             **kwargs):
         """Plot time offset vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -1138,11 +1214,11 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot time offset vs. time")
-        n_skip         = n_skip or self.n_skip
+        n_skip = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
-        t_start  = post_tran_data[0]["t1"]
+        t_start = post_tran_data[0]["t1"]
         time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
                    / NS_PER_MIN
 
@@ -1167,16 +1243,20 @@ class Analyser():
 
                 # Define the x axis - either in time or in samples
                 if (x_unit == "time"):
-                    x_axis_vec   = [time_vec[i] for i, r in
-                                    enumerate(post_tran_data) if key in r]
+                    x_axis_vec = [
+                        time_vec[i] for i, r in enumerate(post_tran_data)
+                        if key in r
+                    ]
                 elif (x_unit == "samples"):
-                    x_axis_vec   = [r["idx"] for r in post_tran_data
-                                    if key in r]
+                    x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(x_est) > 0):
-                    plt.scatter(x_axis_vec, x_est, s=1.0,
+                    plt.scatter(x_axis_vec,
+                                x_est,
+                                s=1.0,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], c=value["color"])
+                                marker=value["marker"],
+                                c=value["color"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time Offset (ns)')
@@ -1190,8 +1270,13 @@ class Analyser():
         plt.close()
 
     @analysis_plot("toffset_err_vs_time")
-    def plot_toffset_err_vs_time(self, n_skip=None, x_unit='time', save=True,
-                                 save_format=None, dpi=None, **kwargs):
+    def plot_toffset_err_vs_time(self,
+                                 n_skip=None,
+                                 x_unit='time',
+                                 save=True,
+                                 save_format=None,
+                                 dpi=None,
+                                 **kwargs):
         """Plot time offset error vs Time
 
         A comparison between the measured time offset and the true time offset.
@@ -1207,11 +1292,11 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot time offset estimation error vs. time")
-        n_skip         = n_skip or self.n_skip
+        n_skip = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
-        t_start  = post_tran_data[0]["t1"]
+        t_start = post_tran_data[0]["t1"]
         time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
                    / NS_PER_MIN
 
@@ -1225,20 +1310,26 @@ class Analyser():
 
         for suffix, value in est_keys.items():
             if (value["show"]):
-                key   = "x_est" if (suffix == "raw") else "x_" + suffix
+                key = "x_est" if (suffix == "raw") else "x_" + suffix
                 x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
 
                 # Define the x axis - either in time or in samples
                 if (x_unit == "time"):
-                    x_axis_vec = [time_vec[i] for i, r in
-                                  enumerate(post_tran_data) if key in r]
+                    x_axis_vec = [
+                        time_vec[i] for i, r in enumerate(post_tran_data)
+                        if key in r
+                    ]
                 elif (x_unit == "samples"):
                     x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(x_err) > 0):
-                    plt.scatter(x_axis_vec, x_err, s=1.0, alpha=0.7,
+                    plt.scatter(x_axis_vec,
+                                x_err,
+                                s=1.0,
+                                alpha=0.7,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], c=value["color"])
+                                marker=value["marker"],
+                                c=value["color"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Time Offset Error (ns)')
@@ -1252,8 +1343,12 @@ class Analyser():
         plt.close()
 
     @analysis_plot("toffset_err_hist")
-    def plot_toffset_err_hist(self, n_bins=50, save=True, save_format=None,
-                              dpi=None, **kwargs):
+    def plot_toffset_err_hist(self,
+                              n_bins=50,
+                              save=True,
+                              save_format=None,
+                              dpi=None,
+                              **kwargs):
         """Plot time offset error histogram
 
         Args:
@@ -1272,11 +1367,14 @@ class Analyser():
 
         for suffix, value in est_keys.items():
             if (value["show"]):
-                key   = "x_est" if (suffix == "raw") else "x_" + suffix
+                key = "x_est" if (suffix == "raw") else "x_" + suffix
                 x_err = [r[key] - r["x"] for r in post_tran_data if key in r]
 
                 if (len(x_err) > 0):
-                    plt.hist(x_err, bins=50, density=True, alpha=0.7,
+                    plt.hist(x_err,
+                             bins=50,
+                             density=True,
+                             alpha=0.7,
                              histtype='stepfilled',
                              label=self._format_label(value["label"]),
                              color=value["color"])
@@ -1293,8 +1391,14 @@ class Analyser():
         plt.close()
 
     @analysis_plot("delay_hist")
-    def plot_delay_hist(self, show_raw=True, show_true=True, n_bins=50,
-                        split=False, save=True, save_format=None, dpi=None):
+    def plot_delay_hist(self,
+                        show_raw=True,
+                        show_true=True,
+                        n_bins=50,
+                        split=False,
+                        save=True,
+                        save_format=None,
+                        dpi=None):
         """Plot delay histogram
 
         Plot histogram of delays in microseconds.
@@ -1315,19 +1419,20 @@ class Analyser():
         y_label = 'Probability Density'
 
         if (split):
-            plots   = list()
+            plots = list()
 
             if (show_raw):
                 d_est = np.array([r['d_est'] for r in self.data]) / 1e3
                 plt.figure(figsize=self.figsize)
-                plt.hist(d_est, bins=n_bins, density=True,
+                plt.hist(d_est,
+                         bins=n_bins,
+                         density=True,
                          histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid()
                 self._plt_title("Two-way Measurements")
-                plots.append({"plt" : plt.gcf(),
-                              "label" : "raw"})
+                plots.append({"plt": plt.gcf(), "label": "raw"})
 
             if (show_true):
                 d = np.array([r["d"] for r in self.data]) / 1e3
@@ -1339,21 +1444,24 @@ class Analyser():
                 plt.ylabel(y_label)
                 plt.grid()
                 self._plt_title("True master-to-slave")
-                plots.append({"plt": plt.gcf(),
-                              "label": "m2s"})
+                plots.append({"plt": plt.gcf(), "label": "m2s"})
 
                 plt.figure(figsize=self.figsize)
-                plt.hist(d_bw, bins=n_bins, density=True, histtype='stepfilled')
+                plt.hist(d_bw,
+                         bins=n_bins,
+                         density=True,
+                         histtype='stepfilled')
                 plt.xlabel(x_label)
                 plt.ylabel(y_label)
                 plt.grid()
                 self._plt_title("True slave-to-master")
-                plots.append({"plt": plt.gcf(),
-                              "label": "s2m"})
+                plots.append({"plt": plt.gcf(), "label": "s2m"})
 
             for p in plots:
                 if (save):
-                    self._plt_save(dpi, save_format, suffix=p["label"],
+                    self._plt_save(dpi,
+                                   save_format,
+                                   suffix=p["label"],
                                    handler=p["plt"])
                 else:
                     p["plt"].show()
@@ -1362,17 +1470,26 @@ class Analyser():
             plt.figure(figsize=self.figsize)
             if (show_raw):
                 d_est = np.array([r['d_est'] for r in self.data]) / 1e3
-                plt.hist(d_est, bins=n_bins, density=True, alpha=0.5,
+                plt.hist(d_est,
+                         bins=n_bins,
+                         density=True,
+                         alpha=0.5,
                          histtype='stepfilled',
                          label=self._format_label("Two-way Measurements"))
 
             if (show_true):
                 d = np.array([r["d"] for r in self.data]) / 1e3
-                plt.hist(d, bins=n_bins, density=True, alpha=0.5,
+                plt.hist(d,
+                         bins=n_bins,
+                         density=True,
+                         alpha=0.5,
                          histtype='stepfilled',
                          label=self._format_label("True m-to-s"))
                 d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
-                plt.hist(d_bw, bins=n_bins, density=True, alpha=0.5,
+                plt.hist(d_bw,
+                         bins=n_bins,
+                         density=True,
+                         alpha=0.5,
                          histtype='stepfilled',
                          label=self._format_label("True s-to-m"))
 
@@ -1388,8 +1505,13 @@ class Analyser():
             plt.close()
 
     @analysis_plot("delay_vs_time")
-    def plot_delay_vs_time(self, x_unit='time', show_raw=True, split=False,
-                           marginal_pdf=False, save=True, save_format=None,
+    def plot_delay_vs_time(self,
+                           x_unit='time',
+                           show_raw=True,
+                           split=False,
+                           marginal_pdf=False,
+                           save=True,
+                           save_format=None,
                            dpi=None):
         """Plot delay estimations vs time
 
@@ -1410,29 +1532,30 @@ class Analyser():
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
+            t_start = self.data[0]["t1"]
             x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
                                      self.data]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
-            x_axis_vec   = range(0, n_data)
+            x_axis_vec = range(0, n_data)
             x_axis_label = 'Realization'
 
-        d    = np.array([r["d"] for r in self.data]) / 1e3
+        d = np.array([r["d"] for r in self.data]) / 1e3
         d_bw = np.array([r["d_bw"] for r in self.data]) / 1e3
 
         if (show_raw):
-            d_est  = np.array([r["d_est"] for r in self.data]) / 1e3
+            d_est = np.array([r["d_est"] for r in self.data]) / 1e3
 
         if (split):
             if (marginal_pdf):
-                self._plt_scatter_hist(x_axis_vec, d,
+                self._plt_scatter_hist(x_axis_vec,
+                                       d,
                                        xlabel=x_axis_label,
                                        ylabel='m-t-s delay (us)')
             else:
                 plt.figure(figsize=self.figsize)
-                plt.scatter(x_axis_vec, d, s = 1.0)
+                plt.scatter(x_axis_vec, d, s=1.0)
                 plt.xlabel(x_axis_label)
                 plt.ylabel('m-to-s delay (us)')
                 plt.grid()
@@ -1444,12 +1567,13 @@ class Analyser():
             plt.close()
 
             if (marginal_pdf):
-                self._plt_scatter_hist(x_axis_vec, d_bw,
+                self._plt_scatter_hist(x_axis_vec,
+                                       d_bw,
                                        xlabel=x_axis_label,
                                        ylabel='s-to-m delay (us)')
             else:
                 plt.figure(figsize=self.figsize)
-                plt.scatter(x_axis_vec, d_bw, s = 1.0)
+                plt.scatter(x_axis_vec, d_bw, s=1.0)
                 plt.xlabel(x_axis_label)
                 plt.ylabel('s-to-m delay (us)')
                 plt.grid()
@@ -1463,8 +1587,8 @@ class Analyser():
         else:
             plt.figure(figsize=self.figsize)
             if (show_raw):
-                plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s = 1.0)
-            plt.scatter(x_axis_vec, d, label="True Values", s = 1.0)
+                plt.scatter(x_axis_vec, d_est, label="Raw Measurements", s=1.0)
+            plt.scatter(x_axis_vec, d, label="True Values", s=1.0)
             plt.xlabel(x_axis_label)
             plt.ylabel('Delay Estimation (us)')
             plt.grid()
@@ -1477,8 +1601,11 @@ class Analyser():
             plt.close()
 
     @analysis_plot("delay_est_err_vs_time")
-    def plot_delay_est_err_vs_time(self, x_unit='time', save=True,
-                                   save_format=None, dpi=None):
+    def plot_delay_est_err_vs_time(self,
+                                   x_unit='time',
+                                   save=True,
+                                   save_format=None,
+                                   dpi=None):
         """Plot delay estimations error vs time
 
         Args:
@@ -1489,23 +1616,23 @@ class Analyser():
 
         """
         logger.info("Plot delay estimation error vs. time")
-        n_data    = len(self.data)
+        n_data = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
+            t_start = self.data[0]["t1"]
             x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
                                      self.data]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
-            x_axis_vec   = range(0, n_data)
+            x_axis_vec = range(0, n_data)
             x_axis_label = 'Realization'
 
         d_est_err = [r["d_est"] - r["d"] for r in self.data]
 
         plt.figure(figsize=self.figsize)
-        plt.scatter(x_axis_vec, d_est_err, s = 1.0)
+        plt.scatter(x_axis_vec, d_est_err, s=1.0)
         plt.xlabel(x_axis_label)
         plt.ylabel('Error (ns)')
         plt.grid()
@@ -1517,7 +1644,10 @@ class Analyser():
         plt.close()
 
     @analysis_plot("delay_asym_hist")
-    def plot_delay_asym_hist(self, n_bins=50, save=True, save_format=None,
+    def plot_delay_asym_hist(self,
+                             n_bins=50,
+                             save=True,
+                             save_format=None,
                              dpi=None):
         """Plot delay asymmetry histogram
 
@@ -1544,8 +1674,11 @@ class Analyser():
         plt.close()
 
     @analysis_plot("delay_asym_vs_time")
-    def plot_delay_asym_vs_time(self, save=True, x_unit='time',
-                                save_format=None, dpi=None):
+    def plot_delay_asym_vs_time(self,
+                                save=True,
+                                x_unit='time',
+                                save_format=None,
+                                dpi=None):
         """Plot delay asymmetry over time
 
         Args:
@@ -1558,7 +1691,7 @@ class Analyser():
         logger.info("Plot delay asymmetry vs. time")
 
         # Time axis
-        t_start  = self.data[0]["t1"]
+        t_start = self.data[0]["t1"]
         time_vec = np.array([float(r["t1"] - t_start) for r in self.data])\
                    / NS_PER_MIN
 
@@ -1583,8 +1716,13 @@ class Analyser():
         plt.close()
 
     @analysis_plot("foffset_vs_time")
-    def plot_foffset_vs_time(self, n_skip=None, x_unit='time', save=True,
-                             save_format=None, dpi=None, **kwargs):
+    def plot_foffset_vs_time(self,
+                             n_skip=None,
+                             x_unit='time',
+                             save=True,
+                             save_format=None,
+                             dpi=None,
+                             **kwargs):
         """Plot freq. offset vs time
 
         Args:
@@ -1599,11 +1737,11 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot frequency offset vs. time")
-        n_skip         = n_skip or self.n_skip
+        n_skip = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
-        t_start  = post_tran_data[0]["t1"]
+        t_start = post_tran_data[0]["t1"]
         time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
                    / NS_PER_MIN
 
@@ -1618,26 +1756,31 @@ class Analyser():
         for suffix, value in est_keys.items():
             if (value["show"]):
                 if (suffix == "raw"):
-                    key   = "y_est"
+                    key = "y_est"
                 elif (suffix == "true"):
-                    key   = "rtc_y"
+                    key = "rtc_y"
                 else:
-                    key   = "y_" + suffix
+                    key = "y_" + suffix
 
                 # Get the normalized frequency offset values and convert to ppb
-                y_est_ppb = [1e9*r[key] for r in post_tran_data if key in r]
+                y_est_ppb = [1e9 * r[key] for r in post_tran_data if key in r]
 
                 # Define the x axis - either in time or in samples
                 if (x_unit == "time"):
-                    x_axis_vec   = [time_vec[i] for i, r in
-                                    enumerate(post_tran_data) if key in r]
+                    x_axis_vec = [
+                        time_vec[i] for i, r in enumerate(post_tran_data)
+                        if key in r
+                    ]
                 elif (x_unit == "samples"):
-                    x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
+                    x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(y_est_ppb) > 0):
-                    plt.scatter(x_axis_vec, y_est_ppb, s=1.0,
+                    plt.scatter(x_axis_vec,
+                                y_est_ppb,
+                                s=1.0,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], c=value["color"])
+                                marker=value["marker"],
+                                c=value["color"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset (ppb)')
@@ -1651,8 +1794,13 @@ class Analyser():
         plt.close()
 
     @analysis_plot("foffset_err_vs_time")
-    def plot_foffset_err_vs_time(self, n_skip=None, x_unit='time', save=True,
-                                 save_format=None, dpi=None, **kwargs):
+    def plot_foffset_err_vs_time(self,
+                                 n_skip=None,
+                                 x_unit='time',
+                                 save=True,
+                                 save_format=None,
+                                 dpi=None,
+                                 **kwargs):
         """Plot freq. offset estimation error vs time
 
         Args:
@@ -1667,11 +1815,11 @@ class Analyser():
         # To facilitate inspection, it is better to skip the transitory
         # (e.g. due to Kalman)
         logger.info("Plot frequency offset estimation error vs. time")
-        n_skip         = n_skip or self.n_skip
+        n_skip = n_skip or self.n_skip
         post_tran_data = self.data[n_skip:]
 
         # Time axis
-        t_start  = post_tran_data[0]["t1"]
+        t_start = post_tran_data[0]["t1"]
         time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
                    / NS_PER_MIN
 
@@ -1686,25 +1834,32 @@ class Analyser():
         for suffix, value in est_keys.items():
             if (value["show"]):
                 if (suffix == "raw"):
-                    key   = "y_est"
+                    key = "y_est"
                 else:
-                    key   = "y_" + suffix
+                    key = "y_" + suffix
 
                 # Get the normalized frequency offset values and convert to ppb
-                y_est_err_ppb = [1e9*(r[key] - r["rtc_y"]) for r
-                                 in post_tran_data if key in r]
+                y_est_err_ppb = [
+                    1e9 * (r[key] - r["rtc_y"]) for r in post_tran_data
+                    if key in r
+                ]
 
                 # Define the x axis - either in time or in samples
                 if (x_unit == "time"):
-                    x_axis_vec   = [time_vec[i] for i, r in
-                                    enumerate(post_tran_data) if key in r]
+                    x_axis_vec = [
+                        time_vec[i] for i, r in enumerate(post_tran_data)
+                        if key in r
+                    ]
                 elif (x_unit == "samples"):
-                    x_axis_vec   = [r["idx"] for r in post_tran_data if key in r]
+                    x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
                 if (len(y_est_err_ppb) > 0):
-                    plt.scatter(x_axis_vec, y_est_err_ppb, s=1.0,
+                    plt.scatter(x_axis_vec,
+                                y_est_err_ppb,
+                                s=1.0,
                                 label=self._format_label(value["label"]),
-                                marker=value["marker"], c=value["color"])
+                                marker=value["marker"],
+                                c=value["color"])
 
         plt.xlabel(x_axis_label)
         plt.ylabel('Frequency Offset Error (ppb)')
@@ -1718,8 +1873,12 @@ class Analyser():
         plt.close()
 
     @analysis_plot("foffset_err_hist")
-    def plot_foffset_err_hist(self, n_bins=50, save=True, save_format=None,
-                              dpi=None, **kwargs):
+    def plot_foffset_err_hist(self,
+                              n_bins=50,
+                              save=True,
+                              save_format=None,
+                              dpi=None,
+                              **kwargs):
         """Plot frequency offset error histogram
 
         Args:
@@ -1738,12 +1897,17 @@ class Analyser():
 
         for suffix, value in est_keys.items():
             if (value["show"]):
-                key   = "y_est" if (suffix == "raw") else "y_" + suffix
-                y_err = [1e9*(r[key] - r["rtc_y"]) for r in post_tran_data
-                         if key in r]
+                key = "y_est" if (suffix == "raw") else "y_" + suffix
+                y_err = [
+                    1e9 * (r[key] - r["rtc_y"]) for r in post_tran_data
+                    if key in r
+                ]
 
                 if (len(y_err) > 0):
-                    plt.hist(y_err, bins=50, density=True, alpha=0.7,
+                    plt.hist(y_err,
+                             bins=50,
+                             density=True,
+                             alpha=0.7,
                              histtype='stepfilled',
                              label=self._format_label(value["label"]),
                              color=value["color"])
@@ -1760,7 +1924,10 @@ class Analyser():
         plt.close()
 
     @analysis_plot("pdv_vs_time")
-    def plot_pdv_vs_time(self, x_unit='time', save=True, save_format=None,
+    def plot_pdv_vs_time(self,
+                         x_unit='time',
+                         save=True,
+                         save_format=None,
                          dpi=None):
         """Plot PDV over time
 
@@ -1794,17 +1961,17 @@ class Analyser():
 
         """
         logger.info("Plot PDV vs. time")
-        n_data  = len(self.data)
+        n_data = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
+            t_start = self.data[0]["t1"]
             x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
                                      self.data]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
-            x_axis_vec   = range(0, n_data)
+            x_axis_vec = range(0, n_data)
             x_axis_label = 'Realization'
 
         # Timestamp differences
@@ -1816,8 +1983,8 @@ class Analyser():
         diff_t4_3 = np.diff(t4_3)
 
         plt.figure(figsize=self.figsize)
-        plt.scatter(x_axis_vec[1:], diff_t2_1, s = 1.0, label="m-to-s")
-        plt.scatter(x_axis_vec[1:], diff_t4_3, s = 1.0, label="s-to-m")
+        plt.scatter(x_axis_vec[1:], diff_t2_1, s=1.0, label="m-to-s")
+        plt.scatter(x_axis_vec[1:], diff_t4_3, s=1.0, label="s-to-m")
         plt.xlabel(x_axis_label)
         plt.ylabel('Delay Variation (ns)')
         plt.grid()
@@ -1853,10 +2020,18 @@ class Analyser():
         diff_t4_3 = np.diff(t4_3)
 
         plt.figure(figsize=self.figsize)
-        plt.hist(diff_t2_1, bins=n_bins, density=True, alpha=0.7,
-                 histtype='stepfilled', label="m-to-s")
-        plt.hist(diff_t4_3, bins=n_bins, density=True, alpha=0.7,
-                 histtype='stepfilled', label="s-to-m")
+        plt.hist(diff_t2_1,
+                 bins=n_bins,
+                 density=True,
+                 alpha=0.7,
+                 histtype='stepfilled',
+                 label="m-to-s")
+        plt.hist(diff_t4_3,
+                 bins=n_bins,
+                 density=True,
+                 alpha=0.7,
+                 histtype='stepfilled',
+                 label="s-to-m")
         plt.xlabel('Delay Variation (ns)')
         plt.ylabel('Probability Density')
         plt.grid()
@@ -1869,8 +2044,11 @@ class Analyser():
         plt.close()
 
     @analysis_plot("ptp_exchange_interval_vs_time")
-    def plot_ptp_exchange_interval_vs_time(self, n_bins=200, save=True,
-                                           save_format=None, dpi=None):
+    def plot_ptp_exchange_interval_vs_time(self,
+                                           n_bins=200,
+                                           save=True,
+                                           save_format=None,
+                                           dpi=None):
         """Plot CDF of the interval between PTP exchanges
         """
 
@@ -1878,10 +2056,15 @@ class Analyser():
 
         # Exchange interval
         for t in ["t1", "t2", "t3", "t4"]:
-            t_diff = np.diff(np.array([float(r[t]) for r in self.data]))/1e6
+            t_diff = np.diff(np.array([float(r[t]) for r in self.data])) / 1e6
             plt.figure(figsize=self.figsize)
-            plt.hist(t_diff, bins=n_bins, density=True, cumulative=True,
-                     histtype='step', alpha=0.8, color='k')
+            plt.hist(t_diff,
+                     bins=n_bins,
+                     density=True,
+                     cumulative=True,
+                     histtype='step',
+                     alpha=0.8,
+                     color='k')
             plt.xlabel('${0}[n] - {0}[n-1]$ (ms)'.format(t))
             plt.ylabel('CDF')
             self._plt_title('PTP exchange interval')
@@ -1894,8 +2077,11 @@ class Analyser():
             plt.close()
 
     @analysis_plot("toffset_drift_vs_time")
-    def plot_toffset_drift_vs_time(self, x_unit='time', save=True,
-                                   save_format=None, dpi=None):
+    def plot_toffset_drift_vs_time(self,
+                                   x_unit='time',
+                                   save=True,
+                                   save_format=None,
+                                   dpi=None):
         """Plot time offset drift vs. time
 
         It is useful to analyze how x[n] varies between consecutive PTP
@@ -1909,27 +2095,27 @@ class Analyser():
 
         """
         logger.info("Plot time offset drift vs. time")
-        n_data  = len(self.data)
+        n_data = len(self.data)
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
+            t_start = self.data[0]["t1"]
             x_axis_vec   = np.array([float(r["t1"] - t_start) for r in \
                                      self.data if "drift" in r]) / NS_PER_MIN
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
-            x_axis_vec   = range(0, n_data)
+            x_axis_vec = range(0, n_data)
             x_axis_label = 'Realization'
 
-        true_drift = np.array([(r["x"] - self.data[i-1]["x"])
-                               for i,r in enumerate(self.data)
+        true_drift = np.array([(r["x"] - self.data[i - 1]["x"])
+                               for i, r in enumerate(self.data)
                                if "drift" in r])
-        drift_est  = np.array([r["drift"] for r in self.data if "drift" in r])
+        drift_est = np.array([r["drift"] for r in self.data if "drift" in r])
 
         plt.figure(figsize=self.figsize)
-        plt.scatter(x_axis_vec, true_drift, s = 1.0, label="True")
-        plt.scatter(x_axis_vec, drift_est, s = 1.0, label="Estimate")
+        plt.scatter(x_axis_vec, true_drift, s=1.0, label="True")
+        plt.scatter(x_axis_vec, drift_est, s=1.0, label="Estimate")
         plt.xlabel(x_axis_label)
         plt.ylabel('$x[n] - x[n-1]$ (ns)')
         self._plt_title('Time Offset Drift')
@@ -1945,7 +2131,7 @@ class Analyser():
         cum_drift_err = drift_est.cumsum() - true_drift.cumsum()
 
         plt.figure(figsize=self.figsize)
-        plt.scatter(x_axis_vec, cum_drift_err, s = 1.0)
+        plt.scatter(x_axis_vec, cum_drift_err, s=1.0)
         plt.xlabel(x_axis_label)
         plt.ylabel('Error (ns)')
         plt.grid()
@@ -1958,7 +2144,10 @@ class Analyser():
         plt.close()
 
     @analysis_plot("toffset_drift_hist")
-    def plot_toffset_drift_hist(self, n_bins=50, save=True, save_format=None,
+    def plot_toffset_drift_hist(self,
+                                n_bins=50,
+                                save=True,
+                                save_format=None,
                                 dpi=None):
         """Plot time offset drift histogram
 
@@ -1990,7 +2179,11 @@ class Analyser():
         plt.close()
 
     @analysis_plot("mtie")
-    def plot_mtie(self, period=1, save=True, save_format=None, dpi=None,
+    def plot_mtie(self,
+                  period=1,
+                  save=True,
+                  save_format=None,
+                  dpi=None,
                   **kwargs):
         """Plot MTIE versus the observation interval(Tau)
 
@@ -2035,11 +2228,12 @@ class Analyser():
         i_max = np.inf
         for key in self.results['mtie']:
             i_max = min(i_max, len(self.results['mtie'][key][0]))
-        assert(not np.isinf(i_max))
+        assert (not np.isinf(i_max))
 
         # Plot MTIE curves in ascending order of performance
         for suffix, _ in sorted(self.ranking['mtie'].items(),
-                                key=lambda x: x[1], reverse=True):
+                                key=lambda x: x[1],
+                                reverse=True):
             value = est_keys[suffix]
             if (not value["show"] or suffix == "true"):
                 continue
@@ -2047,13 +2241,17 @@ class Analyser():
             key = "x_est" if (suffix == "raw") else "x_" + suffix
 
             # Take MTIE from cached results
-            assert(key in self.results["mtie"])
+            assert (key in self.results["mtie"])
             tau_est, mtie_est = self.results["mtie"][key]
 
-            plt.semilogx(period * tau_est[:i_max], mtie_est[:i_max], base=2,
-                         markersize=2, alpha=0.7,
+            plt.semilogx(period * tau_est[:i_max],
+                         mtie_est[:i_max],
+                         base=2,
+                         markersize=2,
+                         alpha=0.7,
                          label=self._format_label(value["label"]),
-                         marker=value["marker"], c=value["color"],
+                         marker=value["marker"],
+                         c=value["color"],
                          linestyle=value["linestyle"])
 
         plt.xlabel('Observation interval (sec)')
@@ -2068,8 +2266,14 @@ class Analyser():
         plt.close()
 
     @analysis_plot("max_te")
-    def plot_max_te(self, window_len, plottype='line', x_unit='time', save=True,
-                    save_format=None, dpi=None, **kwargs):
+    def plot_max_te(self,
+                    window_len,
+                    plottype='line',
+                    x_unit='time',
+                    save=True,
+                    save_format=None,
+                    dpi=None,
+                    **kwargs):
         """Plot Max|TE| vs time.
 
         Args:
@@ -2082,17 +2286,17 @@ class Analyser():
             dpi         : Image resolution in dots per inch
 
         """
-        assert(plottype in ['line', 'bar', 'boxplot', 'violin'])
+        assert (plottype in ['line', 'bar', 'boxplot', 'violin'])
 
         # Rank the max|TE| performance to plot curves in order. This step will
         # calculate all max|TE| curves and save them on self.results.
-        self._rank_algorithms(metric="max-te", max_te_win_len = window_len)
+        self._rank_algorithms(metric="max-te", max_te_win_len=window_len)
 
         logger.info("Plot max|TE| vs. time")
         post_tran_data = self.data[self.n_skip:]
 
         # Time axis
-        t_start  = post_tran_data[0]["t1"]
+        t_start = post_tran_data[0]["t1"]
         time_vec = np.array([float(r["t1"] - t_start) for r in post_tran_data])\
                    / NS_PER_MIN
 
@@ -2105,43 +2309,50 @@ class Analyser():
         plt.figure(figsize=self.figsize)
 
         # Plot max|TE| curves in ascending order of performance
-        sorted_max_te   = []
+        sorted_max_te = []
         sort_descending = (plottype == 'line')
         for suffix, _ in sorted(self.ranking['max-te'].items(),
-                                key=lambda x: x[1], reverse=sort_descending):
+                                key=lambda x: x[1],
+                                reverse=sort_descending):
             value = est_keys[suffix]
             if (not value["show"] or suffix == "true"):
                 continue
 
             key = "x_est" if (suffix == "raw") else "x_" + suffix
-            assert(key in self.results["max_te"])
+            assert (key in self.results["max_te"])
 
             sorted_max_te.append((suffix, self.results["max_te"][key]))
 
         if (plottype in ['bar', 'boxplot', 'violin']):
-            max_te_est  = [v[1] for v in sorted_max_te]
+            max_te_est = [v[1] for v in sorted_max_te]
             max_te_mean = np.mean(max_te_est, axis=1)
-            max_te_std  = np.std(max_te_est, axis=1)
+            max_te_std = np.std(max_te_est, axis=1)
             max_te_keys = [k[0] for k in sorted_max_te]
-            colors      = [est_keys[k]['color'] for k in max_te_keys]
-            labels      = [self._format_label(est_keys[k]['label']) for k in
-                           max_te_keys]
+            colors = [est_keys[k]['color'] for k in max_te_keys]
+            labels = [
+                self._format_label(est_keys[k]['label']) for k in max_te_keys
+            ]
 
         if (plottype == 'line'):
             for suffix, max_te_est in sorted_max_te:
                 value = est_keys[suffix]
-                key   = "x_est" if (suffix == "raw") else "x_" + suffix
+                key = "x_est" if (suffix == "raw") else "x_" + suffix
 
                 # Define the x axis - either in time or in samples
                 if (x_unit == "time"):
-                    x_axis_vec = [time_vec[i] for i, r in
-                                  enumerate(post_tran_data) if key in r]
+                    x_axis_vec = [
+                        time_vec[i] for i, r in enumerate(post_tran_data)
+                        if key in r
+                    ]
                 elif (x_unit == "samples"):
                     x_axis_vec = [r["idx"] for r in post_tran_data if key in r]
 
-                plt.plot(x_axis_vec[window_len - 1::window_len], max_te_est,
-                         label=self._format_label(value["label"]), markersize=2,
-                         marker=value['marker'], c=value["color"],
+                plt.plot(x_axis_vec[window_len - 1::window_len],
+                         max_te_est,
+                         label=self._format_label(value["label"]),
+                         markersize=2,
+                         marker=value['marker'],
+                         c=value["color"],
                          linestyle=value["linestyle"])
 
             plt.xlabel(x_axis_label)
@@ -2149,16 +2360,28 @@ class Analyser():
 
         elif (plottype == 'bar'):
             position = range(len(labels))
-            plt.bar(position, max_te_mean, yerr=max_te_std, align='center',
-                    alpha=0.9, ecolor='black', capsize=5, color=colors)
+            plt.bar(position,
+                    max_te_mean,
+                    yerr=max_te_std,
+                    align='center',
+                    alpha=0.9,
+                    ecolor='black',
+                    capsize=5,
+                    color=colors)
 
             plt.xticks(position, labels)
             plt.ylabel('$\max|$TE$|$ (ns)')
 
         elif (plottype == 'boxplot'):
-            box = plt.boxplot(max_te_est, labels=labels,
-                              showfliers=False, patch_artist=True, vert=False,
-                              medianprops={'linewidth': 1, 'color': 'black'})
+            box = plt.boxplot(max_te_est,
+                              labels=labels,
+                              showfliers=False,
+                              patch_artist=True,
+                              vert=False,
+                              medianprops={
+                                  'linewidth': 1,
+                                  'color': 'black'
+                              })
 
             plt.xlabel('$\max|$TE$|$ (ns)')
 
@@ -2167,8 +2390,10 @@ class Analyser():
                 b.set_edgecolor('black')
 
         else:
-            position    = range(1, len(labels) + 1)
-            violinparts = plt.violinplot(max_te_est, showmeans=True, vert=False)
+            position = range(1, len(labels) + 1)
+            violinparts = plt.violinplot(max_te_est,
+                                         showmeans=True,
+                                         vert=False)
 
             plt.xlabel('$\max|$TE$|$ (ns)')
             plt.yticks(position, labels)
@@ -2192,7 +2417,10 @@ class Analyser():
         plt.close()
 
     @analysis_plot("temperature")
-    def plot_temperature(self, x_unit='time', save=True, save_format=None,
+    def plot_temperature(self,
+                         x_unit='time',
+                         save=True,
+                         save_format=None,
                          dpi=None):
         """Plot temperature vs time
 
@@ -2207,7 +2435,7 @@ class Analyser():
 
         # TODO: move the definition of x-axis label into the decorator
         if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
+            t_start = self.data[0]["t1"]
             time_vec     = np.array([float(r["t1"] - t_start) for r in \
                                     self.data]) / NS_PER_MIN
             x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
@@ -2215,15 +2443,15 @@ class Analyser():
             x_axis_label = 'Time (min)'
 
         elif (x_unit == "samples"):
-            x_axis_vec   = [r["idx"] for r in self.data if "temp" in r]
+            x_axis_vec = [r["idx"] for r in self.data if "temp" in r]
             x_axis_label = 'Realization'
 
         temp1 = [r["temp"][0] for r in self.data if "temp" in r]
         temp2 = [r["temp"][1] for r in self.data if "temp" in r]
 
         plt.figure(figsize=self.figsize)
-        plt.scatter(x_axis_vec, temp1, s = 1.0, label="LM35")
-        plt.scatter(x_axis_vec, temp2, s = 1.0, label="MCP9808")
+        plt.scatter(x_axis_vec, temp1, s=1.0, label="LM35")
+        plt.scatter(x_axis_vec, temp2, s=1.0, label="MCP9808")
         plt.xlabel(x_axis_label)
         plt.ylabel('Temperature (C)')
         plt.grid()
@@ -2236,7 +2464,10 @@ class Analyser():
         plt.close()
 
     @analysis_plot("occupancy")
-    def plot_occupancy(self, x_unit='time', save=True, save_format=None,
+    def plot_occupancy(self,
+                       x_unit='time',
+                       save=True,
+                       save_format=None,
                        dpi=None):
         """Plot BBU/RRU DAC interface buffer occupancy vs time
 
@@ -2250,7 +2481,7 @@ class Analyser():
         logger.info("Plot occupancy")
 
         if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
+            t_start = self.data[0]["t1"]
             x_axis_label = 'Time (min)'
             time_vec     = np.array([float(r["t1"] - t_start) for r in \
                                      self.data]) / NS_PER_MIN
@@ -2265,12 +2496,16 @@ class Analyser():
                 x_axis_vec   = [time_vec[i] for i, r in enumerate(self.data) \
                                 if key in r and isinstance(r[key], int)]
             elif (x_unit == "samples"):
-                x_axis_vec   = [r["idx"] for r in self.data if key in r and
-                                isinstance(r[key], int)]
+                x_axis_vec = [
+                    r["idx"] for r in self.data
+                    if key in r and isinstance(r[key], int)
+                ]
 
-            occ = np.array([int(r[key]) for r in self.data if key in r and
-                            isinstance(r[key], int)])
-            plt.scatter(x_axis_vec, occ, s = 1.0, label=label)
+            occ = np.array([
+                int(r[key]) for r in self.data
+                if key in r and isinstance(r[key], int)
+            ])
+            plt.scatter(x_axis_vec, occ, s=1.0, label=label)
 
         plt.xlabel(x_axis_label)
         plt.ylim((0, 8191))
@@ -2284,8 +2519,15 @@ class Analyser():
             plt.show()
         plt.close()
 
-    def _plot_pps_rtc_metric(self, keys, labels, ylabel, name, x_unit='time',
-                             binwidth = 0.5, save=True, save_format=None,
+    def _plot_pps_rtc_metric(self,
+                             keys,
+                             labels,
+                             ylabel,
+                             name,
+                             x_unit='time',
+                             binwidth=0.5,
+                             save=True,
+                             save_format=None,
                              dpi=None):
         """Plot PPS RTC metric
 
@@ -2301,7 +2543,7 @@ class Analyser():
 
         """
         if (x_unit == "time"):
-            t_start      = self.data[0]["t1"]
+            t_start = self.data[0]["t1"]
             x_axis_label = 'Time (min)'
             time_vec     = np.array([float(r["t1"] - t_start) for r in \
                                      self.data]) / NS_PER_MIN
@@ -2316,7 +2558,7 @@ class Analyser():
             elif (x_unit == "samples"):
                 x_vec = [r["idx"] for r in self.data if key in r]
             y_vec = np.array([r[key] for r in self.data if key in r])
-            plt.scatter(x_vec, y_vec, s = 1.0, label=label)
+            plt.scatter(x_vec, y_vec, s=1.0, label=label)
 
         plt.xlabel(x_axis_label)
         plt.ylabel(ylabel)
@@ -2331,12 +2573,15 @@ class Analyser():
 
         # Histogram
         plt.figure(figsize=self.figsize)
-        for key,label in zip(keys, labels):
+        for key, label in zip(keys, labels):
             y_vec = np.array([r[key] for r in self.data if key in r])
             if (len(y_vec) > 0):
-                bins  = np.arange(np.floor(y_vec.min()),
-                                  np.ceil(y_vec.max()) + binwidth, binwidth)
-                plt.hist(y_vec, bins=bins, density=True, histtype='stepfilled',
+                bins = np.arange(np.floor(y_vec.min()),
+                                 np.ceil(y_vec.max()) + binwidth, binwidth)
+                plt.hist(y_vec,
+                         bins=bins,
+                         density=True,
+                         histtype='stepfilled',
                          label=label)
 
         plt.xlabel(ylabel)
@@ -2351,8 +2596,12 @@ class Analyser():
         plt.close()
 
     @analysis_plot("pps_err")
-    def plot_pps_err(self, x_unit='time', binwidth=0.5, save=True,
-                     save_format=None, dpi=None):
+    def plot_pps_err(self,
+                     x_unit='time',
+                     binwidth=0.5,
+                     save=True,
+                     save_format=None,
+                     dpi=None):
         """Plot PPS synchronization error vs time and histogram
 
         Args:
@@ -2363,16 +2612,20 @@ class Analyser():
 
         """
         logger.info("Plot PPS sync error")
-        keys   = ["pps_err", "pps_err2"]
+        keys = ["pps_err", "pps_err2"]
         labels = ["RRU1", "RRU2"]
         ylabel = "PPS Sync Error (ns)"
-        name   = "pps_err"
+        name = "pps_err"
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
                                   save, save_format, dpi)
 
     @analysis_plot("pps_rtc_foffset_est")
-    def plot_pps_rtc_foffset_est(self, x_unit='time', binwidth=0.5, save=True,
-                                 save_format=None, dpi=None):
+    def plot_pps_rtc_foffset_est(self,
+                                 x_unit='time',
+                                 binwidth=0.5,
+                                 save=True,
+                                 save_format=None,
+                                 dpi=None):
         """Plot frequency offset estimates according to the PPS RTC
 
         These are equivalent to the output of the PI controller that is used for
@@ -2386,16 +2639,21 @@ class Analyser():
 
         """
         logger.info("Plot frequency offset estimates of the PPS RTC")
-        keys   = ["y_pps", "y_pps2"]
+        keys = ["y_pps", "y_pps2"]
         labels = ["RRU1", "RRU2"]
         ylabel = "PPS Frequency Offset (ppb)"
-        name   = "pps_foffset"
+        name = "pps_foffset"
         self._plot_pps_rtc_metric(keys, labels, ylabel, name, x_unit, binwidth,
                                   save, save_format, dpi)
 
     @analysis_plot("error_vs_window")
-    def plot_error_vs_window(self, plot_info=False, save=True, save_format=None,
-                             dpi=None, yscale='linear', **kwargs):
+    def plot_error_vs_window(self,
+                             plot_info=False,
+                             save=True,
+                             save_format=None,
+                             dpi=None,
+                             yscale='linear',
+                             **kwargs):
         """Plot error vs window"""
 
         window_cfg = None
@@ -2417,12 +2675,12 @@ class Analyser():
 
         # Plot each estimator individually
         for estimator, cfg in window_cfg.items():
-            est_key      = cfg['est_key']
-            est_name     = cfg['name']
-            N_best       = cfg['N_best']
+            est_key = cfg['est_key']
+            est_name = cfg['name']
+            N_best = cfg['N_best']
             error_metric = cfg['error_metric']
-            win_len      = np.array(cfg['window_len'])
-            win_error    = np.array(cfg['window_error'])
+            win_len = np.array(cfg['window_len'])
+            win_error = np.array(cfg['window_error'])
 
             # Convert to RMSE
             if (error_metric == "mse"):
@@ -2433,17 +2691,21 @@ class Analyser():
             plt.yscale(yscale)
             self._plt_title(est_name)
             plt.xlabel("Window Length $N$ (samples)")
-            plt.ylabel("{} (ns)".format(
-                "$\max|$TE$|$" if error_metric == "max-te" else "RMSE"
-            ))
+            plt.ylabel("{} (ns)".format("$\max|$TE$|$" if error_metric ==
+                                        "max-te" else "RMSE"))
             plt.grid()
 
             if (plot_info):
-                plt.text(0.99, 0.98, f"Best window length: {N_best:d}",
-                         transform=plt.gca().transAxes, va='top', ha='right')
+                plt.text(0.99,
+                         0.98,
+                         f"Best window length: {N_best:d}",
+                         transform=plt.gca().transAxes,
+                         va='top',
+                         ha='right')
 
             if (save):
-                self._plt_save(dpi, save_format,
+                self._plt_save(dpi,
+                               save_format,
                                suffix=f"{est_key}_{error_metric}")
             else:
                 plt.show()
@@ -2456,21 +2718,24 @@ class Analyser():
                                      reverse=True):
             # Skip the algorithms that are not supposed to be displayed on the
             # plot containing all estimators
-            est_key  = cfg['est_key']
+            est_key = cfg['est_key']
             if (not est_keys[est_key]["show"]):
                 continue
 
-            est_name     = cfg['name']
-            N_best       = cfg['N_best']
+            est_name = cfg['name']
+            N_best = cfg['N_best']
             error_metric = cfg['error_metric']
-            win_len      = np.array(cfg['window_len'])
-            win_error    = np.array(cfg['window_error'])
+            win_len = np.array(cfg['window_len'])
+            win_error = np.array(cfg['window_error'])
 
             # Convert to RMSE
             if (error_metric == "mse"):
                 win_error = np.sqrt(win_error)
 
-            plt.semilogx(win_len, win_error, base=2, markersize=3,
+            plt.semilogx(win_len,
+                         win_error,
+                         base=2,
+                         markersize=3,
                          label=self._format_label(est_keys[est_key]['label']),
                          marker=est_keys[est_key]['marker'],
                          c=est_keys[est_key]["color"],
@@ -2478,16 +2743,13 @@ class Analyser():
             plt.yscale(yscale)
 
         plt.xlabel("Window Length $N$ (samples)")
-        plt.ylabel("{} (ns)".format(
-            "$\max|$TE$|$" if error_metric == "max-te" else "RMSE"
-        ))
+        plt.ylabel("{} (ns)".format("$\max|$TE$|$" if error_metric ==
+                                    "max-te" else "RMSE"))
         plt.grid()
         self._plt_legend()
 
         if (save):
-            self._plt_save(dpi, save_format,
-                           suffix=f"all_{error_metric}")
+            self._plt_save(dpi, save_format, suffix=f"all_{error_metric}")
         else:
             plt.show()
         plt.close()
-

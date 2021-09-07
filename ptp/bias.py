@@ -1,10 +1,12 @@
 """Bias Compensator
 """
 import logging
+
 import numpy as np
-import math
 from scipy import stats
+
 logger = logging.getLogger(__name__)
+
 
 class Bias():
     """Bias Compensator
@@ -103,9 +105,9 @@ class Bias():
             elif (metric == 'median'):
                 corr = (np.median(d_ms) - np.median(d_sm)) / 2
             elif (metric == 'mode'):
-                d_ms_mode,_ = stats.mode(np.round(d_ms))
-                d_sm_mode,_ = stats.mode(np.round(d_sm))
-                corr      = (d_ms_mode[0] - d_sm_mode[0]) / 2
+                d_ms_mode, _ = stats.mode(np.round(d_ms))
+                d_sm_mode, _ = stats.mode(np.round(d_sm))
+                corr = (d_ms_mode[0] - d_sm_mode[0]) / 2
             else:
                 raise ValueError('Unknown metric {}'.format(metric))
         else:
@@ -214,19 +216,18 @@ class Bias():
         # Correction for timestamps
         if (target == 'timestamps'):
             logger.info("Compensating bias on timestamps")
-            logger.info("Set t4 -= %f ns" %(corr))
+            logger.info("Set t4 -= %f ns" % (corr))
 
             for d in self.data:
                 d["t4"] -= corr
 
         # Correction for post-processed or raw time offset estimates
         elif (target == 'estimates'):
-            logger.info("Compensating bias on %s" %(toffset_key))
-            logger.info("Set %s -= %f ns" %(toffset_key, corr))
+            logger.info("Compensating bias on %s" % (toffset_key))
+            logger.info("Set %s -= %f ns" % (toffset_key, corr))
 
             for d in self.data:
                 if (toffset_key in d):
                     d[toffset_key] -= corr
         else:
             raise ValueError("Unknown target")
-

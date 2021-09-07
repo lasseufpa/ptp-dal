@@ -1,46 +1,62 @@
 """Helper class used to optimize processing window lengths
 """
-import logging, re, json, time, os
+import logging
+import time
+
 import ptp.ls, ptp.pktselection, ptp.cache, ptp.bias
 import matplotlib
+
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
 
 class Optimizer():
     est_op = {
-        "ls"            : {"name"   : "Least Squares",
-                           "impl"   : "eff",
-                           "est_key": "ls_eff",
-                           "N_best" : None},
-        "sample-average": {"name"   : "Sample Average",
-                           "impl"   : "avg",
-                           "est_key": "pkts_avg",
-                           "N_best" : None},
-        "ewma"          : {"name"   : "EWMA",
-                           "impl"   : "ewma",
-                           "est_key": "pkts_ewma",
-                           "N_best" : None},
-        "sample-median" : {"name"   : "Sample Median",
-                           "impl"   : "median",
-                           "est_key": "pkts_median",
-                           "N_best" : None},
-        "sample-min"    : {"name"   : "Sample Minimum",
-                           "impl"   : "min",
-                           "est_key": "pkts_min",
-                           "N_best" : None},
-        "sample-max"    : {"name"   : "Sample Maximum",
-                           "impl"   : "max",
-                           "est_key": "pkts_max",
-                           "N_best" : None},
-        "sample-mode"   : {"name"   : "Sample Mode",
-                           "impl"   : "mode",
-                           "est_key": "pkts_mode",
-                           "N_best" : None}
+        "ls": {
+            "name": "Least Squares",
+            "impl": "eff",
+            "est_key": "ls_eff",
+            "N_best": None
+        },
+        "sample-average": {
+            "name": "Sample Average",
+            "impl": "avg",
+            "est_key": "pkts_avg",
+            "N_best": None
+        },
+        "ewma": {
+            "name": "EWMA",
+            "impl": "ewma",
+            "est_key": "pkts_ewma",
+            "N_best": None
+        },
+        "sample-median": {
+            "name": "Sample Median",
+            "impl": "median",
+            "est_key": "pkts_median",
+            "N_best": None
+        },
+        "sample-min": {
+            "name": "Sample Minimum",
+            "impl": "min",
+            "est_key": "pkts_min",
+            "N_best": None
+        },
+        "sample-max": {
+            "name": "Sample Maximum",
+            "impl": "max",
+            "est_key": "pkts_max",
+            "N_best": None
+        },
+        "sample-mode": {
+            "name": "Sample Mode",
+            "impl": "mode",
+            "est_key": "pkts_mode",
+            "N_best": None
+        }
     }
 
     def __init__(self, data, T_ns, opts):
@@ -58,7 +74,7 @@ class Optimizer():
         self.opts = opts
 
         # Number of samples
-        self.n_data   = len(data)
+        self.n_data = len(data)
 
         # Window configuration
         self._sample_skip = None
@@ -66,7 +82,7 @@ class Optimizer():
     def _correct_pkts_bias(self, key):
         """Correct the bias of packet selection algorithms"""
         bias_corr_mode = self.opts['bias_corr_mode']
-        bias_est       = self.opts['bias_est']
+        bias_est = self.opts['bias_est']
 
         if (not (bias_corr_mode == 'post' or bias_corr_mode == 'both')):
             return
@@ -79,8 +95,12 @@ class Optimizer():
             else:
                 logger.warning(f"Can't compensate asymmetry of {metric}")
 
-    def _eval_error(self, window_vec, estimator, error_metric,
-                    early_stopping=True, patience=5):
+    def _eval_error(self,
+                    window_vec,
+                    estimator,
+                    error_metric,
+                    early_stopping=True,
+                    patience=5):
         """Evaluate the error for a given estimator and given window lengths
 
         Args:
@@ -98,36 +118,36 @@ class Optimizer():
                      (if early stopping is active).
 
         """
-        data      = self.data
-        est_impl  = self.est_op[estimator]["impl"]
-        est_key   = self.est_op[estimator]["est_key"]
+        data = self.data
+        est_impl = self.est_op[estimator]["impl"]
+        est_key = self.est_op[estimator]["est_key"]
         n_windows = len(window_vec)
-        error     = np.zeros(n_windows)
+        error = np.zeros(n_windows)
 
         # Fair number of samples to use for the error evaluation
         n_f = len(data) - int(max(window_vec))
-        assert(n_f > 0)
+        assert (n_f > 0)
 
         # Control variables
-        last_print     = 0
-        min_err        = np.inf
-        i_iter         = 0
+        last_print = 0
+        min_err = np.inf
+        i_iter = 0
         patience_count = 0
 
-        for i,N in enumerate(window_vec):
+        for i, N in enumerate(window_vec):
             N = int(N)
 
             # Track progress
-            progress = (i/n_windows)
+            progress = (i / n_windows)
             if (progress - last_print > 0.1):
-                logger.info(f'{estimator} vs. window progress {progress*100:5.2f} %')
+                logger.info(
+                    f'{estimator} vs. window progress {progress*100:5.2f} %')
                 last_print = progress
 
             # Run estimator
             if (estimator == "ls"):
                 ls = ptp.ls.Ls(N, data, self.T_ns)
-                ls.process(impl=est_impl,
-                           batch_size=self.opts['batch_size'])
+                ls.process(impl=est_impl, batch_size=self.opts['batch_size'])
             else:
                 pkts = ptp.pktselection.PktSelection(N, data)
                 pkts.process(strategy=est_impl,
@@ -165,8 +185,10 @@ class Optimizer():
             # estimates produced by all window lengths (n_f samples), such that
             # the comparison becomes fair. Otherwise, the shortest windows would
             # be assessed based on more data.
-            x_err = np.array([r[f"x_{est_key}"] - r["x"] for r in data[-n_f:]
-                              if f"x_{est_key}" in r])
+            x_err = np.array([
+                r[f"x_{est_key}"] - r["x"] for r in data[-n_f:]
+                if f"x_{est_key}" in r
+            ])
 
             # Erase results from dataset
             for r in data:
@@ -179,7 +201,7 @@ class Optimizer():
             elif (error_metric == "mse"):
                 error[i] = np.square(x_err).mean()
             else:
-                raise ValueError("Error metric %s is invalid" %(error_metric))
+                raise ValueError("Error metric %s is invalid" % (error_metric))
 
             # Keep track of minimum error with "early stopping"
             #
@@ -191,8 +213,8 @@ class Optimizer():
 
             # Update min{error}
             if (error[i] < min_err):
-                min_err = error[i] # min error so far
-                N_best  = N        # best window length so far
+                min_err = error[i]  # min error so far
+                N_best = N  # best window length so far
                 patience_count = 0
             else:
                 patience_count += 1
@@ -205,8 +227,13 @@ class Optimizer():
 
         return N_best, error, (i_iter + 1)
 
-    def _search_best_window(self, estimator, error_metric, early_stopping=True,
-                            fine_pass=False, eval_all=False, log_max_window=13,
+    def _search_best_window(self,
+                            estimator,
+                            error_metric,
+                            early_stopping=True,
+                            fine_pass=False,
+                            eval_all=False,
+                            log_max_window=13,
                             save_global=False):
         """Search the best window length that minimizes error
 
@@ -233,41 +260,44 @@ class Optimizer():
                              cache file
 
         """
-        t_start  = time.time()
-        est_key  = self.est_op[estimator]['est_key']
+        t_start = time.time()
+        est_key = self.est_op[estimator]['est_key']
         est_name = self.est_op[estimator]['name']
 
         if (eval_all):
-            end_window = 2**np.minimum(np.floor(np.log2(len(self.data)/2)),
+            end_window = 2**np.minimum(np.floor(np.log2(len(self.data) / 2)),
                                        log_max_window)
             window_len = np.arange(2, end_window)
-            N_best, error , i_stop = self._eval_error(window_len, estimator,
-                                                      error_metric=error_metric,
-                                                      early_stopping=False)
+            N_best, error, i_stop = self._eval_error(window_len,
+                                                     estimator,
+                                                     error_metric=error_metric,
+                                                     early_stopping=False)
         else:
             # Coarse pass
             #
             # Evaluate power-of-2 window lengths. If using early stopping, use
             # the default patience.
-            log_len_e = np.minimum(np.floor(np.log2(len(self.data)/2)),
+            log_len_e = np.minimum(np.floor(np.log2(len(self.data) / 2)),
                                    log_max_window)
             # Start from N=4, so that all algorithms consider the same window
             # range. A window of N=2 does not make sense for sample-mode.
-            log_len_s      = 2
+            log_len_s = 2
             log_window_len = np.arange(log_len_s, log_len_e + 1, 1)
-            window_len     = 2**log_window_len
+            window_len = 2**log_window_len
 
-            N_best, error, i_stop = self._eval_error(window_len, estimator,
-                                                     error_metric=error_metric,
-                                                     early_stopping=early_stopping)
+            N_best, error, i_stop = self._eval_error(
+                window_len,
+                estimator,
+                error_metric=error_metric,
+                early_stopping=early_stopping)
 
         # Truncate results by considering the early stopping index
-        error      = error[:i_stop]
-        i_error    = np.argsort(error[:i_stop])
+        error = error[:i_stop]
+        i_error = np.argsort(error[:i_stop])
         window_len = window_len[:i_stop]
 
         # Best and second best indexes
-        i_best      = i_error[0]
+        i_best = i_error[0]
         i_scnd_best = i_error[1]
 
         # Second best window length
@@ -275,7 +305,7 @@ class Optimizer():
 
         # Before running the fine pass, prepare to concatenate previous error
         # values with the ones to be computed during the fine pass
-        global_error   = error
+        global_error = error
         global_win_len = window_len
 
         if (fine_pass and (not eval_all)):
@@ -288,8 +318,9 @@ class Optimizer():
 
             # Sanity check
             if (np.abs(i_scnd_best - i_best) != 1):
-                logger.warning("Best (%d) and second-best (%d) windows are not "
-                               "consecutive" %(N_best, N_scnd_best))
+                logger.warning(
+                    "Best (%d) and second-best (%d) windows are not "
+                    "consecutive" % (N_best, N_scnd_best))
 
             # Define the fine range of window lengths and run
             if (N_best > N_scnd_best):
@@ -297,33 +328,35 @@ class Optimizer():
             else:
                 window_len = np.arange(N_best, N_scnd_best, 1)
 
-            N_best, error, i_stop = self._eval_error(window_len, estimator,
-                                                     error_metric=error_metric,
-                                                     early_stopping=early_stopping,
-                                                     patience=100)
+            N_best, error, i_stop = self._eval_error(
+                window_len,
+                estimator,
+                error_metric=error_metric,
+                early_stopping=early_stopping,
+                patience=100)
 
             # Truncate results again by considering the early stopping index
-            i_error    = np.argsort(error[:i_stop])
-            error      = error[:i_stop]
+            i_error = np.argsort(error[:i_stop])
+            error = error[:i_stop]
             window_len = window_len[:i_stop]
 
             # Concatenate fine pass results within global vectors
-            global_error   = np.concatenate((global_error, error))
+            global_error = np.concatenate((global_error, error))
             global_win_len = np.concatenate((global_win_len, window_len))
 
         if (save_global):
             plot_window_len = global_win_len
-            plot_error      = global_error
+            plot_error = global_error
         else:
             plot_window_len = window_len[:i_stop]
-            plot_error      = error[:i_stop]
+            plot_error = error[:i_stop]
 
         # Save tunning information
-        self.est_op[estimator]["N_best"]       = int(N_best)
-        self.est_op[estimator]["window_len"]   = plot_window_len.tolist()
+        self.est_op[estimator]["N_best"] = int(N_best)
+        self.est_op[estimator]["window_len"] = plot_window_len.tolist()
         self.est_op[estimator]["window_error"] = plot_error.tolist()
         self.est_op[estimator]["error_metric"] = error_metric
-        self.est_op[estimator]["n_samples"]    = self.n_data
+        self.est_op[estimator]["n_samples"] = self.n_data
 
         logger.info(f"Best evaluated window length for {est_name}: {N_best:d}")
         t_end = time.time()
@@ -349,14 +382,22 @@ class Optimizer():
                 v["error_metric"] != metric or \
                 v["n_samples"] != self.n_data):
 
-                logger.warning("Window configuration cache file is incomplete.")
+                logger.warning(
+                    "Window configuration cache file is incomplete.")
                 return False
 
         return True
 
-    def process(self, target, error_metric="max-te", cache=None,
-                sample_skip=0, early_stopping=True, force=False,
-                fine_pass=False, max_window=8192, save_global=False):
+    def process(self,
+                target,
+                error_metric="max-te",
+                cache=None,
+                sample_skip=0,
+                early_stopping=True,
+                force=False,
+                fine_pass=False,
+                max_window=8192,
+                save_global=False):
         """Process the observations
 
         Args:
@@ -377,9 +418,10 @@ class Optimizer():
         """
         # Validate target estimator(s)
         if (isinstance(target, list)):
-            assert([(estimator in self.est_op.keys()) for estimator in target])
+            assert ([(estimator in self.est_op.keys())
+                     for estimator in target])
         else:
-            assert(target in self.est_op.keys())
+            assert (target in self.est_op.keys())
 
         self._sample_skip = sample_skip
 
@@ -392,7 +434,7 @@ class Optimizer():
         # Is there a configuration file already? Is it complete (with all
         # information)?
         if (cache is not None):
-            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
+            assert (isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
             cached_cfg = cache.load('window')
 
             if (cached_cfg and not force):
@@ -407,15 +449,19 @@ class Optimizer():
         if (target == 'all'):
             # All estimators, except the ones that are already optimized (within
             # the results that were loaded from cache)
-            estimators = [k for k in self.est_op.keys() if
-                          (self.est_op[k]["N_best"] is None or
-                           self.est_op[k]["error_metric"] != error_metric or
-                           self.est_op[k]["n_samples"] != self.n_data)]
+            estimators = [
+                k for k in self.est_op.keys()
+                if (self.est_op[k]["N_best"] is None
+                    or self.est_op[k]["error_metric"] != error_metric
+                    or self.est_op[k]["n_samples"] != self.n_data)
+            ]
         elif (isinstance(target, list)):
-            estimators = [k for k in target if
-                          (self.est_op[k]["N_best"] is None or
-                           self.est_op[k]["error_metric"] != error_metric or
-                           self.est_op[k]["n_samples"] != self.n_data)]
+            estimators = [
+                k for k in target
+                if (self.est_op[k]["N_best"] is None
+                    or self.est_op[k]["error_metric"] != error_metric
+                    or self.est_op[k]["n_samples"] != self.n_data)
+            ]
         else:
             estimators = [target]
 
@@ -423,7 +469,8 @@ class Optimizer():
 
         for e in estimators:
             # Search the window length that minimizes the calculated error
-            self._search_best_window(e, error_metric=error_metric,
+            self._search_best_window(e,
+                                     error_metric=error_metric,
                                      early_stopping=early_stopping,
                                      fine_pass=fine_pass,
                                      log_max_window=log_max_window,
@@ -441,13 +488,13 @@ class Optimizer():
 
         """
         return {
-            'ls'      : self.est_op["ls"]["N_best"],
-            'movavg'  : self.est_op["sample-average"]["N_best"],
-            'median'  : self.est_op["sample-median"]["N_best"],
-            'min'     : self.est_op["sample-min"]["N_best"],
-            'max'     : self.est_op["sample-max"]["N_best"],
-            'mode'    : self.est_op["sample-mode"]["N_best"],
-            'ewma'    : self.est_op["ewma"]["N_best"]
+            'ls': self.est_op["ls"]["N_best"],
+            'movavg': self.est_op["sample-average"]["N_best"],
+            'median': self.est_op["sample-median"]["N_best"],
+            'min': self.est_op["sample-min"]["N_best"],
+            'max': self.est_op["sample-max"]["N_best"],
+            'mode': self.est_op["sample-mode"]["N_best"],
+            'ewma': self.est_op["ewma"]["N_best"]
         }
 
     def print_results(self):
@@ -456,5 +503,4 @@ class Optimizer():
         print("Tuned window lengths:")
         for i in self.est_op:
             if (self.est_op[i]["N_best"] is not None):
-                print("%20s: %d" %(i, self.est_op[i]["N_best"]))
-
+                print("%20s: %d" % (i, self.est_op[i]["N_best"]))

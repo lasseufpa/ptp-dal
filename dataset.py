@@ -1,29 +1,30 @@
 #!/usr/bin/env python3
-import argparse, sys, logging, requests, json
+import sys
+import logging
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
 from tabulate import tabulate
 import pandas as pd
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
 import ptp.datasets
 
 
 def main():
-    parser    = ArgumentParser(description="Manage datasets",
-                               formatter_class=ArgumentDefaultsHelpFormatter)
+    parser = ArgumentParser(description="Manage datasets",
+                            formatter_class=ArgumentDefaultsHelpFormatter)
     subparser = parser.add_subparsers(dest='command')
 
     # Download datasets
-    download = subparser.add_parser('download',
-                                    help="Download datasets")
-    download.add_argument('--file', '-f',
+    download = subparser.add_parser('download', help="Download datasets")
+    download.add_argument('--file',
+                          '-f',
                           help='Dataset file name',
                           required=True)
 
     # Search datasets
-    search = subparser.add_parser('search',
-                                  help="Search for datasets using its metadata")
-    search.add_argument('--name',
-                        default=None,
-                        help='Dataset name')
+    search = subparser.add_parser(
+        'search', help="Search for datasets using its metadata")
+    search.add_argument('--name', default=None, help='Dataset name')
     search.add_argument('--oscillator',
                         choices=["ocxo", "xo"],
                         help='Define the oscillator type')
@@ -38,13 +39,12 @@ def main():
                         help='Number of hops for RRU 2')
     search.add_argument('--n-rru-ptp',
                         help='Number of RRUs actively operating as PTP slaves')
-    search.add_argument('--delay-cal',
-                        choices=['True', 'False'],
-                        help='Whether dataset runs delay asymmetry calibration \
+    search.add_argument(
+        '--delay-cal',
+        choices=['True', 'False'],
+        help='Whether dataset runs delay asymmetry calibration \
                         procedure')
-    search.add_argument('--start-time',
-                        type=str,
-                        help='Dataset start time')
+    search.add_argument('--start-time', type=str, help='Dataset start time')
     search.add_argument('--pipeline-bbu',
                         type=int,
                         help='CI pipeline of the BBU bitstream')
@@ -63,29 +63,30 @@ def main():
                         help='LTE sample rate')
     search.add_argument('--fh-iq-size-dl',
                         type=int,
-                        choices=list(range(4,34,2)),
+                        choices=list(range(4, 34, 2)),
                         help='IQ samples size in downlink')
     search.add_argument('--fh-iq-size-ul',
                         type=int,
-                        choices=list(range(4,34,2)),
+                        choices=list(range(4, 34, 2)),
                         help='IQ samples size in uplink')
     search.add_argument('--fh-bitrate-dl',
                         help='Fronthaul bitrate in downlink')
-    search.add_argument('--fh-bitrate-ul',
-                        help='Fronthaul bitrate in uplink')
+    search.add_argument('--fh-bitrate-ul', help='Fronthaul bitrate in uplink')
     search.add_argument('--fh-n-spf-dl',
                         type=int,
                         help='Number of IQ samples per frame in downlink')
     search.add_argument('--fh-n-spf-ul',
                         type=int,
                         help='Number of IQ samples per frame in uplink')
-    search.add_argument('--fh-n-rru-dl',
-                        type=int,
-                        help='Number of RRUs that the BBU is configured to deliver \
+    search.add_argument(
+        '--fh-n-rru-dl',
+        type=int,
+        help='Number of RRUs that the BBU is configured to deliver \
                         data to in DL')
-    search.add_argument('--fh-n-rru-ul',
-                        type=int,
-                        help='Number of RRUs delivering UL data, i.e. that are \
+    search.add_argument(
+        '--fh-n-rru-ul',
+        type=int,
+        help='Number of RRUs delivering UL data, i.e. that are \
                         actually active in the testbed')
     search.add_argument('--fh-vlan-pcp',
                         type=int,
@@ -110,7 +111,6 @@ def main():
 
     logging.basicConfig(stream=sys.stderr, level='INFO')
 
-
     ds_manager = ptp.datasets.Datasets()
     if (args.command == 'download'):
         ds_manager.download(args.file)
@@ -126,6 +126,7 @@ def main():
             df = df.sort_values(by=['start-time'])
             df = df.reset_index(drop=True)
             print(tabulate(df, headers='keys', tablefmt='psql'))
+
 
 if __name__ == "__main__":
     main()

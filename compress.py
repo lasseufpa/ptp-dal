@@ -3,25 +3,28 @@ import ptp.compression
 import argparse, logging, sys
 from argparse import ArgumentDefaultsHelpFormatter
 
+
 def parser():
     parser = argparse.ArgumentParser(
         description="Compress JSON dataset",
-        formatter_class=ArgumentDefaultsHelpFormatter
-    )
+        formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('file', help='JSON or Pickle dataset file.')
-    parser.add_argument('-f', '--format',
+    parser.add_argument('-f',
+                        '--format',
                         default="xz",
                         choices=["json", "pickle", "gz", "pbz2", "xz"],
                         help='Output file format. Determines also the binary \
                         compression application that is used on top of the \
                         more efficient data representation that is obtained \
                         by our PTP compression module.')
-    parser.add_argument('--verbose', '-v',
+    parser.add_argument('--verbose',
+                        '-v',
                         action='count',
                         default=1,
                         help="Verbosity (logging) level")
     args = parser.parse_args()
     return args
+
 
 def main():
     args = parser()

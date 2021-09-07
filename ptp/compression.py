@@ -1,6 +1,12 @@
 """Compress/decompress PTP datasets"""
-import json, pickle, gzip, bz2, lzma
-import logging, time, os
+import bz2
+import gzip
+import json
+import logging
+import lzma
+import os
+import pickle
+import time
 
 
 class Codec():
@@ -12,8 +18,8 @@ class Codec():
             filename   : (string) dataset file name
             compressed : (bool) whether the supplied dataset is compressed
         """
-        assert(isinstance(ds, dict))
-        assert(isinstance(filename, str))
+        assert (isinstance(ds, dict))
+        assert (isinstance(filename, str))
 
         # When the dataset is not provided to the constructor, it means we need
         # to load it from the file
@@ -21,13 +27,14 @@ class Codec():
             assert(filename != ""), \
                 "Please provide dataset file name when the dataset itself is \
                 not provided"
+
             ext = os.path.splitext(filename)[1]
             assert(ext in [".json", ".pickle", ".gz", ".pbz2", ".xz"]), \
                 "File extension {} not supported".format(ext)
             self.compressed = "-comp" in filename
             self._load(filename)
         else:
-            self.ds         = ds # mutable and a shallow copy
+            self.ds = ds  # mutable and a shallow copy
             self.compressed = compressed
 
         if (filename != ""):
@@ -37,9 +44,9 @@ class Codec():
             # when the ds argument is empty, assume there is a file from which
             # we will load the data.
             self.orig_size = None if (ds != {}) else os.path.getsize(filename)
-            no_ext_name    = os.path.splitext(filename)[0]
-            self.name      = no_ext_name
-            self.out_name  = no_ext_name + "-comp"
+            no_ext_name = os.path.splitext(filename)[0]
+            self.name = no_ext_name
+            self.out_name = no_ext_name + "-comp"
         else:
             self.orig_size = self.name = self.out_name = None
 
@@ -95,18 +102,18 @@ class Codec():
             logger.warning("Dataset is already compressed")
             return self.ds
 
-        self.ds['indexed']     = {}
-        self.ds['idx']         = {}
+        self.ds['indexed'] = {}
+        self.ds['idx'] = {}
         self.ds['non-indexed'] = {}
 
         # Find all possible dictionary keys (no need to loop over the entire
         # dataset, they should be present on the first entries)
-        keys  = set()
+        keys = set()
         for x in self.ds['data']:
             keys.update(x.keys())
 
         # Find the keys that are always present
-        candidate_keys      = self.ds['data'][0].keys()
+        candidate_keys = self.ds['data'][0].keys()
         always_present_keys = list()
         for key in candidate_keys:
             always_present = all([key in x for x in self.ds['data']])
@@ -127,8 +134,8 @@ class Codec():
         sporadic_keys = keys.difference(set(always_present_keys))
         for key in sorted(sporadic_keys):
             logger.debug("Indexed key {}".format(key))
-            ts  = [x[key] for x in self.ds['data'] if key in x]
-            idx = [i for i,x in enumerate(self.ds['data']) if key in x]
+            ts = [x[key] for x in self.ds['data'] if key in x]
+            idx = [i for i, x in enumerate(self.ds['data']) if key in x]
             # Save time-series
             self.ds['indexed'][key] = ts
             # Save indexes
@@ -151,7 +158,7 @@ class Codec():
                 x.pop(key, None)
 
         # We should have removed all elements from all dictionaries
-        assert(not any([x for x in self.ds['data']]))
+        assert (not any([x for x in self.ds['data']]))
         self.ds.pop('data')
         # Maybe some index vectors were repeated and further savings were
         # achieved
@@ -181,7 +188,7 @@ class Codec():
             logger.warning("Dataset is already decompressed")
             return self.ds
 
-        assert('data' not in self.ds)
+        assert ('data' not in self.ds)
 
         # Non-indexed time-series
         for key in self.ds['non-indexed']:
@@ -191,26 +198,26 @@ class Codec():
                 ds_len = len(self.ds['non-indexed'][key])
                 self.ds['data'] = [{} for _ in range(ds_len)]
             # Add values to each dictionary
-            for i,x in enumerate(self.ds['non-indexed'][key]):
+            for i, x in enumerate(self.ds['non-indexed'][key]):
                 self.ds['data'][i][key] = x
         self.ds.pop('non-indexed')
 
         # Indexed time-series
-        assert('data' in self.ds)
+        assert ('data' in self.ds)
         for key in self.ds['indexed']:
             logger.debug("Indexed key {}".format(key))
-            ts  = self.ds['indexed'][key]
+            ts = self.ds['indexed'][key]
             if (isinstance(self.ds['idx'][key], str)):
                 idx = self.ds['idx'][self.ds['idx'][key]]
             else:
                 idx = self.ds['idx'][key]
             # Add values to each dictionary
-            for i,x in zip(idx, ts):
+            for i, x in zip(idx, ts):
                 self.ds['data'][i][key] = x
         self.ds.pop('indexed')
         self.ds.pop('idx')
-        assert(len(self.ds.keys()) == 2)
-        assert("metadata" in self.ds and "data" in self.ds)
+        assert (len(self.ds.keys()) == 2)
+        assert ("metadata" in self.ds and "data" in self.ds)
 
         self.compressed = False
         return self.ds
@@ -226,9 +233,10 @@ class Codec():
         """
         logger = logging.getLogger("codec-dump")
 
-        assert(ext in ["json", "pickle", "gz", "pbz2", "xz"])
-        assert(self.compressed), "Dataset has not been compressed yet"
-        assert(self.out_name is not None), "Original dataset name not provided"
+        assert (ext in ["json", "pickle", "gz", "pbz2", "xz"])
+        assert (self.compressed), "Dataset has not been compressed yet"
+        assert (self.out_name
+                is not None), "Original dataset name not provided"
 
         ext = ext.lower()
         outfile = "{}.{}".format(self.out_name, ext)
@@ -255,8 +263,8 @@ class Codec():
             raise ValueError("Unsupported extension {}".format(ext))
         toc = time.time()
 
-        duration    = (toc - tic)
-        new_size    = os.path.getsize(outfile)
+        duration = (toc - tic)
+        new_size = os.path.getsize(outfile)
         new_size_mb = new_size / (2**20)
 
         if (self.orig_size is not None):
@@ -268,4 +276,3 @@ class Codec():
             logger.info("Compression: format: {:6s} - size: {:5.2f} MB - "
                         "duration: {:5.2f} secs".format(
                             ext, new_size_mb, duration))
-

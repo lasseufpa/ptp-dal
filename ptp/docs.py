@@ -1,16 +1,21 @@
 """Generate documentation for testbed dataset
 """
-import logging, os, json, glob
-from ptp.timestamping import Timestamp
+import glob
+import json
+import logging
+import os
 from datetime import timedelta
+
 import json2html
+
 import ptp.compression
+from ptp.timestamping import Timestamp
 
 logger = logging.getLogger(__name__)
 
 
 def sizeof_fmt(num, suffix='B'):
-    for unit in ['','K','M','G','T','P','E','Z']:
+    for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1024.0:
             return "%3.1f %s%s" % (num, unit, suffix)
         num /= 1024.0
@@ -24,8 +29,8 @@ class Docs():
             self.cfg_path = os.path.abspath(cfg_path)
         else:
             # Assume the path is relative to this project's root directory
-            this_file     = os.path.realpath(__file__)
-            rootdir       = os.path.dirname(os.path.dirname(this_file))
+            this_file = os.path.realpath(__file__)
+            rootdir = os.path.dirname(os.path.dirname(this_file))
             self.cfg_path = os.path.join(rootdir, "data")
 
         self.catalog_json = os.path.join(self.cfg_path, 'catalog.json')
@@ -57,9 +62,9 @@ class Docs():
         Returns:
             Dictionary containing the metadata
         """
-        codec     = ptp.compression.Codec(filename=filename)
-        dataset   = codec.decompress()
-        ds_name   = os.path.basename(filename)
+        codec = ptp.compression.Codec(filename=filename)
+        dataset = codec.decompress()
+        ds_name = os.path.basename(filename)
         ds_source = "testbed" if ds_name.split("-")[0] == "serial" else \
                     "simulation"
 
@@ -75,20 +80,20 @@ class Docs():
 
         # Add other relevant information to the metadata dictionary
         if (ds_source == "testbed"):
-            t_end   = Timestamp(dataset['data'][-1]["t2_sec"],
-                                dataset['data'][-1]["t2"])
+            t_end = Timestamp(dataset['data'][-1]["t2_sec"],
+                              dataset['data'][-1]["t2"])
             t_start = Timestamp(dataset['data'][0]["t2_sec"],
                                 dataset['data'][0]["t2"])
         else:
-            t_end   = dataset['data'][-1]["t2"]
+            t_end = dataset['data'][-1]["t2"]
             t_start = dataset['data'][0]["t2"]
 
-        duration_ns             = float(t_end - t_start)
-        duration_tdelta         = timedelta(microseconds = (duration_ns / 1e3))
-        metadata["duration"]    = str(duration_tdelta)
-        metadata["size"]        = sizeof_fmt(os.path.getsize(filename))
+        duration_ns = float(t_end - t_start)
+        duration_tdelta = timedelta(microseconds=(duration_ns / 1e3))
+        metadata["duration"] = str(duration_tdelta)
+        metadata["size"] = sizeof_fmt(os.path.getsize(filename))
         metadata["n_exchanges"] = len(dataset['data'])
-        metadata["source"]      = ds_source.title()
+        metadata["source"] = ds_source.title()
 
         return metadata
 
@@ -103,20 +108,20 @@ class Docs():
             metadata = self._read_metadata(file_path)
         except EOFError:
             logger.error(f"Dataset {file_path} missing termination")
-            return # probably a broken acquisition
-        ds_name  = os.path.basename(file_path)
+            return  # probably a broken acquisition
+        ds_name = os.path.basename(file_path)
 
         exists = False
         for entry in self.catalog:
             if entry['dataset'] == ds_name:
-                logger.info(f"Dataset {ds_name} already cataloged. Updating...")
+                logger.info(
+                    f"Dataset {ds_name} already cataloged. Updating...")
                 entry['info'] = metadata
                 exists = True
                 break
 
         if (not exists):
-            self.catalog.append({'dataset': ds_name,
-                                 'info': metadata})
+            self.catalog.append({'dataset': ds_name, 'info': metadata})
 
         sorted_catalog = sorted(self.catalog,
                                 key=lambda k: k['dataset'],
@@ -144,8 +149,8 @@ class Docs():
         """
 
         table_class = "class=\"table table-bordered table-hover\""
-        html_body = json2html.json2html.convert(json = json_data,
-                                                table_attributes = table_class)
+        html_body = json2html.json2html.convert(json=json_data,
+                                                table_attributes=table_class)
         html_foot = "</body></html>"
 
         with open(self.catalog_html, 'w') as fd:
@@ -162,9 +167,9 @@ class Docs():
         extensions = [".json", ".pickle", ".gz", ".pbz2", ".xz"]
         all_datasets = list()
         for ext in extensions:
-            all_datasets.extend(glob.glob(
-                os.path.join(self.cfg_path, "**/*" + ext), recursive=True)
-            )
+            all_datasets.extend(
+                glob.glob(os.path.join(self.cfg_path, "**/*" + ext),
+                          recursive=True))
         if (self.catalog_json in all_datasets):
             all_datasets.remove(self.catalog_json)
 
@@ -175,4 +180,3 @@ class Docs():
 
         print("Saved {}".format(self.catalog_json))
         print("Saved {}".format(self.catalog_html))
-

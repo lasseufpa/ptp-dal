@@ -1,7 +1,1 @@
-__all__ = [
-    'timestamping',
-    'mechanisms',
-    'rtc',
-    'dataset',
-    'simulation'
-]
+__all__ = ['timestamping', 'mechanisms', 'rtc', 'dataset', 'simulation']

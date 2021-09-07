@@ -1,10 +1,11 @@
 """Estimators
 """
+import logging
+
 import numpy as np
-import logging, os, json
+
 import ptp.cache
 import ptp.filters
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +30,14 @@ class Estimator():
 
 
         """
-        assert(delta > 0)
-        assert(isinstance(delta, int))
-        assert(pkts in ["sample-min", "sample-max", None])
-        self.data  = data
+        assert (delta > 0)
+        assert (isinstance(delta, int))
+        assert (pkts in ["sample-min", "sample-max", None])
+        self.data = data
         self.delta = delta
 
         # If using packet selection
-        self.pkts   = pkts
+        self.pkts = pkts
         self.N_pkts = 128
 
     def _is_cached_cfg_valid(self, cfg, target_cfg):
@@ -109,18 +110,17 @@ class Estimator():
             (maximum absolute error) of the current drift estimates.
 
         """
-        assert(criterion in ['cumulative', 'instantaneous'])
-        assert(loss in ["mse", "max-error"])
+        assert (criterion in ['cumulative', 'instantaneous'])
+        assert (loss in ["mse", "max-error"])
 
         # Instantaneous true and estimated drifts
-        true_drift = np.array([(r["x"] - self.data[i-1]["x"])
-                               for i,r in enumerate(self.data)
+        true_drift = np.array([(r["x"] - self.data[i - 1]["x"])
+                               for i, r in enumerate(self.data)
                                if "drift" in r])
-        drift_est  = np.array([r["drift"] for r in self.data
-                               if "drift" in r])
+        drift_est = np.array([r["drift"] for r in self.data if "drift" in r])
 
         if (criterion == 'instantaneous'):
-            drift_err  = (drift_est - true_drift)[-n_samples:]
+            drift_err = (drift_est - true_drift)[-n_samples:]
             if (loss == "mse"):
                 return np.square(drift_err).mean()
             elif (loss == "max-error"):
@@ -130,11 +130,11 @@ class Estimator():
         # less than N samples in the dataset, use a cumulative sum.
         if (len(self.data) <= N):
             true_cum_drift = true_drift.cumsum()
-            cum_drift_est  = drift_est.cumsum()
+            cum_drift_est = drift_est.cumsum()
         else:
-            h              = np.ones(N)
+            h = np.ones(N)
             true_cum_drift = np.convolve(true_drift, h, mode="valid")
-            cum_drift_est  = np.convolve(drift_est, h, mode="valid")
+            cum_drift_est = np.convolve(drift_est, h, mode="valid")
 
         # Normalized cumulative drift estimation errors
         #
@@ -153,11 +153,12 @@ class Estimator():
         # the true cumulative drift (the normalization factor) presents zero
         # values. Sometimes the cumulative error window has a net cumulative
         # drift of zero nanoseconds, which leads to this scenario.
-        cum_drift_err      = (cum_drift_est - true_cum_drift)[-n_samples:]
-        norm_factor        = np.abs(true_cum_drift[-n_samples:])
-        norm_cum_drift_err = np.divide(cum_drift_err, norm_factor,
-                                       out = np.zeros_like(cum_drift_err),
-                                       where = (norm_factor != 0))
+        cum_drift_err = (cum_drift_est - true_cum_drift)[-n_samples:]
+        norm_factor = np.abs(true_cum_drift[-n_samples:])
+        norm_cum_drift_err = np.divide(cum_drift_err,
+                                       norm_factor,
+                                       out=np.zeros_like(cum_drift_err),
+                                       where=(norm_factor != 0))
         if (loss == "mse"):
             return np.square(norm_cum_drift_err).mean()
         elif (loss == "max-error"):
@@ -189,7 +190,7 @@ class Estimator():
         """
         # Short packet filtering window range
         if (self.pkts is not None):
-            pkts_window_len = 2**np.arange(2, 10) # 2**2 to 2**9
+            pkts_window_len = 2**np.arange(2, 10)  # 2**2 to 2**9
         else:
             pkts_window_len = [0]
 
@@ -201,7 +202,7 @@ class Estimator():
             window_len_lim -= np.max(pkts_window_len)
 
         log_max_window = int(np.floor(np.log2(window_len_lim)))
-        window_len     = 2**np.arange(1, log_max_window + 1)
+        window_len = 2**np.arange(1, log_max_window + 1)
 
         return window_len, pkts_window_len
 
@@ -228,40 +229,40 @@ class Estimator():
                          strategy uses the s-to-m timestamps (t3 and t4) only.
 
         """
-        assert(self.pkts is not None)
-        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
+        assert (self.pkts is not None)
+        assert (strategy in ["one-way", "one-way-reversed", "two-way"])
 
         # Packet filtering window and operator
-        N  = self.N_pkts
+        N = self.N_pkts
         op = ptp.filters.moving_minimum if self.pkts == "sample-min" else \
              ptp.filters.moving_maximum
 
         if (strategy == "one-way"):
-            t1        = np.array([float(r["t1"]) for r in self.data])
-            t21       = np.array([float(r["t2"] - r["t1"]) for r in self.data])
-            t21_min   = op(N, t21)
-            delta_t1  = t1[(self.delta + N - 1):] - t1[(N-1):-self.delta]
+            t1 = np.array([float(r["t1"]) for r in self.data])
+            t21 = np.array([float(r["t2"] - r["t1"]) for r in self.data])
+            t21_min = op(N, t21)
+            delta_t1 = t1[(self.delta + N - 1):] - t1[(N - 1):-self.delta]
             delta_t21 = t21_min[self.delta:] - t21_min[:-self.delta]
-            y_est     = delta_t21 / delta_t1
+            y_est = delta_t21 / delta_t1
         elif (strategy == "one-way-reversed"):
-            t4        = np.array([float(r["t4"]) for r in self.data])
-            t43       = np.array([float(r["t4"] - r["t3"]) for r in self.data])
-            t43_min   = op(N, t43)
-            delta_t4  = t4[(self.delta + N - 1):] - t4[(N-1):-self.delta]
+            t4 = np.array([float(r["t4"]) for r in self.data])
+            t43 = np.array([float(r["t4"] - r["t3"]) for r in self.data])
+            t43_min = op(N, t43)
+            delta_t4 = t4[(self.delta + N - 1):] - t4[(N - 1):-self.delta]
             delta_t43 = t43_min[self.delta:] - t43_min[:-self.delta]
-            y_est     = -delta_t43 / delta_t4
+            y_est = -delta_t43 / delta_t4
         elif (strategy == "two-way"):
-            t1        = np.array([float(r["t1"]) for r in self.data])
-            t21       = np.array([float(r["t2"] - r["t1"]) for r in self.data])
-            t43       = np.array([float(r["t4"] - r["t3"]) for r in self.data])
-            t21_min   = op(N, t21)
-            t43_min   = op(N, t43)
-            delta_t1  = t1[(self.delta + N - 1):] - t1[(N-1):-self.delta]
+            t1 = np.array([float(r["t1"]) for r in self.data])
+            t21 = np.array([float(r["t2"] - r["t1"]) for r in self.data])
+            t43 = np.array([float(r["t4"] - r["t3"]) for r in self.data])
+            t21_min = op(N, t21)
+            t43_min = op(N, t43)
+            delta_t1 = t1[(self.delta + N - 1):] - t1[(N - 1):-self.delta]
             delta_t21 = t21_min[self.delta:] - t21_min[:-self.delta]
             delta_t43 = t43_min[self.delta:] - t43_min[:-self.delta]
-            y_est     = 0.5 * (delta_t21 - delta_t43) / delta_t1
+            y_est = 0.5 * (delta_t21 - delta_t43) / delta_t1
 
-        for i,r in enumerate(self.data[(self.delta + N -1):]):
+        for i, r in enumerate(self.data[(self.delta + N - 1):]):
             r["y_est"] = y_est[i]
 
     def process(self, strategy="two-way"):
@@ -294,8 +295,8 @@ class Estimator():
                        uses the s-to-m timestamps (t3 and t4) only.
 
         """
-        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
-        logger.info("Processing with N=%d" %(self.delta))
+        assert (strategy in ["one-way", "one-way-reversed", "two-way"])
+        logger.info("Processing with N=%d" % (self.delta))
 
         # Remove previous estimates in case they already exist
         for r in self.data:
@@ -306,25 +307,25 @@ class Estimator():
             return
 
         if (strategy == "one-way"):
-            t1           = np.array([float(r["t1"]) for r in self.data])
-            t2           = np.array([float(r["t2"]) for r in self.data])
-            delta_slave  = t2[self.delta:] - t2[:-self.delta]
+            t1 = np.array([float(r["t1"]) for r in self.data])
+            t2 = np.array([float(r["t2"]) for r in self.data])
+            delta_slave = t2[self.delta:] - t2[:-self.delta]
             delta_master = t1[self.delta:] - t1[:-self.delta]
-            y_est        = (delta_slave - delta_master) / delta_master
+            y_est = (delta_slave - delta_master) / delta_master
         elif (strategy == "one-way-reversed"):
-            t3           = np.array([float(r["t3"]) for r in self.data])
-            t4           = np.array([float(r["t4"]) for r in self.data])
-            delta_slave  = t3[self.delta:] - t3[:-self.delta]
+            t3 = np.array([float(r["t3"]) for r in self.data])
+            t4 = np.array([float(r["t4"]) for r in self.data])
+            delta_slave = t3[self.delta:] - t3[:-self.delta]
             delta_master = t4[self.delta:] - t4[:-self.delta]
-            y_est        = (delta_slave - delta_master) / delta_master
+            y_est = (delta_slave - delta_master) / delta_master
         elif (strategy == "two-way"):
-            t1           = np.array([float(r["t1"]) for r in self.data])
-            x_est        = np.array([float(r["x_est"]) for r in self.data])
-            delta_x      = x_est[self.delta:] - x_est[:-self.delta]
+            t1 = np.array([float(r["t1"]) for r in self.data])
+            x_est = np.array([float(r["x_est"]) for r in self.data])
+            delta_x = x_est[self.delta:] - x_est[:-self.delta]
             delta_master = t1[self.delta:] - t1[:-self.delta]
-            y_est        = delta_x / delta_master
+            y_est = delta_x / delta_master
 
-        for i,r in enumerate(self.data[self.delta:]):
+        for i, r in enumerate(self.data[self.delta:]):
             r["y_est"] = y_est[i]
 
     def optimize_to_y(self, strategy, loss="mse", max_window_span=0.2):
@@ -352,37 +353,39 @@ class Estimator():
                               observation window).
 
         """
-        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
-        assert(loss in ["mse", "max-error"])
+        assert (strategy in ["one-way", "one-way-reversed", "two-way"])
+        assert (loss in ["mse", "max-error"])
 
         # Window length ranges
         window_len, pkts_window_len = self._get_window_range(max_window_span)
 
         # Number of samples guaranteed to be available for all window lengths
-        n_samples = int(np.floor((1 - max_window_span)*len(self.data)))
-        assert(n_samples > 0)
+        n_samples = int(np.floor((1 - max_window_span) * len(self.data)))
+        assert (n_samples > 0)
 
-        logger.info("Optimize observation window" %())
+        logger.info("Optimize observation window" % ())
         logger.info("Try from N = {} to N = {}".format(min(window_len),
                                                        max(window_len)))
         if (self.pkts is not None):
             logger.info("Try {} from N = {} to N = {}".format(
                 self.pkts, min(pkts_window_len), max(pkts_window_len)))
 
-        min_error  = np.inf
-        N_opt      = 0
+        min_error = np.inf
+        N_opt = 0
         N_pkts_opt = 0
         for N_pkts in pkts_window_len:
             for N in window_len:
                 # Re-estimate using new window lengths
-                self.delta  = N
+                self.delta = N
                 self.N_pkts = N_pkts
                 self.process(strategy)
 
                 # Estimation error
-                y_err = np.array([ 1e9*(r["y_est"] - r["rtc_y"])
-                                   for r in self.data[self.delta:]
-                                   if ("y_est" in r and "rtc_y" in r) ])
+                y_err = np.array([
+                    1e9 * (r["y_est"] - r["rtc_y"])
+                    for r in self.data[self.delta:]
+                    if ("y_est" in r and "rtc_y" in r)
+                ])
 
                 if (loss == "mse"):
                     error = np.square(y_err[:n_samples]).mean()
@@ -392,7 +395,7 @@ class Estimator():
                     error = np.amax(np.abs(y_err[:n_samples]))
 
                 if (error < min_error):
-                    N_opt      = N
+                    N_opt = N
                     N_pkts_opt = N_pkts
                     min_error = error
 
@@ -400,12 +403,17 @@ class Estimator():
         logger.info("Minimum {}: {} ppb".format(loss_label, error))
         logger.info("Optimum N: {}".format(N_opt))
         logger.info("Optimum N_pkts: {}".format(N_pkts_opt))
-        self.delta  = N_opt
+        self.delta = N_opt
         self.N_pkts = N_pkts_opt
 
-    def optimize_to_drift(self, strategy, loss="mse", criterion='cumulative',
-                          max_window_span=0.2, cache=None,
-                          cache_id='drift_estimator', force=False):
+    def optimize_to_drift(self,
+                          strategy,
+                          loss="mse",
+                          criterion='cumulative',
+                          max_window_span=0.2,
+                          cache=None,
+                          cache_id='drift_estimator',
+                          force=False):
         """Optimize the observation interval used for freq. offset estimation
 
         Optimize based on the time offset drift estimation errors. This
@@ -446,26 +454,26 @@ class Estimator():
             cumulative error considers the actual drift estimation errors.
 
         """
-        assert(strategy in ["one-way", "one-way-reversed", "two-way"])
-        assert(criterion in ['cumulative', 'instantaneous'])
-        assert(loss in ["mse", "max-error"])
+        assert (strategy in ["one-way", "one-way-reversed", "two-way"])
+        assert (criterion in ['cumulative', 'instantaneous'])
+        assert (loss in ["mse", "max-error"])
 
         # Check if a cached configuration file exists and is valid
         if (cache is not None):
-            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
+            assert (isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
             cached_cfg = cache.load(cache_id)
 
             if (cached_cfg and not force):
                 target_cfg = {
-                    'data_len'      : len(self.data),
-                    'max_transient' : max_window_span,
-                    'strategy'      : strategy,
-                    'loss'          : loss,
-                    'criterion'     : criterion,
-                    'pkts'          : self.pkts
+                    'data_len': len(self.data),
+                    'max_transient': max_window_span,
+                    'strategy': strategy,
+                    'loss': loss,
+                    'criterion': criterion,
+                    'pkts': self.pkts
                 }
                 if (self._is_cached_cfg_valid(cached_cfg, target_cfg)):
-                    self.delta  = cached_cfg['N']
+                    self.delta = cached_cfg['N']
                     self.N_pkts = cached_cfg['N_pkts']
                     return
         else:
@@ -475,8 +483,8 @@ class Estimator():
         window_len, pkts_window_len = self._get_window_range(max_window_span)
 
         # Number of samples guaranteed to be available for all window lengths
-        n_samples = int(np.floor((1 - max_window_span)*len(self.data)))
-        assert(n_samples > 0)
+        n_samples = int(np.floor((1 - max_window_span) * len(self.data)))
+        assert (n_samples > 0)
 
         logger.info("Optimize observation window")
         logger.info("Try from N = {} to N = {}".format(min(window_len),
@@ -485,13 +493,13 @@ class Estimator():
             logger.info("Try {} from N = {} to N = {}".format(
                 self.pkts, min(pkts_window_len), max(pkts_window_len)))
 
-        m_error    = np.inf
-        N_opt      = 0
+        m_error = np.inf
+        N_opt = 0
         N_pkts_opt = 0
         for N_pkts in pkts_window_len:
             for N in window_len:
                 # Re-estimate using new window lengths
-                self.delta  = N
+                self.delta = N
                 self.N_pkts = N_pkts
                 self.process(strategy)
                 self.estimate_drift()
@@ -500,28 +508,31 @@ class Estimator():
                 error = self._eval_drift_err(loss, criterion, n_samples)
 
                 if (error < m_error):
-                    m_error  = error
-                    N_opt    = N
+                    m_error = error
+                    N_opt = N
                     N_pkts_opt = N_pkts
 
         loss_label = "MSE" if loss == "mse" else "Max|Error|"
         logger.info("Minimum {}: {} ppb".format(loss_label, m_error))
         logger.info("Optimum N: {}".format(N_opt))
         logger.info("Optimum N_pkts: {}".format(N_pkts_opt))
-        self.delta  = N_opt
+        self.delta = N_opt
         self.N_pkts = N_pkts_opt
 
         # Save optimal configuration and metadata to cache
         if (cache is not None):
-            cache.save({'data_len'      : len(self.data),
-                        'max_transient' : max_window_span,
-                        'criterion'     : criterion,
-                        'loss'          : loss,
-                        'strategy'      : strategy,
-                        'pkts'          : self.pkts,
-                        'N'             : int(N_opt),
-                        'N_pkts'        : int(N_pkts_opt)},
-                       identifier=cache_id)
+            cache.save(
+                {
+                    'data_len': len(self.data),
+                    'max_transient': max_window_span,
+                    'criterion': criterion,
+                    'loss': loss,
+                    'strategy': strategy,
+                    'pkts': self.pkts,
+                    'N': int(N_opt),
+                    'N_pkts': int(N_pkts_opt)
+                },
+                identifier=cache_id)
 
     def set_truth(self, delta=None):
         """Set "true" frequency offset based on "true" time offset measurements
@@ -538,13 +549,13 @@ class Estimator():
             r.pop("rtc_y", None)
 
         delta = delta or self.delta
-        t1    = np.array([float(r["t1"]) for r in self.data])
-        x     = np.array([r["x"] for r in self.data])
-        dx    = x[delta:] - x[:-delta]
-        dt1   = t1[delta:] - t1[:-delta]
-        y     = dx / dt1
+        t1 = np.array([float(r["t1"]) for r in self.data])
+        x = np.array([r["x"] for r in self.data])
+        dx = x[delta:] - x[:-delta]
+        dt1 = t1[delta:] - t1[:-delta]
+        y = dx / dt1
 
-        for i,r in enumerate(self.data[delta:]):
+        for i, r in enumerate(self.data[delta:]):
             r["rtc_y"] = y[i]
 
     def estimate_drift(self):
@@ -564,7 +575,7 @@ class Estimator():
             r.pop("drift", None)
 
         # Compute the drift within the observation window
-        for i,r in enumerate(self.data[1:]):
+        for i, r in enumerate(self.data[1:]):
             if ("y_est" in r):
                 delta = float(r["t1"] - self.data[i]["t1"])
                 # NOTE: index i is the enumerated index, not the data entry
@@ -579,13 +590,13 @@ class Estimator():
         Approach. Appendix C."
 
         """
-        theta_n  = loopbw / (damping + (1.0/(4 * damping)))
-        denomin  = (1 + 2*damping*theta_n + (theta_n**2))
+        theta_n = loopbw / (damping + (1.0 / (4 * damping)))
+        denomin = (1 + 2 * damping * theta_n + (theta_n**2))
         Kp_K0_K1 = (4 * damping * theta_n) / denomin
         Kp_K0_K2 = (4 * (theta_n**2)) / denomin
         # And since Kp and K0 are assumed unitary
-        Kp       = Kp_K0_K1 # proportional gain
-        Ki       = Kp_K0_K2 # integrator gain
+        Kp = Kp_K0_K1  # proportional gain
+        Ki = Kp_K0_K2  # integrator gain
         return Kp, Ki
 
     def loop(self, damping=1.0, loopbw=0.001, settling=0.2):
@@ -634,23 +645,28 @@ class Estimator():
 
         # Run loop
         f_int = 0
-        dds   = self.data[0]["x_est"]
+        dds = self.data[0]["x_est"]
 
         for i, r in enumerate(self.data):
-            x_est      = r["x_est"]
-            err        = x_est - dds
-            f_prop     = Kp * err
-            f_int     += Ki * err
-            f_err      = f_prop + f_int
+            x_est = r["x_est"]
+            err = x_est - dds
+            f_prop = Kp * err
+            f_int += Ki * err
+            f_err = f_prop + f_int
 
             if (i >= i_settling):
-                r["drift"]  = f_err
+                r["drift"] = f_err
                 r["x_loop"] = dds
 
             dds += f_err
 
-    def optimize_loop(self, criterion='cumulative', loss="mse", cache=None,
-                      cache_id='loop', force=False, max_transient=0.2):
+    def optimize_loop(self,
+                      criterion='cumulative',
+                      loss="mse",
+                      cache=None,
+                      cache_id='loop',
+                      force=False,
+                      max_transient=0.2):
         """Find loop parameters that minimize the drift estimation error
 
         Tries some pre-defined damping factor and loop bandwidth values.
@@ -675,43 +691,42 @@ class Estimator():
                             first drift estimates.
 
         """
-        assert(criterion in ['cumulative', 'instantaneous'])
-        assert(loss in ["mse", "max-error"])
+        assert (criterion in ['cumulative', 'instantaneous'])
+        assert (loss in ["mse", "max-error"])
 
         # Check if a cached configuration file exists and is valid
         if (cache is not None):
-            assert(isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
+            assert (isinstance(cache, ptp.cache.Cache)), "Invalid cache object"
             cached_cfg = cache.load(cache_id)
 
             if (cached_cfg and not force):
                 target_cfg = {
-                    'data_len'      : len(self.data),
-                    'max_transient' : max_transient,
-                    'criterion'     : criterion,
-                    'loss'          : loss
+                    'data_len': len(self.data),
+                    'max_transient': max_transient,
+                    'criterion': criterion,
+                    'loss': loss
                 }
                 if (self._is_cached_cfg_valid(cached_cfg, target_cfg)):
                     best_damping = cached_cfg['damping']
-                    best_loopbw  = cached_cfg['loopbw']
+                    best_loopbw = cached_cfg['loopbw']
                     return best_damping, best_loopbw
         else:
             logger.info("Unable to find cached configuration file")
 
-        damping_vec  = [0.5, 0.707, 1.0, 1.2, 1.5, 1.8, 2.0]
-        loopbw_vec   = np.concatenate((
-            np.arange(0.1, 1.0, 0.1),
-            np.arange(0.01, 0.1, 0.01),
-            np.arange(0.001, 0.01, 0.001),
-            np.arange(0.0001, 0.001, 0.0001),
-            np.arange(0.00001, 0.0001, 0.00001)))
-        m_error      = np.inf
+        damping_vec = [0.5, 0.707, 1.0, 1.2, 1.5, 1.8, 2.0]
+        loopbw_vec = np.concatenate(
+            (np.arange(0.1, 1.0, 0.1), np.arange(0.01, 0.1, 0.01),
+             np.arange(0.001, 0.01, 0.001), np.arange(0.0001, 0.001, 0.0001),
+             np.arange(0.00001, 0.0001, 0.00001)))
+        m_error = np.inf
         best_damping = None
-        best_loopbw  = None
+        best_loopbw = None
 
         for damping in damping_vec:
             for loopbw in loopbw_vec:
                 # Run loop with the given configurations
-                self.loop(damping = damping, loopbw = loopbw,
+                self.loop(damping=damping,
+                          loopbw=loopbw,
                           settling=max_transient)
 
                 # Evaluate the drift estimation error
@@ -723,9 +738,9 @@ class Estimator():
                 # within the desired portion of the dataset used for analysis.
 
                 if (error < m_error):
-                    m_error      = error
+                    m_error = error
                     best_damping = damping
-                    best_loopbw  = loopbw
+                    best_loopbw = loopbw
 
         logger.info("PI loop optimization")
         logger.info("Damping factor: {:f}".format(best_damping))
@@ -733,13 +748,15 @@ class Estimator():
 
         # Save optimal configuration and metadata to cache
         if (cache is not None):
-            cache.save({'data_len'      : len(self.data),
-                        'max_transient' : max_transient,
-                        'criterion'     : criterion,
-                        'loss'          : loss,
-                        'damping'       : best_damping,
-                        'loopbw'        : best_loopbw},
-                       identifier=cache_id)
+            cache.save(
+                {
+                    'data_len': len(self.data),
+                    'max_transient': max_transient,
+                    'criterion': criterion,
+                    'loss': loss,
+                    'damping': best_damping,
+                    'loopbw': best_loopbw
+                },
+                identifier=cache_id)
 
         return best_damping, best_loopbw
-

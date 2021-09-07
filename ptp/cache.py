@@ -1,8 +1,10 @@
 """Generate cache for optimal configurations
 """
-import logging, os, json
-import numpy as np
+import json
+import logging
+import os
 
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class Cache():
 
         """
         self.filename = filename
-        self.prefix   = "" if prefix is None else prefix + "_"
+        self.prefix = "" if prefix is None else prefix + "_"
         self._set_paths()
 
     def _set_paths(self):
@@ -35,11 +37,11 @@ class Cache():
         identifier passed as argument.
 
         """
-        this_file       = os.path.realpath(__file__)
-        rootdir         = os.path.dirname(os.path.dirname(this_file))
-        no_ext_ds_name  = os.path.splitext(os.path.basename(self.filename))[0]
-        ds_name         = no_ext_ds_name.replace("-comp", "")
-        cache_path      = os.path.join(rootdir, 'cache')
+        this_file = os.path.realpath(__file__)
+        rootdir = os.path.dirname(os.path.dirname(this_file))
+        no_ext_ds_name = os.path.splitext(os.path.basename(self.filename))[0]
+        ds_name = no_ext_ds_name.replace("-comp", "")
+        cache_path = os.path.join(rootdir, 'cache')
         self.cache_path = os.path.join(cache_path, ds_name)
 
         # Create the folder if it doesn't exist
@@ -85,8 +87,6 @@ class Cache():
             with open(cache_file) as fd:
                 cached_data = json.load(fd)
 
-            logger.info("Loaded {} cache from {}".format(identifier,
-                                                         cache_file))
+            logger.info("Loaded {} cache from {}".format(
+                identifier, cache_file))
         return cached_data
-
-

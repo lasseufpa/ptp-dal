@@ -1,8 +1,11 @@
-import logging, json, os
+import logging
+
 import numpy as np
+
 import ptp.compression
 from ptp.timestamping import Timestamp
 from ptp.mechanisms import *
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,7 +18,10 @@ class Reader():
     dictionaries containing the same keys as produced by the simulation.
 
     """
-    def __init__(self, ds_file=None, infer_secs=False, no_pps=False,
+    def __init__(self,
+                 ds_file=None,
+                 infer_secs=False,
+                 no_pps=False,
                  reverse_ms=True):
         """Constructor
 
@@ -30,34 +36,34 @@ class Reader():
                          at the slave, so that t1 and t4 are slave timestamps.
 
         """
-        self.running    = True
-        self.data       = list()
-        self.metadata   = None
-        self.ds_file    = ds_file
+        self.running = True
+        self.data = list()
+        self.metadata = None
+        self.ds_file = ds_file
         self.infer_secs = infer_secs
-        self.no_pps     = no_pps
+        self.no_pps = no_pps
         self.reverse_ms = reverse_ms
 
         if (infer_secs):
             logger.warning("Inferring seconds")
 
         # Prepare to infer seconds, if so desired
-        self.last_t1        = 0
-        self.last_t2        = 0
-        self.last_t3        = 0
-        self.last_t4        = 0
-        self.last_t1_ns     = 0
-        self.last_t2_ns     = 0
-        self.last_t3_ns     = 0
-        self.last_t4_ns     = 0
-        self.t1_sec         = 0
-        self.t2_sec         = 0
-        self.t3_sec         = 0
-        self.t4_sec         = 0
+        self.last_t1 = 0
+        self.last_t2 = 0
+        self.last_t3 = 0
+        self.last_t4 = 0
+        self.last_t1_ns = 0
+        self.last_t2_ns = 0
+        self.last_t3_ns = 0
+        self.last_t4_ns = 0
+        self.t1_sec = 0
+        self.t2_sec = 0
+        self.t3_sec = 0
+        self.t4_sec = 0
         self.last_t1_pps_ns = 0
         self.last_t4_pps_ns = 0
-        self.t1_pps_sec     = 0
-        self.t4_pps_sec     = 0
+        self.t1_pps_sec = 0
+        self.t4_pps_sec = 0
 
         self.idx = 0
 
@@ -103,10 +109,10 @@ class Reader():
                 self.t4_sec += 1
 
             # Corresponding timestamp instances
-            t1  = Timestamp(self.t1_sec, t1_ns)
-            t2  = Timestamp(self.t2_sec, t2_ns)
-            t3  = Timestamp(self.t3_sec, t3_ns)
-            t4  = Timestamp(self.t4_sec, t4_ns)
+            t1 = Timestamp(self.t1_sec, t1_ns)
+            t2 = Timestamp(self.t2_sec, t2_ns)
+            t3 = Timestamp(self.t3_sec, t3_ns)
+            t4 = Timestamp(self.t4_sec, t4_ns)
 
             # Save ns values for next iteration (for wrapping detection)
             self.last_t1_ns = t1_ns
@@ -130,22 +136,20 @@ class Reader():
                 self.last_t1_pps_ns = t1_pps_ns
                 self.last_t4_pps_ns = t4_pps_ns
         else:
-            t1  = Timestamp(data["t1_sec"], data["t1"])
-            t2  = Timestamp(data["t2_sec"], data["t2"])
-            t3  = Timestamp(data["t3_sec"], data["t3"])
-            t4  = Timestamp(data["t4_sec"], data["t4"])
+            t1 = Timestamp(data["t1_sec"], data["t1"])
+            t2 = Timestamp(data["t2_sec"], data["t2"])
+            t3 = Timestamp(data["t3_sec"], data["t3"])
+            t4 = Timestamp(data["t4_sec"], data["t4"])
 
             if (not self.no_pps):
-                t1_pps  = Timestamp(data["t1_pps_sec"],
-                                    data["t1_pps"])
-                t4_pps  = Timestamp(data["t4_pps_sec"],
-                                    data["t4_pps"])
+                t1_pps = Timestamp(data["t1_pps_sec"], data["t1_pps"])
+                t4_pps = Timestamp(data["t4_pps_sec"], data["t4_pps"])
 
         # Are all the timestamps progressing monotonically?
-        assert(float(t1 - self.last_t1) > 0)
-        assert(float(t2 - self.last_t2) > 0)
-        assert(float(t3 - self.last_t3) > 0)
-        assert(float(t4 - self.last_t4) > 0)
+        assert (float(t1 - self.last_t1) > 0)
+        assert (float(t2 - self.last_t2) > 0)
+        assert (float(t3 - self.last_t3) > 0)
+        assert (float(t4 - self.last_t4) > 0)
         self.last_t1 = t1
         self.last_t2 = t2
         self.last_t3 = t3
@@ -166,10 +170,10 @@ class Reader():
         # Set ground truth based on PPS timestamps
         if (not self.no_pps):
             if (self.reverse_ms):
-                forward_delay  = float(t4_pps - t3)
+                forward_delay = float(t4_pps - t3)
                 backward_delay = float(t2 - t1_pps)
             else:
-                forward_delay  = float(t2 - t1_pps)
+                forward_delay = float(t2 - t1_pps)
                 backward_delay = float(t4_pps - t3)
             dreqresp.set_forward_delay(idx, forward_delay)
             dreqresp.set_backward_delay(idx, backward_delay)
@@ -192,7 +196,7 @@ class Reader():
         progress = i_iter / n_iter
 
         if (progress > self.last_progress_print + 0.1):
-            logger.info("Reader progress: %6.2f %%" %(progress * 100))
+            logger.info("Reader progress: %6.2f %%" % (progress * 100))
             self.last_progress_print = progress
 
     def run(self, max_len=0):
@@ -214,7 +218,7 @@ class Reader():
         # Check metadata for compatibility with old captures
         if ('metadata' in ds):
             self.metadata = ds['metadata']
-            data          = ds['data']
+            data = ds['data']
         else:
             data = ds
 
@@ -227,11 +231,13 @@ class Reader():
         else:
             n_data = len(data)
 
-        optional_metrics =  ["temp", "rru_occ", "rru2_occ", "bbu_occ",
-                             "pps_err", "pps_err2", "seq_id", "y_pps", "y_pps2"]
+        optional_metrics = [
+            "temp", "rru_occ", "rru2_occ", "bbu_occ", "pps_err", "pps_err2",
+            "seq_id", "y_pps", "y_pps2"
+        ]
 
         # Put info in dictionary and append to self.data
-        for i in range (0, n_data):
+        for i in range(0, n_data):
             results = self.process(data[i])
 
             # Append optional metrics to results if they are present
@@ -250,8 +256,8 @@ class Reader():
 
         """
         start = float(interval.split(":")[0])
-        end   = float(interval.split(":")[1])
-        assert(end > start), "Interval must be positive"
+        end = float(interval.split(":")[1])
+        assert (end > start), "Interval must be positive"
 
         ns_per_hour = 1e9 * 60 * 60
         t_start = self.data[0]["t1"]
@@ -261,4 +267,3 @@ class Reader():
         i_e = np.where(t_h <= end)[0][-1]
 
         self.data = self.data[i_s:i_e]
-

@@ -1,8 +1,11 @@
 """Outlier detection
 """
 import logging
+
 import numpy as np
+
 from ptp.mechanisms import *
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,22 +38,18 @@ class Outlier():
             Vector with sample values defined as outliers
 
         """
-        Q1, Q3      = np.percentile(x, [25, 75])
-        iqr         = Q3 - Q1
+        Q1, Q3 = np.percentile(x, [25, 75])
+        iqr = Q3 - Q1
         lower_bound = Q1 - (iqr * c)
         upper_bound = Q3 + (iqr * c)
-        outliers    = np.where((x > upper_bound) | (x < lower_bound))[0]
+        outliers = np.where((x > upper_bound) | (x < lower_bound))[0]
 
         return outliers
 
-    def  _print_tstamps(self, idx):
+    def _print_tstamps(self, idx):
         logger.info("{:^6d} | {:21s} | {:21s} | {:21s} | {:21s}".format(
-            idx,
-            str(self.data[idx]['t1']),
-            str(self.data[idx]['t2']),
-            str(self.data[idx]['t3']),
-            str(self.data[idx]['t4'])
-        ))
+            idx, str(self.data[idx]['t1']), str(self.data[idx]['t2']),
+            str(self.data[idx]['t3']), str(self.data[idx]['t4'])))
 
     def _debug_outlier_context(self, idx):
         """Print some contextual info around the outlier
@@ -62,13 +61,12 @@ class Outlier():
 
         # When
         t_out_ns = float(self.data[idx]["t1"] - self.data[0]["t1"])
-        t_min    = t_out_ns / (60 * 1e9)
-        logger.info("---- Outlier at index {} - {} min".format(
-            idx, t_min))
+        t_min = t_out_ns / (60 * 1e9)
+        logger.info("---- Outlier at index {} - {} min".format(idx, t_min))
 
         # PTP Metrics
         logger.info("Metrics:")
-        DelayReqResp.log_header(level=logging.INFO,logger=logger)
+        DelayReqResp.log_header(level=logging.INFO, logger=logger)
         DelayReqResp.log(self.data[idx - 1], logging.INFO, logger)
         DelayReqResp.log(self.data[idx], logging.INFO, logger)
         DelayReqResp.log(self.data[idx + 1], logging.INFO, logger)
@@ -80,9 +78,9 @@ class Outlier():
         logger.info("----------------------------------------"
                     "----------------------------------------"
                     "----------------------")
-        self. _print_tstamps(idx - 1)
-        self. _print_tstamps(idx)
-        self. _print_tstamps(idx + 1)
+        self._print_tstamps(idx - 1)
+        self._print_tstamps(idx)
+        self._print_tstamps(idx + 1)
         logger.info("----")
 
     def process(self, c=1.5):
@@ -93,18 +91,17 @@ class Outlier():
 
         """
         d_asym = np.array([r['asym'] for r in self.data])
-        x      = np.array([r['idx'] for r in self.data])
+        x = np.array([r['idx'] for r in self.data])
 
         # Identify outliers
         outliers = self._iqr(d_asym)
 
-        logger.info("Found %d outliers" %(len(outliers)))
+        logger.info("Found %d outliers" % (len(outliers)))
 
         # Save results on global data records
         for out in outliers:
             self.data[out]['outlier'] = True
 
-            if (logger.root.level == logging.INFO and out > 1 and
-                out < (len(self.data) - 1)):
+            if (logger.root.level == logging.INFO and out > 1 and out <
+                (len(self.data) - 1)):
                 self._debug_outlier_context(out)
-

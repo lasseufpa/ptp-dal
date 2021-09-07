@@ -1,5 +1,6 @@
 """Recursive/moving filter operations"""
 import numpy as np
+
 import ptp.ewma
 
 
@@ -26,7 +27,7 @@ def ewma(N, x_array):
 
     res = [ewma_filt.step(x) for x in x_array]
 
-    return res[N-1:]
+    return res[N - 1:]
 
 
 def moving_average(N, x_array):
@@ -46,7 +47,7 @@ def moving_average(N, x_array):
         result array has size "S -N + 1".
 
     """
-    assert(isinstance(x_array, np.ndarray))
+    assert (isinstance(x_array, np.ndarray))
     h = np.ones(N) / N
     return np.convolve(x_array, h, mode="valid")
 
@@ -67,12 +68,12 @@ def moving_minimum(N, x_array):
         result array has size "S -N + 1".
 
     """
-    assert(isinstance(x_array, np.ndarray))
-    i_head = N                  # start on the first full window
-    _min = np.amin(x_array[:N]) # starting minimium
+    assert (isinstance(x_array, np.ndarray))
+    i_head = N  # start on the first full window
+    _min = np.amin(x_array[:N])  # starting minimium
 
     # Preallocate result array and set the first value
-    res    = np.zeros(len(x_array) -N + 1)
+    res = np.zeros(len(x_array) - N + 1)
     res[0] = _min
 
     for x in x_array[N:]:
@@ -113,12 +114,12 @@ def moving_maximum(N, x_array):
         result array has size "S -N + 1".
 
     """
-    assert(isinstance(x_array, np.ndarray))
-    i_head = N                  # start on the first full window
-    _max = np.amax(x_array[:N]) # starting maximum
+    assert (isinstance(x_array, np.ndarray))
+    i_head = N  # start on the first full window
+    _max = np.amax(x_array[:N])  # starting maximum
 
     # Preallocate result array and set the first value
-    res    = np.zeros(len(x_array) -N + 1)
+    res = np.zeros(len(x_array) - N + 1)
     res[0] = _max
 
     for x in x_array[N:]:
@@ -172,10 +173,10 @@ def moving_mode(N, x_array, bin_width=10):
 
     # This implementation strategy can be quite memory-intensive if the input
     # array spans a wide range of values. Check to be safe.
-    assert(n_bins < 10*len(x_q)) # arbitrary threshold
+    assert (n_bins < 10 * len(x_q))  # arbitrary threshold
 
     # Occurrence count vector and offset
-    x_cnt  = np.zeros(n_bins)
+    x_cnt = np.zeros(n_bins)
     offset = x_q.min()
 
     # Initialize the mode and mode index of the first observation window
@@ -186,7 +187,7 @@ def moving_mode(N, x_array, bin_width=10):
     mode_cnt = x_cnt[idx_mode]
 
     # Preallocate result array and set the first value
-    res    = np.zeros(len(x_array) -N + 1)
+    res = np.zeros(len(x_array) - N + 1)
     res[0] = (idx_mode + offset) * bin_width
 
     # Compute the remaining windows recursively
@@ -198,8 +199,8 @@ def moving_mode(N, x_array, bin_width=10):
 
         # Increase the occurrence count for the new value. Decrease the count
         # for the value that is now exiting the observation window.
-        idx_new         = x - offset
-        idx_old         = x_q[i_tail - 1] - offset
+        idx_new = x - offset
+        idx_old = x_q[i_tail - 1] - offset
         x_cnt[idx_new] += 1
         x_cnt[idx_old] -= 1
 
@@ -221,4 +222,3 @@ def moving_mode(N, x_array, bin_width=10):
         i_head += 1
 
     return res
-

@@ -1,5 +1,7 @@
 """EWMA implementation
 """
+
+
 class Ewma():
     def __init__(self, beta=0, bias_corr=True):
         """Exponentially weighted moving average
@@ -10,10 +12,10 @@ class Ewma():
 
         """
 
-        self.avg       = 0
-        self.n         = 0
-        self.alpha     = 1 - beta
-        self.beta      = beta
+        self.avg = 0
+        self.n = 0
+        self.alpha = 1 - beta
+        self.beta = beta
         self.bias_corr = bias_corr
 
     def set_equivalent_window(self, N):
@@ -28,12 +30,12 @@ class Ewma():
 
         """
         self.alpha = 1 / N
-        self.beta  = 1 - (1/N)
+        self.beta = 1 - (1 / N)
 
     def reset(self):
         """Reset average and state"""
         self.avg = 0
-        self.n   = 0
+        self.n = 0
 
     def step(self, obs):
         """Calculate the exponentially weighted moving average (EWMA)
@@ -53,8 +55,6 @@ class Ewma():
 
         # Apply bias correction (but don't save the bias-corrected average)
         self.n += 1
-        bias_corr = 1 / (1 - (self.beta ** self.n))
-        corr_avg  = new_avg * bias_corr
+        bias_corr = 1 / (1 - (self.beta**self.n))
+        corr_avg = new_avg * bias_corr
         return corr_avg
-
-

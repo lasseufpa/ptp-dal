@@ -15,15 +15,14 @@ import ptp.datasets
 import ptp.cache
 import ptp.simulation
 
-
 default_window_lengths = {
-    'ls'      : 105,
-    'movavg'  : 16,
-    'median'  : 16,
-    'min'     : 16,
-    'max'     : 16,
-    'mode'    : 16,
-    'ewma'    : 16
+    'ls': 105,
+    'movavg': 16,
+    'median': 16,
+    'min': 16,
+    'max': 16,
+    'mode': 16,
+    'ewma': 16
 }
 
 
@@ -65,7 +64,7 @@ def _calc_max_drift_est_transient(skip, drift_comp, optimizer_max_window,
     else:
         max_drift_transient = skip
 
-    if (drift_comp and max_drift_transient < 0.5*window_transient):
+    if (drift_comp and max_drift_transient < 0.5 * window_transient):
         # Ideally, the maximum window used for packet selection/filtering still
         # leaves sufficient room for the drift estimation transient. Otherwise,
         # the drift estimation performance may deteriorate. For example, when
@@ -77,26 +76,38 @@ def _calc_max_drift_est_transient(skip, drift_comp, optimizer_max_window,
     return max_drift_transient
 
 
-def _run_foffset_estimation(data, N=64, strategy="two-way", loss="mse",
-                            max_transient=0.2, truth_only=False):
+def _run_foffset_estimation(data,
+                            N=64,
+                            strategy="two-way",
+                            loss="mse",
+                            max_transient=0.2,
+                            truth_only=False):
     """Run frequency offset estimations"""
     freq_estimator = ptp.frequency.Estimator(data, delta=N)
     freq_estimator.set_truth()
 
     if (not truth_only):
-        freq_estimator.optimize_to_y(strategy, loss=loss,
+        freq_estimator.optimize_to_y(strategy,
+                                     loss=loss,
                                      max_window_span=max_transient)
         freq_estimator.process(strategy)
 
 
-def _run_drift_estimation(data, strategy, pkts=False, loss="max-error",
-                          cache=None, cache_id='drift_est', force=False,
+def _run_drift_estimation(data,
+                          strategy,
+                          pkts=False,
+                          loss="max-error",
+                          cache=None,
+                          cache_id='drift_est',
+                          force=False,
                           max_transient=0.2):
     """Run time offset drift estimations through the PI control loop"""
-    assert(strategy in ["loop", "unbiased-two-way", "unbiased-one-way",
-                        "unbiased-one-way-reversed"])
+    assert (strategy in [
+        "loop", "unbiased-two-way", "unbiased-one-way",
+        "unbiased-one-way-reversed"
+    ])
 
-    freq_estimator  = ptp.frequency.Estimator(data, pkts=pkts)
+    freq_estimator = ptp.frequency.Estimator(data, pkts=pkts)
 
     if (strategy == "loop"):
         damping, loopbw = freq_estimator.optimize_loop(
@@ -105,7 +116,8 @@ def _run_drift_estimation(data, strategy, pkts=False, loss="max-error",
             cache_id=cache_id + "_loop",
             force=force,
             max_transient=max_transient)
-        freq_estimator.loop(damping = damping, loopbw = loopbw,
+        freq_estimator.loop(damping=damping,
+                            loopbw=loopbw,
                             settling=max_transient)
     else:
         # Select the unbiased frequency offset computation strategy
@@ -127,10 +139,10 @@ def _run_window_optimizer(data, disable_list, T_ns, metric, en_fine, force,
 
     # Options used by the algorithms executed internally within the optimizer
     algo_opts = {
-        'drift_comp' : drift_comp, # whether to apply drift compensation
-        'bias_corr_mode' : bias,   # bias correction mode
-        'bias_est' : bias_est,     # bias estimates
-        'batch_size' : batch_size  # batch size
+        'drift_comp': drift_comp,  # whether to apply drift compensation
+        'bias_corr_mode': bias,  # bias correction mode
+        'bias_est': bias_est,  # bias estimates
+        'batch_size': batch_size  # batch size
     }
 
     window_optimizer = ptp.window.Optimizer(data, T_ns, algo_opts)
@@ -144,11 +156,11 @@ def _run_window_optimizer(data, disable_list, T_ns, metric, en_fine, force,
             estimator_list.remove(estimator)
 
     window_optimizer.process(estimator_list,
-                             error_metric = metric,
-                             fine_pass = en_fine,
-                             force = force,
-                             max_window = max_window,
-                             early_stopping = early_stopping,
+                             error_metric=metric,
+                             fine_pass=en_fine,
+                             force=force,
+                             max_window=max_window,
+                             early_stopping=early_stopping,
                              cache=cache)
     window_optimizer.print_results()
     return window_optimizer.get_results()
@@ -158,10 +170,13 @@ def _run_kalman(data, T_ns, error_metric, cache, force, no_optimizer,
                 early_stopping, skip):
     """Run Kalman Filtering"""
 
-    kf = ptp.kalman.KalmanFilter(data, T_ns/1e9)
+    kf = ptp.kalman.KalmanFilter(data, T_ns / 1e9)
     if (not no_optimizer):
-        kf.optimize(error_metric=error_metric, cache=cache, force=force,
-                    early_stopping=early_stopping, skip=skip)
+        kf.optimize(error_metric=error_metric,
+                    cache=cache,
+                    force=force,
+                    early_stopping=early_stopping,
+                    skip=skip)
     kf.process()
 
 
@@ -234,15 +249,21 @@ def _run_post_bias_compensation(data, corr):
 
     for metric in ['median', 'min', 'max', 'mode']:
         if (metric in corr and corr[metric]):
-            bias.compensate(corr=corr[metric],
-                            toffset_key=f"x_pkts_{metric}")
+            bias.compensate(corr=corr[metric], toffset_key=f"x_pkts_{metric}")
         else:
             logging.warning(f"Can't compensate asymmetry of {metric}")
 
 
-def _run_pktselection(data, window_len, batch_size, drift_comp=True,
-                      sample_avg=True, sample_median=True, sample_min=True,
-                      sample_max=True, sample_mode=True, ewma=True):
+def _run_pktselection(data,
+                      window_len,
+                      batch_size,
+                      drift_comp=True,
+                      sample_avg=True,
+                      sample_median=True,
+                      sample_min=True,
+                      sample_max=True,
+                      sample_mode=True,
+                      ewma=True):
     """Run packet selection algorithms"""
 
     pkts = ptp.pktselection.PktSelection(N=None, data=data)
@@ -278,16 +299,30 @@ def _run_pktselection(data, window_len, batch_size, drift_comp=True,
         pkts.process("mode", drift_comp=drift_comp, batch_size=batch_size)
 
 
-def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
-                  uselatex, skip, prefix=None, cache=None, save=True,
+def _run_analyzer(data,
+                  metadata,
+                  dataset_file,
+                  source,
+                  eps_format,
+                  dpi,
+                  uselatex,
+                  skip,
+                  prefix=None,
+                  cache=None,
+                  save=True,
                   no_processing=False):
     """Analyze results"""
 
     save_format = 'eps' if eps_format else 'png'
 
-    analyser = ptp.metrics.Analyser(data, dataset_file, prefix=prefix,
-                                    usetex=uselatex, save_format=save_format,
-                                    dpi=dpi, cache=cache, skip=skip)
+    analyser = ptp.metrics.Analyser(data,
+                                    dataset_file,
+                                    prefix=prefix,
+                                    usetex=uselatex,
+                                    save_format=save_format,
+                                    dpi=dpi,
+                                    cache=cache,
+                                    skip=skip)
 
     analyser.save_metadata(metadata, save=save)
 
@@ -320,36 +355,47 @@ def _run_analyzer(data, metadata, dataset_file, source, eps_format, dpi,
     analyser.delay_asymmetry(save=save)
 
     if (no_processing):
-        analyser.plot_toffset_vs_time(show_raw=False, show_best=False,
-                                      show_ls=False, show_pkts=False,
-                                      show_kf=False, show_loop=False,
-                                      show_true=True, save=save)
+        analyser.plot_toffset_vs_time(show_raw=False,
+                                      show_best=False,
+                                      show_ls=False,
+                                      show_pkts=False,
+                                      show_kf=False,
+                                      show_loop=False,
+                                      show_true=True,
+                                      save=save)
         return
 
     analyser.plot_toffset_vs_time(save=save)
     analyser.plot_foffset_vs_time(save=save)
     analyser.plot_toffset_err_hist(save=save)
-    analyser.plot_toffset_err_vs_time(show_raw = False, save=save)
+    analyser.plot_toffset_err_vs_time(show_raw=False, save=save)
     analyser.plot_foffset_err_hist(save=save)
     analyser.plot_foffset_err_vs_time(save=save)
     analyser.plot_toffset_drift_vs_time(save=save)
     analyser.plot_toffset_drift_hist(save=save)
-    analyser.plot_mtie(period = T, save=save)
-    analyser.plot_mtie(period = T, show_raw = False, save=save)
-    analyser.plot_max_te(window_len = int(60/T), save=save)
-    analyser.plot_max_te(show_raw=False, window_len = int(60/T), save=save)
-    analyser.plot_max_te(show_raw=False, plottype='bar',
-                         window_len = int(60/T), save=save)
-    analyser.plot_max_te(show_raw=False, plottype='boxplot',
-                         window_len = int(60/T), save=save)
-    analyser.plot_max_te(show_raw=False, plottype='violin',
-                         window_len = int(60/T), save=save)
+    analyser.plot_mtie(period=T, save=save)
+    analyser.plot_mtie(period=T, show_raw=False, save=save)
+    analyser.plot_max_te(window_len=int(60 / T), save=save)
+    analyser.plot_max_te(show_raw=False, window_len=int(60 / T), save=save)
+    analyser.plot_max_te(show_raw=False,
+                         plottype='bar',
+                         window_len=int(60 / T),
+                         save=save)
+    analyser.plot_max_te(show_raw=False,
+                         plottype='boxplot',
+                         window_len=int(60 / T),
+                         save=save)
+    analyser.plot_max_te(show_raw=False,
+                         plottype='violin',
+                         window_len=int(60 / T),
+                         save=save)
     analyser.plot_error_vs_window(save=save)
     analyser.window_optimizer_results(save=save)
     analyser.toffset_err_stats(save=save)
     analyser.foffset_err_stats(save=save)
     analyser.toffset_drift_err_stats(save=save)
-    analyser.rank_algorithms(metric="max-te", max_te_win_len = int(60/T),
+    analyser.rank_algorithms(metric="max-te",
+                             max_te_win_len=int(60 / T),
                              save=save)
     analyser.rank_algorithms(metric="mtie", save=save)
     analyser.rank_algorithms(metric="rms", save=save)
@@ -361,7 +407,8 @@ def parse_args():
     """Parse command-line arguments"""
     parser = ArgumentParser(description="PTP Analyser",
                             formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-f', '--file',
+    parser.add_argument('-f',
+                        '--file',
                         required=True,
                         help='Dataset file to analyze.')
     parser.add_argument('--analyze-only',
@@ -374,9 +421,11 @@ def parse_args():
                         two-way time offset and delay measurements. Useful \
                         to inspect results without much wait.")
     parser.add_argument('--disable',
-                        choices=["ewma", "sample-average", "sample-min",
-                                 "sample-max", "sample-mode", "sample-median",
-                                 "ls", "kalman"],
+                        choices=[
+                            "ewma", "sample-average", "sample-min",
+                            "sample-max", "sample-mode", "sample-median", "ls",
+                            "kalman"
+                        ],
                         default=[],
                         nargs='+',
                         help="Algorithms to disable")
@@ -389,10 +438,11 @@ def parse_args():
                         action='store_true',
                         help='Whether to disable caching of optimal \
                         configurations')
-    parser.add_argument('--infer-secs',
-                        default=False,
-                        action='store_true',
-                        help="Infer seconds rather than using the seconds that \
+    parser.add_argument(
+        '--infer-secs',
+        default=False,
+        action='store_true',
+        help="Infer seconds rather than using the seconds that \
                         were actually captured.")
     parser.add_argument('--batch-size',
                         default=4096,
@@ -404,18 +454,22 @@ def parse_args():
                         type=float,
                         help='Fraction of the dataset to skip on analysis to \
                         ignore transient effects.')
-    parser.add_argument('-N', '--num-iter',
+    parser.add_argument('-N',
+                        '--num-iter',
                         default=0,
                         type=int,
                         help='Restrict number of iterations.')
-    parser.add_argument('-t', '--time-interval',
+    parser.add_argument('-t',
+                        '--time-interval',
                         default=None,
                         help='Specific time interval to observe given as \
                         \"start:end\" in hours.')
-    parser.add_argument('--prefix',
-                        default=None,
-                        help='Prefix to prepend to saved plot and cache files.')
-    parser.add_argument('--verbose', '-v',
+    parser.add_argument(
+        '--prefix',
+        default=None,
+        help='Prefix to prepend to saved plot and cache files.')
+    parser.add_argument('--verbose',
+                        '-v',
                         action='count',
                         default=1,
                         help="Verbosity (logging) level")
@@ -428,10 +482,11 @@ def parse_args():
                         'applied within packet selection algorithms.')
 
     b_opts = parser.add_argument_group('Bias Correction Options')
-    b_opts.add_argument('--bias',
-                        choices=['pre', 'post', 'both', 'none'],
-                        default='both',
-                        help="Compensate the bias prior to any post-processing \
+    b_opts.add_argument(
+        '--bias',
+        choices=['pre', 'post', 'both', 'none'],
+        default='both',
+        help="Compensate the bias prior to any post-processing \
                         (pre), after post-processing (post), both pre and \
                         post post-processing (both) or disable it ('none').")
 
@@ -464,8 +519,10 @@ def parse_args():
     d_opts = parser.add_argument_group('Drift Estimation Options')
     d_opts.add_argument('--drift-est-strategy',
                         default="loop",
-                        choices=["loop", "unbiased-two-way", "unbiased-one-way",
-                                 "unbiased-one-way-reversed"],
+                        choices=[
+                            "loop", "unbiased-two-way", "unbiased-one-way",
+                            "unbiased-one-way-reversed"
+                        ],
                         help='Drift estimation strategy. Select \"loop\" to \
                         use the drift estimates produced by the TLL PI loop or \
                         \"unbiased\" to use the conventional unbiased \
@@ -505,11 +562,12 @@ def parse_args():
                           default=50,
                           type=int,
                           help="Quantization step.")
-    cal_opts.add_argument('--cal-decimation',
-                          default=1,
-                          type=int,
-                          help="Decimation ratio. A value of 1 means decimation "
-                          "is disabled.")
+    cal_opts.add_argument(
+        '--cal-decimation',
+        default=1,
+        type=int,
+        help="Decimation ratio. A value of 1 means decimation "
+        "is disabled.")
     cal_opts.add_argument('--cal-drift-comp',
                           default=False,
                           action='store_true',
@@ -522,10 +580,11 @@ def parse_args():
                           nargs=2,
                           type=float,
                           help="Probability thresholds.")
-    cal_opts.add_argument('--cal-static-thresh',
-                          default=False,
-                          action='store_true',
-                          help='Whether to disable automatic threshold tuning.')
+    cal_opts.add_argument(
+        '--cal-static-thresh',
+        default=False,
+        action='store_true',
+        help='Whether to disable automatic threshold tuning.')
     return parser.parse_args()
 
 
@@ -543,19 +602,20 @@ def read_dataset(args):
     ds['path'] = ds_manager.download(args.file)
 
     # Define cache handler
-    ds['cache'] = None if args.no_cache else ptp.cache.Cache(ds['path'],
-                                                             args.prefix)
+    ds['cache'] = None if args.no_cache else ptp.cache.Cache(
+        ds['path'], args.prefix)
 
     # Detect the source of the dataset
-    ds['name']   = ds['path'].split("/")[-1]
+    ds['name'] = ds['path'].split("/")[-1]
     ds['source'] = "testbed" if ds['name'].split("-")[0] == "serial" else \
                    "simulation"
     logging.info(f"Dataset acquired from {ds['source']}")
 
     # Run the source of PTP data
     if (ds['source'] == "testbed"):
-        src = ptp.reader.Reader(ds['path'], infer_secs = args.infer_secs,
-                                reverse_ms = True)
+        src = ptp.reader.Reader(ds['path'],
+                                infer_secs=args.infer_secs,
+                                reverse_ms=True)
         src.run(args.num_iter)
     else:
         src = ptp.simulation.Simulation()
@@ -569,12 +629,16 @@ def read_dataset(args):
     return ds
 
 
-def process(ds, args, kalman=True, ls=True, pktselection=True,
+def process(ds,
+            args,
+            kalman=True,
+            ls=True,
+            pktselection=True,
             detect_outliers=True):
     """Run the processing stages"""
 
     # Nominal message period in nanoseconds
-    T_ns = ds['data'].metadata["sync_period"]*1e9
+    T_ns = ds['data'].metadata["sync_period"] * 1e9
 
     # Message rate
     ptp_rate = 1 / ds['data'].metadata["sync_period"]
@@ -623,32 +687,30 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
 
     # Estimate the time offset drifts used for drift compensation on packet
     # selection algorithms.
-    _run_drift_estimation(ds['data'].data, args.drift_est_strategy,
+    _run_drift_estimation(ds['data'].data,
+                          args.drift_est_strategy,
                           pkts=args.drift_est_pkts,
-                          loss=args.drift_est_loss, cache=ds['cache'],
+                          loss=args.drift_est_loss,
+                          cache=ds['cache'],
                           force=args.optimizer_force,
                           max_transient=max_drift_transient)
 
     if (args.no_optimizer):
         window_lengths = default_window_lengths
     else:
-        window_lengths = _run_window_optimizer(ds['data'].data, args.disable,
-                                               T_ns, args.optimizer_metric,
-                                               args.optimizer_fine,
-                                               args.optimizer_force,
-                                               args.optimizer_max_window,
-                                               (not args.optimizer_no_stop),
-                                               ds['cache'],
-                                               drift_comp,
-                                               args.bias,
-                                               bias_est,
-                                               args.batch_size)
+        window_lengths = _run_window_optimizer(
+            ds['data'].data, args.disable, T_ns, args.optimizer_metric,
+            args.optimizer_fine, args.optimizer_force,
+            args.optimizer_max_window, (not args.optimizer_no_stop),
+            ds['cache'], drift_comp, args.bias, bias_est, args.batch_size)
 
     if ("ls" not in args.disable):
         _run_ls(ds['data'].data, window_lengths['ls'], T_ns, args.batch_size)
 
     if ("kalman" not in args.disable):
-        _run_kalman(ds['data'].data, T_ns, cache=ds['cache'],
+        _run_kalman(ds['data'].data,
+                    T_ns,
+                    cache=ds['cache'],
                     force=args.optimizer_force,
                     error_metric=args.optimizer_metric,
                     no_optimizer=args.no_optimizer,
@@ -656,14 +718,16 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
                     skip=args.skip)
 
     if (pktselection):
-        _run_pktselection(ds['data'].data, window_lengths, args.batch_size,
-                          drift_comp = drift_comp,
-                          sample_avg = ("sample-average" not in args.disable),
-                          sample_median = ("sample-median" not in args.disable),
-                          sample_min = ("sample-min" not in args.disable),
-                          sample_max = ("sample-max" not in args.disable),
-                          sample_mode = ("sample-mode" not in args.disable),
-                          ewma = ("ewma" not in args.disable))
+        _run_pktselection(ds['data'].data,
+                          window_lengths,
+                          args.batch_size,
+                          drift_comp=drift_comp,
+                          sample_avg=("sample-average" not in args.disable),
+                          sample_median=("sample-median" not in args.disable),
+                          sample_min=("sample-min" not in args.disable),
+                          sample_max=("sample-max" not in args.disable),
+                          sample_mode=("sample-mode" not in args.disable),
+                          ewma=("ewma" not in args.disable))
 
     if (args.bias == 'post' or args.bias == 'both'):
         _run_post_bias_compensation(ds['data'].data, bias_est)
@@ -671,10 +735,18 @@ def process(ds, args, kalman=True, ls=True, pktselection=True,
 
 def analyze(ds, args, no_processing=False, save=True):
     """Analyze results"""
-    _run_analyzer(ds['data'].data, ds['data'].metadata, ds['path'],
-                  ds['source'], eps_format=args.eps, dpi=args.dpi,
-                  uselatex=args.latex, skip=args.skip, prefix=args.prefix,
-                  cache=ds['cache'], save=save, no_processing=no_processing)
+    _run_analyzer(ds['data'].data,
+                  ds['data'].metadata,
+                  ds['path'],
+                  ds['source'],
+                  eps_format=args.eps,
+                  dpi=args.dpi,
+                  uselatex=args.latex,
+                  skip=args.skip,
+                  prefix=args.prefix,
+                  cache=ds['cache'],
+                  save=save,
+                  no_processing=no_processing)
 
 
 def main():
@@ -695,5 +767,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

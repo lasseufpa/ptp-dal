@@ -1,9 +1,11 @@
 """PTP packet exchange mechanisms
 """
 import logging
+
 from .timestamping import *
 
 logger = logging.getLogger("DelayReqResp")
+
 
 class DelayReqResp():
     def __init__(self, seq_num, t1):
@@ -13,14 +15,14 @@ class DelayReqResp():
             seq_num : Sequence number
             t1      : Sync departure timestamp
         """
-        self.seq_num   = seq_num
-        self.t1        = t1
-        self.t2        = None
-        self.t3        = None
-        self.t4        = None
-        self.d_fw      = None
-        self.d_bw      = None
-        self.toffset   = None
+        self.seq_num = seq_num
+        self.t1 = t1
+        self.t2 = None
+        self.t3 = None
+        self.t4 = None
+        self.d_fw = None
+        self.d_bw = None
+        self.toffset = None
         self.asymmetry = None
 
     @staticmethod
@@ -42,8 +44,7 @@ class DelayReqResp():
                   "---------------------------------"))
         header = '{:>4} {:^12} {:^12} {:^9} {:^9} {:^9} {:^9} {:^9}'.format(
             "idx", "x_est", "x", "x_est_err", "delay_est", "d_m2s", "d_s2m",
-            "asym"
-        )
+            "asym")
         print_fn(header)
         print_fn(("-----------------------------------------------"
                   "---------------------------------"))
@@ -55,8 +56,8 @@ class DelayReqResp():
             seq_num : Sequence number
             t2      : Sync arrival timestamp
         """
-        assert(self.seq_num == seq_num)
-        self.t2      = t2
+        assert (self.seq_num == seq_num)
+        self.t2 = t2
 
     def set_t3(self, seq_num, t3):
         """Set Delay_Req departure timestamp
@@ -65,8 +66,8 @@ class DelayReqResp():
             seq_num : Sequence number
             t3      : Delay_Req departure timestamp
         """
-        assert(self.seq_num == seq_num)
-        self.t3      = t3
+        assert (self.seq_num == seq_num)
+        self.t3 = t3
 
     def set_t4(self, seq_num, t4):
         """Set Delay_Req departure timestamp
@@ -75,8 +76,8 @@ class DelayReqResp():
             seq_num : Sequence number
             t4      : Delay_Req departure timestamp
         """
-        assert(self.seq_num == seq_num)
-        self.t4      = t4
+        assert (self.seq_num == seq_num)
+        self.t4 = t4
 
     def set_forward_delay(self, seq_num, delay):
         """Save the "true" master-to-slave one-way delay
@@ -89,7 +90,7 @@ class DelayReqResp():
             delay   : Master-to-slave delay
 
         """
-        assert(self.seq_num == seq_num)
+        assert (self.seq_num == seq_num)
         self.d_fw = delay
 
         # Update the true delay asymmetry:
@@ -106,7 +107,7 @@ class DelayReqResp():
             delay   : Slave-to-master delay
 
         """
-        assert(self.seq_num == seq_num)
+        assert (self.seq_num == seq_num)
         self.d_bw = delay
 
         # Update the true delay asymmetry:
@@ -119,7 +120,8 @@ class DelayReqResp():
         Returns:
             The delay estimation in ns as a float
         """
-        delay_est_ns = (float(self.t4 - self.t1) - float(self.t3 - self.t2)) / 2
+        delay_est_ns = (float(self.t4 - self.t1) -
+                        float(self.t3 - self.t2)) / 2
         return delay_est_ns
 
     def _estimate_time_offset(self):
@@ -144,7 +146,7 @@ class DelayReqResp():
 
         """
 
-        self.toffset   = slave_tstamp - master_tstamp
+        self.toffset = slave_tstamp - master_tstamp
 
     def process(self):
         """Process all four timestamps
@@ -158,30 +160,30 @@ class DelayReqResp():
         """
 
         # Estimations
-        delay_est     = self._estimate_delay()
-        toffset_est   = float(self._estimate_time_offset())
+        delay_est = self._estimate_delay()
+        toffset_est = float(self._estimate_time_offset())
 
         # Save all relevant metrics on a dictionary
         results = {
-            "idx"       : self.seq_num,
-            "t1"        : self.t1,
-            "t2"        : self.t2,
-            "t3"        : self.t3,
-            "t4"        : self.t4,
-            "d"         : self.d_fw, # Sync one-way delay
-            "d_bw"      : self.d_bw, # Delay_Req one-way delay
-            "d_est"     : delay_est,
-            "x_est"     : toffset_est,
-            "x"         : None,
-            "x_est_err" : None,
-            "asym"      : self.asymmetry
+            "idx": self.seq_num,
+            "t1": self.t1,
+            "t2": self.t2,
+            "t3": self.t3,
+            "t4": self.t4,
+            "d": self.d_fw,  # Sync one-way delay
+            "d_bw": self.d_bw,  # Delay_Req one-way delay
+            "d_est": delay_est,
+            "x_est": toffset_est,
+            "x": None,
+            "x_est_err": None,
+            "asym": self.asymmetry
         }
 
         if (self.toffset is not None):
             # Time offset estimation error
             toffset_err = toffset_est - float(self.toffset)
             # Save on results
-            results["x"]         = float(self.toffset)
+            results["x"] = float(self.toffset)
             results["x_est_err"] = toffset_err
 
         return results
@@ -205,12 +207,8 @@ class DelayReqResp():
         print_fn(('{:^4d} {:^ 12.1f} {:^ 12.1f} '
                   '{:^ 9.1f} {:^9.1f} '
                   '{:^9.1f} {:^9.1f} '
-                  '{:^ 9.1f}').format(r['idx'], r['x_est'],
-                                      float(r['x'] or 0),
-                                      float(r['x_est_err'] or 0),
-                                      r['d_est'],
-                                      float(r['d'] or 0),
-                                      float(r['d_bw'] or 0),
+                  '{:^ 9.1f}').format(r['idx'], r['x_est'], float(r['x'] or 0),
+                                      float(r['x_est_err'] or 0), r['d_est'],
+                                      float(r['d'] or 0), float(r['d_bw']
+                                                                or 0),
                                       float(r['asym'] or 0)))
-
-

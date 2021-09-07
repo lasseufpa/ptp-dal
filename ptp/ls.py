@@ -1,7 +1,9 @@
 """Least-squares Estimator
 """
 import logging
+
 import numpy as np
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,19 +22,21 @@ class Ls():
                    used for plotting the frequency offset.
 
         """
-        self.N       = N
-        self.data    = data
+        self.N = N
+        self.data = data
         self.i_batch = 0
 
         # Learn the measurement period in case it is not provided
         self.T_ns = T_ns
         if (np.isinf(self.T_ns)):
-            t1        = np.array([res["t1"] for res in data])
+            t1 = np.array([res["t1"] for res in data])
             self.T_ns = float(np.mean(np.diff(t1)))
             logger.warning("Automatically setting T_ns to %f ns", self.T_ns)
 
         # Matrix used by the efficient implementation
-        self.P = (2 / (N*(N+1))) * np.array([[(2*N - 1), -3], [-3, 6/(N-1)]])
+        self.P = (2 /
+                  (N *
+                   (N + 1))) * np.array([[(2 * N - 1), -3], [-3, 6 / (N - 1)]])
 
     def _ls(self, x_obs, t, N, n_windows, new_per_win):
         """Conventional (non-optimized) LS implementation
@@ -66,7 +70,7 @@ class Ls():
 
         # Preallocate results (one for each window)
         x_f = np.zeros(n_windows)
-        y   = np.zeros(n_windows)
+        y = np.zeros(n_windows)
 
         # Iterate over sliding windows of observations
         for i in range(0, n_windows):
@@ -82,7 +86,7 @@ class Ls():
             tau = np.asarray([float(tt - t_w[0]) for tt in t_w])
 
             # Observation matrix
-            H   = np.hstack((np.ones((N, 1)), tau.reshape(N, 1)))
+            H = np.hstack((np.ones((N, 1)), tau.reshape(N, 1)))
             # NOTE: the observation matrix has to be assembled every time
             # for this approach. The "efficient" approach does not need to
             # re-compute H (it doesn't even use H).
@@ -91,7 +95,7 @@ class Ls():
             x0, y[i] = np.linalg.lstsq(H, x_obs_w, rcond=None)[0]
 
             # LS-fitted final time offset within the observat window
-            T_obs  = float(t_w[-1] - t_w[0])
+            T_obs = float(t_w[-1] - t_w[0])
             x_f[i] = x0 + (y[i] * T_obs)
 
         return x_f, y
@@ -130,17 +134,17 @@ class Ls():
 
         # Preallocate results (one for each window)
         x_f = np.zeros(n_windows)
-        y   = np.zeros(n_windows)
+        y = np.zeros(n_windows)
 
         # Preallocate accumulator
-        Q   = np.zeros(2)
+        Q = np.zeros(2)
 
         # Starting estimates (starting point for the recursive implementation)
-        Q[0]   = np.sum(x_obs[:N])
-        Q[1]   = np.sum(np.multiply(np.arange(N), x_obs[:N]))
-        Theta  = np.dot(self.P, Q.T)
-        x_f[0] = Theta[0] + (Theta[1] * (N-1))
-        y[0]   = Theta[1] / self.T_ns
+        Q[0] = np.sum(x_obs[:N])
+        Q[1] = np.sum(np.multiply(np.arange(N), x_obs[:N]))
+        Theta = np.dot(self.P, Q.T)
+        x_f[0] = Theta[0] + (Theta[1] * (N - 1))
+        y[0] = Theta[1] / self.T_ns
 
         # Iterate over sliding windows of observations
         for i in range(1, n_windows):
@@ -150,20 +154,20 @@ class Ls():
 
             # Update the accumulators
             Q[0] -= x_obs[i_s - 1]
-            Q[0] += x_obs[i_e -1]
+            Q[0] += x_obs[i_e - 1]
             Q[1] -= Q[0]
-            Q[1] += N * x_obs[i_e -1]
+            Q[1] += N * x_obs[i_e - 1]
 
             # LS Estimation
-            Theta        = np.dot(self.P, Q.T)
-            x0           = Theta[0] # initial time offset within window
-            y_times_T_ns = Theta[1] # drift in nanoseconds/measurement
+            Theta = np.dot(self.P, Q.T)
+            x0 = Theta[0]  # initial time offset within window
+            y_times_T_ns = Theta[1]  # drift in nanoseconds/measurement
 
             # Fit the final time offset within the current window
-            x_f[i]       = x0 + (y_times_T_ns * (N-1))
+            x_f[i] = x0 + (y_times_T_ns * (N - 1))
 
             # Fractional frequency offset
-            y[i]         = y_times_T_ns / self.T_ns
+            y[i] = y_times_T_ns / self.T_ns
 
         return x_f, y
 
@@ -189,21 +193,21 @@ class Ls():
             "The efficient LS implementation requires overlapping windows"
 
         # Stack overlapping windows into columns of a matrix
-        X_obs     = np.zeros(shape=(N, n_windows))
+        X_obs = np.zeros(shape=(N, n_windows))
         for i in range(N):
-            X_obs[i, :] = x_obs[i:(i+n_windows):new_per_win]
+            X_obs[i, :] = x_obs[i:(i + n_windows):new_per_win]
 
         # Q1 and Q2 accumulator values for each window
-        Q      = np.zeros(shape=(2, n_windows))
-        Q[0,:] = np.sum(X_obs, axis=0)
-        Q[1,:] = np.dot(np.arange(N), X_obs)
+        Q = np.zeros(shape=(2, n_windows))
+        Q[0, :] = np.sum(X_obs, axis=0)
+        Q[1, :] = np.dot(np.arange(N), X_obs)
 
         # LS estimations
-        Theta        = np.dot(self.P, Q)
-        X0           = Theta[0,:]
-        Y_times_T_ns = Theta[1,:]
-        Xf           = X0 + (Y_times_T_ns * (N-1))
-        Y            = Y_times_T_ns / self.T_ns
+        Theta = np.dot(self.P, Q)
+        X0 = Theta[0, :]
+        Y_times_T_ns = Theta[1, :]
+        Xf = X0 + (Y_times_T_ns * (N - 1))
+        Y = Y_times_T_ns / self.T_ns
 
         return Xf, Y
 
@@ -225,16 +229,16 @@ class Ls():
         """
 
         if (impl == "t1" or impl == "t2"):
-            assert(t is not None)
+            assert (t is not None)
 
-        n_data      = len(x_obs)
-        N           = self.N
+        n_data = len(x_obs)
+        N = self.N
         win_overlap = N - shift  # Window overlap
-        new_per_win = shift      # new samples per window
-        n_windows   = int((n_data - win_overlap)/new_per_win)
+        new_per_win = shift  # new samples per window
+        n_windows = int((n_data - win_overlap) / new_per_win)
 
-        logger.debug("Compute batch %d with %d windows" %(
-            self.i_batch, n_windows))
+        logger.debug("Compute batch %d with %d windows" %
+                     (self.i_batch, n_windows))
         self.i_batch += 1
 
         # Call the LS implementation of choice
@@ -278,26 +282,27 @@ class Ls():
         assert(impl in ["t1", "t2", "eff", "eff-vec"]), \
             "Unsupported LS implementation"
 
-        logger.info("Processing with N=%d" %(self.N))
+        logger.info("Processing with N=%d" % (self.N))
 
-        n_data      = len(self.data)
-        win_overlap = self.N - 1 # samples repeated on a window from past window
-        new_per_win = self.N - win_overlap # new samples per window
+        n_data = len(self.data)
+        win_overlap = self.N - 1  # samples repeated on a window from past window
+        new_per_win = self.N - win_overlap  # new samples per window
         # NOTE: assume each window of size N has N-1 entries from the previous
         # window (i.e. fully overlapping windows)
 
         # Corresponding number of windows and batches
-        n_windows  = int((n_data - win_overlap)/new_per_win)
-        n_batches  = np.ceil(n_windows/batch_size) if batch_mode else 1
+        n_windows = int((n_data - win_overlap) / new_per_win)
+        n_batches = np.ceil(n_windows / batch_size) if batch_mode else 1
         batch_size = batch_size if batch_mode else n_windows
 
         # Iterate over batches
         for i_w_s in range(0, n_windows, batch_size):
-            i_w_e = i_w_s + batch_size # last window of this batch
+            i_w_e = i_w_s + batch_size  # last window of this batch
 
             # Sample range covered by the windows
-            i_s = i_w_s * new_per_win                       # 1st of the 1st window
-            i_e = i_s + (batch_size-1)*new_per_win + self.N # last of the last
+            i_s = i_w_s * new_per_win  # 1st of the 1st window
+            i_e = i_s + (batch_size -
+                         1) * new_per_win + self.N  # last of the last
 
             # Vector of noisy time offset observations
             x_obs = np.array([res["x_est"] for res in self.data[i_s:i_e]])
@@ -306,19 +311,18 @@ class Ls():
             if (impl == "t1"):
                 t = np.array([res["t1"] for res in self.data[i_s:i_e]])
             elif (impl == "t2"):
-                t =  np.array([res["t2"] for res in self.data[i_s:i_e]])
+                t = np.array([res["t2"] for res in self.data[i_s:i_e]])
             else:
                 t = None
 
             # Compute LS for each window of this batch:
             Xf, Y = self._compute(x_obs, impl, t)
 
-            assert(len(Xf) == batch_size or i_w_e > n_windows)
-            assert(len(Xf) == len(Y))
+            assert (len(Xf) == batch_size or i_w_e > n_windows)
+            assert (len(Xf) == len(Y))
 
             for i in range(0, len(Xf)):
-                first_idx_in_window = i_s + i*new_per_win
-                last_idx_in_window  = first_idx_in_window + self.N - 1
+                first_idx_in_window = i_s + i * new_per_win
+                last_idx_in_window = first_idx_in_window + self.N - 1
                 self.data[last_idx_in_window]["x_ls_" + impl] = Xf[i]
                 self.data[last_idx_in_window]["y_ls_" + impl] = Y[i]
-

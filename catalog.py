@@ -1,25 +1,35 @@
 #!/usr/bin/env python
-import argparse, logging, sys
+import argparse
+import logging
+import sys
+
 import ptp.docs
+
 
 def main():
     parser = argparse.ArgumentParser(description="Catalog dataset files")
 
-    parser.add_argument('-f', '--file',
+    parser.add_argument('-f',
+                        '--file',
                         default=None,
                         help='Dataset JSON file to be cataloged \
                         (default: %(default)s)')
 
-    parser.add_argument('-d', '--directory',
+    parser.add_argument('-d',
+                        '--directory',
                         default='data/',
                         help='Dataset directory (default: %(default)s)')
 
-    parser.add_argument('-r', '--reset',
+    parser.add_argument('-r',
+                        '--reset',
                         default=False,
                         action='store_true',
                         help="Reset catalog (default: %(default)s)")
 
-    parser.add_argument('--verbose', '-v', action='count', default=1,
+    parser.add_argument('--verbose',
+                        '-v',
+                        action='count',
+                        default=1,
                         help="Verbosity level (default: %(default)s)")
 
     args = parser.parse_args()
@@ -35,6 +45,7 @@ def main():
     else:
         # Generate table with all datasets
         docs.process()
+
 
 if __name__ == '__main__':
     main()

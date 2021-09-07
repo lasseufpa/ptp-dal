@@ -1,16 +1,17 @@
 import logging
+
 import numpy as np
 from scipy import stats
-from ptp.ewma import Ewma
+
 import ptp.filters
+from ptp.ewma import Ewma
+
 logger = logging.getLogger(__name__)
 
-
-SAMPLE_MODE_BIN_0 = 10 # starting value
+SAMPLE_MODE_BIN_0 = 10  # starting value
 
 
 class PktSelection():
-
     def __init__(self, N, data):
         """Packet Selection
 
@@ -19,8 +20,8 @@ class PktSelection():
             data    : Array of objects with simulation data
 
         """
-        self.data           = data # this pointer could be changed
-        self._original_data = data # this should be immutable
+        self.data = data  # this pointer could be changed
+        self._original_data = data  # this should be immutable
 
         # Define window length and associated paramters
         self._set_window_len(N)
@@ -30,19 +31,19 @@ class PktSelection():
 
     def _reset_state(self):
         """Reset state"""
-        self.i_batch             = 0
-        self.data                = self._original_data
+        self.i_batch = 0
+        self.data = self._original_data
         # Sample-mode params
-        self._sample_mode_bin    = SAMPLE_MODE_BIN_0
+        self._sample_mode_bin = SAMPLE_MODE_BIN_0
         self._sample_mode_bin_fw = SAMPLE_MODE_BIN_0
         self._sample_mode_bin_bw = SAMPLE_MODE_BIN_0
-        self._mode_stall_cnt     = 0
+        self._mode_stall_cnt = 0
 
     def _set_window_len(self, N):
         """Set window length and associated parameters"""
         self.N = N
 
-    def _window(self, v, N, shift=1, copy = False):
+    def _window(self, v, N, shift=1, copy=False):
         """Split numpy vector into windows with configurable overlapping
 
         Args:
@@ -61,11 +62,10 @@ class PktSelection():
             correspond to a window with N columns.
 
         """
-        sh   = (v.size - N + 1, N)
-        st   = v.strides * 2
-        view = np.lib.stride_tricks.as_strided(v,
-                                               strides = st,
-                                               shape = sh)[0::shift]
+        sh = (v.size - N + 1, N)
+        st = v.strides * 2
+        view = np.lib.stride_tricks.as_strided(v, strides=st,
+                                               shape=sh)[0::shift]
 
         if (copy):
             return view.copy()
@@ -111,7 +111,7 @@ class PktSelection():
 
         t2_minus_t1 = np.median(t2_minus_t1_w)
         t4_minus_t3 = np.median(t4_minus_t3_w)
-        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est
 
@@ -131,7 +131,7 @@ class PktSelection():
         """
         t2_minus_t1 = np.median(t2_minus_t1_mtx, axis=1)
         t4_minus_t3 = np.median(t4_minus_t3_mtx, axis=1)
-        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est
 
@@ -163,7 +163,7 @@ class PktSelection():
         """
         t2_minus_t1 = np.amin(t2_minus_t1_w)
         t4_minus_t3 = np.amin(t4_minus_t3_w)
-        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est
 
@@ -185,7 +185,7 @@ class PktSelection():
         """
         t2_minus_t1 = np.amin(t2_minus_t1_mtx, axis=1)
         t4_minus_t3 = np.amin(t4_minus_t3_mtx, axis=1)
-        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est
 
@@ -205,7 +205,7 @@ class PktSelection():
         """
         t2_minus_t1 = np.amax(t2_minus_t1_w)
         t4_minus_t3 = np.amax(t4_minus_t3_w)
-        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est
 
@@ -227,11 +227,14 @@ class PktSelection():
         """
         t2_minus_t1 = np.amax(t2_minus_t1_mtx, axis=1)
         t4_minus_t3 = np.amax(t4_minus_t3_mtx, axis=1)
-        x_est       = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est
 
-    def _sample_mode(self, t2_minus_t1_w, t4_minus_t3_w, cnt_threshold=3,
+    def _sample_mode(self,
+                     t2_minus_t1_w,
+                     t4_minus_t3_w,
+                     cnt_threshold=3,
                      stall_patience=10):
         """Compute the time offset based on sample-mode
 
@@ -255,7 +258,7 @@ class PktSelection():
            The time offset estimate
 
         """
-        bin_width      = self._sample_mode_bin
+        bin_width = self._sample_mode_bin
         half_bin_width = 0.5 * bin_width
 
         # Quantize timestamp difference vectors
@@ -263,18 +266,20 @@ class PktSelection():
         t4_minus_t3_q = np.round(t4_minus_t3_w / bin_width)
 
         # Find the mode for (t2 - t1)
-        (_, idx, counts) = np.unique(t2_minus_t1_q, return_index=True,
+        (_, idx, counts) = np.unique(t2_minus_t1_q,
+                                     return_index=True,
                                      return_counts=True)
-        mode_cnt_fw      = np.amax(counts)
-        mode_idx_fw      = idx[np.argmax(counts)]
+        mode_cnt_fw = np.amax(counts)
+        mode_idx_fw = idx[np.argmax(counts)]
         t2_minus_t1      = t2_minus_t1_q[mode_idx_fw] * bin_width + \
                            half_bin_width
 
         # Find the mode for (t4 - t3)
         (_, idx, counts) = np.unique(t4_minus_t3_q,
-                                     return_index=True, return_counts=True)
-        mode_cnt_bw      = np.amax(counts)
-        mode_idx_bw      = idx[np.argmax(counts)]
+                                     return_index=True,
+                                     return_counts=True)
+        mode_cnt_bw = np.amax(counts)
+        mode_idx_bw = idx[np.argmax(counts)]
         t4_minus_t3      = t4_minus_t3_q[mode_idx_bw] * bin_width + \
                            half_bin_width
 
@@ -290,15 +295,18 @@ class PktSelection():
 
         if (self._mode_stall_cnt > stall_patience):
             self._sample_mode_bin += 10
-            self._mode_stall_cnt   = 0
+            self._mode_stall_cnt = 0
 
         # Final estimate
-        x_est = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est
 
-    def _sample_mode_vec(self, t2_minus_t1_mtx, t4_minus_t3_mtx,
-                         cnt_threshold=3, n_tuning=100):
+    def _sample_mode_vec(self,
+                         t2_minus_t1_mtx,
+                         t4_minus_t3_mtx,
+                         cnt_threshold=3,
+                         n_tuning=100):
         """Compute the time offset based on sample-mode
 
         Vectorized sample-mode implementation. Its result differs from the
@@ -329,22 +337,26 @@ class PktSelection():
             done = False
             while (not done):
                 # Quantize timestamp difference matrices
-                t2_minus_t1_q = np.round(t2_minus_t1_mtx[:n_tuning,:] / bin_width_fw)
-                t4_minus_t3_q = np.round(t4_minus_t3_mtx[:n_tuning,:] / bin_width_bw)
+                t2_minus_t1_q = np.round(t2_minus_t1_mtx[:n_tuning, :] /
+                                         bin_width_fw)
+                t4_minus_t3_q = np.round(t4_minus_t3_mtx[:n_tuning, :] /
+                                         bin_width_bw)
 
                 # Find the mode
-                t2_minus_t1_mode, mode_cnt_fw = stats.mode(t2_minus_t1_q, axis=1)
-                t4_minus_t3_mode, mode_cnt_bw = stats.mode(t4_minus_t3_q, axis=1)
+                t2_minus_t1_mode, mode_cnt_fw = stats.mode(t2_minus_t1_q,
+                                                           axis=1)
+                t4_minus_t3_mode, mode_cnt_bw = stats.mode(t4_minus_t3_q,
+                                                           axis=1)
 
                 # Adjust the bin such that less than 10% of the realizations (of
                 # the windows) have a mode count below threshold. That is, we
                 # want the mode to be significant, rather than close to a tie.
                 done = True
-                if ((mode_cnt_fw < cnt_threshold).sum() > int(0.1*n_tuning)):
+                if ((mode_cnt_fw < cnt_threshold).sum() > int(0.1 * n_tuning)):
                     bin_width_fw += 10
                     done = False
 
-                if ((mode_cnt_bw < cnt_threshold).sum() > int(0.1*n_tuning)):
+                if ((mode_cnt_bw < cnt_threshold).sum() > int(0.1 * n_tuning)):
                     bin_width_bw += 10
                     done = False
 
@@ -352,15 +364,17 @@ class PktSelection():
             self._sample_mode_bin_fw = bin_width_fw
             self._sample_mode_bin_bw = bin_width_bw
 
-            logger.info("t2-t1 bin was adjusted to %d" %(bin_width_fw))
-            logger.info("t4-t3 bin was adjusted to %d" %(bin_width_bw))
+            logger.info("t2-t1 bin was adjusted to %d" % (bin_width_fw))
+            logger.info("t4-t3 bin was adjusted to %d" % (bin_width_bw))
 
         half_bin_width_fw = 0.5 * bin_width_fw
         half_bin_width_bw = 0.5 * bin_width_bw
 
         # Quantize timestamp difference matrices
-        t2_minus_t1_q = np.around(t2_minus_t1_mtx / bin_width_fw).astype(np.int64)
-        t4_minus_t3_q = np.around(t4_minus_t3_mtx / bin_width_fw).astype(np.int64)
+        t2_minus_t1_q = np.around(t2_minus_t1_mtx / bin_width_fw).astype(
+            np.int64)
+        t4_minus_t3_q = np.around(t4_minus_t3_mtx / bin_width_fw).astype(
+            np.int64)
 
         # Find the mode
         t2_minus_t1_mode, mode_cnt_fw = stats.mode(t2_minus_t1_q, axis=1)
@@ -371,7 +385,7 @@ class PktSelection():
         t4_minus_t3 = t4_minus_t3_mode * bin_width_bw + half_bin_width_bw
 
         # Final estimates
-        x_est = (t2_minus_t1 - t4_minus_t3)/2
+        x_est = (t2_minus_t1 - t4_minus_t3) / 2
 
         return x_est.reshape(x_est.size)
 
@@ -385,7 +399,7 @@ class PktSelection():
             op         : Operation (min or max)
 
         """
-        assert(op in ['min', 'max', 'mode'])
+        assert (op in ['min', 'max', 'mode'])
 
         # Drift compensation array
         if (drift_comp):
@@ -401,11 +415,11 @@ class PktSelection():
 
         # Recursive moving-minimum/maximum of t21 and t43
         filter_map = {
-            'min'  : ptp.filters.moving_minimum,
-            'max'  : ptp.filters.moving_maximum,
-            'mode' : ptp.filters.moving_mode
+            'min': ptp.filters.moving_minimum,
+            'max': ptp.filters.moving_maximum,
+            'mode': ptp.filters.moving_mode
         }
-        filter_op    = filter_map[op]
+        filter_op = filter_map[op]
         filtered_t21 = filter_op(self.N, t21)
         filtered_t43 = filter_op(self.N, t43)
 
@@ -430,7 +444,7 @@ class PktSelection():
                          average or exponentially-weighted moving average).
 
         """
-        assert(strategy in ['avg', 'ewma'])
+        assert (strategy in ['avg', 'ewma'])
 
         # Drift compensation array
         if (drift_comp):
@@ -444,12 +458,12 @@ class PktSelection():
         # Filter the measurements
         filter_op = ptp.filters.moving_average if (strategy == "avg") else \
                     ptp.filters.ewma
-        x_est     = filter_op(self.N, x_obs)
+        x_est = filter_op(self.N, x_obs)
 
         # Re-add cumulative drift and save on global data records after the
         # transitory of (N-1) samples:
         key = strategy.replace('-', '_')
-        i   = self.N - 1
+        i = self.N - 1
         for val in x_est:
             self.data[i][f"x_pkts_{key}"] = val + drift_corr[i]
             i += 1
@@ -467,11 +481,11 @@ class PktSelection():
         """
         # Assume that all elements of self.data contain "x_est". If drift
         # compensation is enabled, assume all elements contain "cum_drift".
-        assert(all([("x_est" in r) for r in self.data]))
+        assert (all([("x_est" in r) for r in self.data]))
         if (drift_comp):
-            assert(all([("cum_drift" in r) for r in self.data]))
+            assert (all([("cum_drift" in r) for r in self.data]))
 
-        tdiff_ops   = ['min', 'max', 'mode']
+        tdiff_ops = ['min', 'max', 'mode']
         toffset_ops = ['avg', 'ewma']
 
         if (strategy in tdiff_ops):
@@ -479,7 +493,8 @@ class PktSelection():
         elif (strategy in toffset_ops):
             self._toffset_ops_recursive(drift_comp, strategy)
         else:
-            raise ValueError("Strategy choice %{} unsupported".format(strategy))
+            raise ValueError(
+                "Strategy choice %{} unsupported".format(strategy))
 
     def _window_by_window(self, strategy, drift_comp):
         """Window-by-window processing
@@ -498,13 +513,14 @@ class PktSelection():
 
             # Drift correction based on cumulative time offset drift estimates
             if (drift_comp):
-                cum_drift_w = np.array([r["cum_drift"] for r in
-                                        self.data[i_s:i_e]])
+                cum_drift_w = np.array(
+                    [r["cum_drift"] for r in self.data[i_s:i_e]])
 
             # Operator that processes time offset measurement windows
             if (strategy == 'avg'):
                 # Observation window
-                x_obs_w = np.array([res["x_est"] for res in self.data[i_s:i_e]])
+                x_obs_w = np.array(
+                    [res["x_est"] for res in self.data[i_s:i_e]])
 
                 # Remove drift from observed time offset
                 if (drift_comp):
@@ -514,10 +530,10 @@ class PktSelection():
 
             # Operators that process windows of timestamp differences
             else:
-                t2_minus_t1_w = np.array([float(r["t2"] - r["t1"])
-                                          for r in self.data[i_s:i_e]])
-                t4_minus_t3_w = np.array([float(r["t4"] - r["t3"])
-                                          for r in self.data[i_s:i_e]])
+                t2_minus_t1_w = np.array(
+                    [float(r["t2"] - r["t1"]) for r in self.data[i_s:i_e]])
+                t4_minus_t3_w = np.array(
+                    [float(r["t4"] - r["t3"]) for r in self.data[i_s:i_e]])
 
                 # Remove drift from observed timestamp differences
                 if (drift_comp):
@@ -525,22 +541,18 @@ class PktSelection():
                     t4_minus_t3_w = t4_minus_t3_w + cum_drift_w
 
                 if (strategy == 'median'):
-                    x_est = self._sample_median(t2_minus_t1_w,
-                                                t4_minus_t3_w)
+                    x_est = self._sample_median(t2_minus_t1_w, t4_minus_t3_w)
 
                 elif (strategy == 'min'):
-                    x_est = self._eapf(t2_minus_t1_w,
-                                       t4_minus_t3_w)
+                    x_est = self._eapf(t2_minus_t1_w, t4_minus_t3_w)
 
                 elif (strategy == 'max'):
-                    x_est = self._sample_maximum(t2_minus_t1_w,
-                                                 t4_minus_t3_w)
+                    x_est = self._sample_maximum(t2_minus_t1_w, t4_minus_t3_w)
 
                 elif (strategy == 'mode'):
-                    x_est = self._sample_mode(t2_minus_t1_w,
-                                              t4_minus_t3_w)
+                    x_est = self._sample_mode(t2_minus_t1_w, t4_minus_t3_w)
                 else:
-                    raise ValueError("Strategy choice %s unknown" %(strategy))
+                    raise ValueError("Strategy choice %s unknown" % (strategy))
 
             # Re-add the drift that was accumulated during this observation
             # window to the estimate that was produced by the selection operator
@@ -551,10 +563,10 @@ class PktSelection():
             key = strategy.replace('-', '_')
             self.data[i_e - 1][f"x_pkts_{key}"] = x_est
 
-        if (strategy == 'mode' and
-            (self._sample_mode_bin != SAMPLE_MODE_BIN_0)):
-            logger.info("Sample-mode bin was increased to %d" %(
-                self._sample_mode_bin))
+        if (strategy == 'mode'
+                and (self._sample_mode_bin != SAMPLE_MODE_BIN_0)):
+            logger.info("Sample-mode bin was increased to %d" %
+                        (self._sample_mode_bin))
 
     def _matrix_by_matrix(self, strategy, drift_comp, batch, batch_size):
         """Matrix-by-matrix processing
@@ -573,32 +585,34 @@ class PktSelection():
             batch_size    : Number of observation windows on each batch.
 
         """
-        win_overlap = self.N - 1 # samples repeated on a window from past window
-        new_per_win = self.N - win_overlap # new samples per window
+        win_overlap = self.N - 1  # samples repeated on a window from past window
+        new_per_win = self.N - win_overlap  # new samples per window
         # NOTE: assume each window of size N has N-1 entries from the previous
         # window (i.e. fully overlapping windows)
 
         # Corresponding number of windows and batches
-        n_windows  = int((len(self.data) - win_overlap)/new_per_win)
-        n_batches  = np.ceil(n_windows/batch_size) if batch else 1
+        n_windows = int((len(self.data) - win_overlap) / new_per_win)
+        n_batches = np.ceil(n_windows / batch_size) if batch else 1
         batch_size = batch_size if batch else n_windows
 
         for i_w_s in range(0, n_windows, batch_size):
-            i_w_e = i_w_s + batch_size # last window of this batch
+            i_w_e = i_w_s + batch_size  # last window of this batch
 
             # Batch index
             self.i_batch = int(i_w_s / batch_size)
-            logger.debug("Compute batch %d" %(self.i_batch))
+            logger.debug("Compute batch %d" % (self.i_batch))
 
             # Sample range covered by the windows
-            i_s = i_w_s * new_per_win                       # 1st of the 1st window
-            i_e = i_s + (batch_size-1)*new_per_win + self.N # last of the last
+            i_s = i_w_s * new_per_win  # 1st of the 1st window
+            i_e = i_s + (batch_size -
+                         1) * new_per_win + self.N  # last of the last
 
             # Calculate the drift correction windows
             if (drift_comp):
-                cum_drift_est   = np.array([r["cum_drift"] for r in
-                                            self.data[i_s:i_e]])
-                cum_drift_est_w = self._window(cum_drift_est, self.N,
+                cum_drift_est = np.array(
+                    [r["cum_drift"] for r in self.data[i_s:i_e]])
+                cum_drift_est_w = self._window(cum_drift_est,
+                                               self.N,
                                                shift=new_per_win)
             else:
                 cum_drift_est_w = []
@@ -611,8 +625,7 @@ class PktSelection():
                                  dtype='float64')
 
                 # Stacked windows with time offset measurements
-                x_obs_w  = self._window(x_obs, self.N,
-                                        shift=new_per_win)
+                x_obs_w = self._window(x_obs, self.N, shift=new_per_win)
 
                 x_est = self._vectorized(strategy=strategy,
                                          drift_comp=drift_comp,
@@ -620,15 +633,17 @@ class PktSelection():
                                          x_obs=x_obs_w)
             else:
                 # Timestamps differences
-                t2_minus_t1   = np.array([float(r["t2"] - r["t1"])
-                                          for r in self.data[i_s:i_e]])
-                t4_minus_t3   = np.array([float(r["t4"] - r["t3"])
-                                          for r in self.data[i_s:i_e]])
+                t2_minus_t1 = np.array(
+                    [float(r["t2"] - r["t1"]) for r in self.data[i_s:i_e]])
+                t4_minus_t3 = np.array(
+                    [float(r["t4"] - r["t3"]) for r in self.data[i_s:i_e]])
 
                 # Form observation windows with timestamps differences
-                t2_minus_t1_w = self._window(t2_minus_t1, self.N,
+                t2_minus_t1_w = self._window(t2_minus_t1,
+                                             self.N,
                                              shift=new_per_win)
-                t4_minus_t3_w = self._window(t4_minus_t3, self.N,
+                t4_minus_t3_w = self._window(t4_minus_t3,
+                                             self.N,
                                              shift=new_per_win)
 
                 # If batch processing is enabled, process each batch separately.
@@ -641,17 +656,22 @@ class PktSelection():
 
             # There is one estimate per window of this batch, except if we don't
             # have windows to fill the entire batch
-            assert(len(x_est) == batch_size or i_w_e > n_windows)
+            assert (len(x_est) == batch_size or i_w_e > n_windows)
 
             # Save results on global data records
             key = strategy.replace('-', '_')
             for i in range(0, len(x_est)):
-                first_idx_in_window = i_s + i*new_per_win
-                last_idx_in_window  = first_idx_in_window + self.N - 1
+                first_idx_in_window = i_s + i * new_per_win
+                last_idx_in_window = first_idx_in_window + self.N - 1
                 self.data[last_idx_in_window][f"x_pkts_{key}"] = x_est[i]
 
-    def _vectorized(self, strategy, drift_comp, cum_drift_est=None, x_obs=None,
-                    t2_minus_t1=None, t4_minus_t3=None):
+    def _vectorized(self,
+                    strategy,
+                    drift_comp,
+                    cum_drift_est=None,
+                    x_obs=None,
+                    t2_minus_t1=None,
+                    t4_minus_t3=None):
         """Vectorized processing
 
         All observation windows are stacked as lines of a matrix
@@ -675,12 +695,12 @@ class PktSelection():
         # Operator that processes time offset measurement windows
         if (strategy == 'avg'):
             # Time offset measurement
-            assert(x_obs.any()), "Time offset measurement not available"
+            assert (x_obs.any()), "Time offset measurement not available"
 
             # Remove cumulative drift
             if (drift_comp):
-                x_obs         -= cum_drift_est
-                drift_offsets  = cum_drift_est[:,-1]
+                x_obs -= cum_drift_est
+                drift_offsets = cum_drift_est[:, -1]
 
             # Sample-average operator
             x_est = self._sample_avg_normal_vec(x_obs)
@@ -688,31 +708,27 @@ class PktSelection():
         # Operators that process timestamp difference windows
         else:
             # Timestamp differences
-            assert(t2_minus_t1.any()), "Timestamp differences not available"
-            assert(t4_minus_t3.any()), "Timestamp differences not available"
+            assert (t2_minus_t1.any()), "Timestamp differences not available"
+            assert (t4_minus_t3.any()), "Timestamp differences not available"
 
             # Remove drift
             if (drift_comp):
-                t2_minus_t1   -= cum_drift_est
-                t4_minus_t3   += cum_drift_est
-                drift_offsets  = cum_drift_est[:,-1]
+                t2_minus_t1 -= cum_drift_est
+                t4_minus_t3 += cum_drift_est
+                drift_offsets = cum_drift_est[:, -1]
 
             # Apply Selection operator
             if (strategy == 'median'):
-                x_est = self._sample_median_vec(t2_minus_t1,
-                                                t4_minus_t3)
+                x_est = self._sample_median_vec(t2_minus_t1, t4_minus_t3)
             elif (strategy == 'min'):
-                x_est = self._eapf_vec(t2_minus_t1,
-                                       t4_minus_t3)
+                x_est = self._eapf_vec(t2_minus_t1, t4_minus_t3)
             elif (strategy == 'max'):
-                x_est = self._sample_maximum_vec(t2_minus_t1,
-                                                 t4_minus_t3)
+                x_est = self._sample_maximum_vec(t2_minus_t1, t4_minus_t3)
             elif (strategy == 'mode'):
                 #FIXME: Sample-mode need to be adjusted for batch processing.
-                x_est = self._sample_mode_vec(t2_minus_t1,
-                                              t4_minus_t3)
+                x_est = self._sample_mode_vec(t2_minus_t1, t4_minus_t3)
             else:
-                raise ValueError("Strategy choice %s unknown" %(strategy))
+                raise ValueError("Strategy choice %s unknown" % (strategy))
 
         # Re-add "quasi-deterministic" cumulative drift to estimates
         if (drift_comp):
@@ -729,8 +745,14 @@ class PktSelection():
         """
         self._set_window_len(N)
 
-    def process(self, strategy, drift_comp=True, vectorize=True, batch=True,
-                batch_size=4096, calc_drift=True, recursive=True):
+    def process(self,
+                strategy,
+                drift_comp=True,
+                vectorize=True,
+                batch=True,
+                batch_size=4096,
+                calc_drift=True,
+                recursive=True):
         """Process the observations
 
         Using the raw time offset measurements, estimate the time offset using
@@ -840,7 +862,7 @@ class PktSelection():
         else:
             drift_msg = ""
 
-        logger.info("Processing sample-%s with N=%d" %(strategy, self.N) +
+        logger.info("Processing sample-%s with N=%d" % (strategy, self.N) +
                     drift_msg)
 
         # Reset state
@@ -860,7 +882,7 @@ class PktSelection():
                     i_drift_start = i
                     break
             self.data = self._original_data[i_drift_start:]
-            assert(all([("drift" in r) for r in self.data]))
+            assert (all([("drift" in r) for r in self.data]))
 
             # Place cumulative time offset drifts within the dataset. These
             # values are accessed later by the packet-selection algorithms.
@@ -887,4 +909,3 @@ class PktSelection():
         if (drift_comp and calc_drift):
             for r in self.data:
                 r.pop("cum_drift", None)
-

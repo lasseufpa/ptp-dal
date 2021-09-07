@@ -1,14 +1,49 @@
-import unittest
 import copy
+import unittest
+
 from ptp.pktselection import *
 
-immutable_data = [
-    {"x_est": 6 , "d_est": 2, "drift": 1, "t1": 0, "t2": 18, "t3": 30, "t4": 38},
-    {"x_est": 6,  "d_est": 1, "drift": 2, "t1": 0, "t2": 12, "t3": 30, "t4": 42},
-    {"x_est": 15, "d_est": 3, "drift": 5, "t1": 0, "t2": 16, "t3": 30, "t4": 45},
-    {"x_est": 17, "d_est": 2, "drift": 3, "t1": 0, "t2": 19, "t3": 30, "t4": 55},
-    {"x_est": 56, "d_est": 3, "drift": 4, "t1": 0, "t2": 12, "t3": 30, "t4": 41}
-]
+immutable_data = [{
+    "x_est": 6,
+    "d_est": 2,
+    "drift": 1,
+    "t1": 0,
+    "t2": 18,
+    "t3": 30,
+    "t4": 38
+}, {
+    "x_est": 6,
+    "d_est": 1,
+    "drift": 2,
+    "t1": 0,
+    "t2": 12,
+    "t3": 30,
+    "t4": 42
+}, {
+    "x_est": 15,
+    "d_est": 3,
+    "drift": 5,
+    "t1": 0,
+    "t2": 16,
+    "t3": 30,
+    "t4": 45
+}, {
+    "x_est": 17,
+    "d_est": 2,
+    "drift": 3,
+    "t1": 0,
+    "t2": 19,
+    "t3": 30,
+    "t4": 55
+}, {
+    "x_est": 56,
+    "d_est": 3,
+    "drift": 4,
+    "t1": 0,
+    "t2": 12,
+    "t3": 30,
+    "t4": 41
+}]
 
 # Derived vectors
 #
@@ -21,16 +56,22 @@ immutable_data = [
 # t43' = t43 + cum_drift     = [9, 15, 23, 36, 26]
 # x_est' = x_est - cum_drift = [5, 3, 7, 6, 41]
 
-class TestPktSelection(unittest.TestCase):
 
-    def _run_sample_avg(self, drift_comp=False, vectorize=False,
-                        recursive=False, batch=False):
+class TestPktSelection(unittest.TestCase):
+    def _run_sample_avg(self,
+                        drift_comp=False,
+                        vectorize=False,
+                        recursive=False,
+                        batch=False):
         """Window-based sample-average test runner"""
         data = copy.deepcopy(immutable_data)
-        N    = 2
+        N = 2
         pkts = PktSelection(N, data)
-        pkts.process('avg', drift_comp=drift_comp, vectorize=vectorize,
-                     recursive=recursive, batch=batch)
+        pkts.process('avg',
+                     drift_comp=drift_comp,
+                     vectorize=vectorize,
+                     recursive=recursive,
+                     batch=batch)
         x_est_avg = [r["x_pkts_avg"] for r in data if "x_pkts_avg" in r]
 
         # Check values
@@ -62,16 +103,21 @@ class TestPktSelection(unittest.TestCase):
         """Vectorized sample-average with and without batch processing"""
         for drift_comp in [True, False]:
             for batch in [True, False]:
-                self._run_sample_avg(drift_comp=drift_comp, vectorize=True,
+                self._run_sample_avg(drift_comp=drift_comp,
+                                     vectorize=True,
                                      batch=batch)
 
-    def _run_sample_median(self, drift_comp=False, vectorize=False,
+    def _run_sample_median(self,
+                           drift_comp=False,
+                           vectorize=False,
                            batch=False):
         """Sample-median test runner"""
         data = copy.deepcopy(immutable_data)
-        N    = 3
+        N = 3
         pkts = PktSelection(N, data)
-        pkts.process('median', drift_comp=drift_comp, vectorize=vectorize,
+        pkts.process('median',
+                     drift_comp=drift_comp,
+                     vectorize=vectorize,
                      batch=batch)
         x_est_median = [r["x_pkts_median"] for r in data if \
                          "x_pkts_median" in r]
@@ -88,9 +134,9 @@ class TestPktSelection(unittest.TestCase):
         else:
             # median(t21) in N = [16, 16, 16]
             # median(t43) in N = [12, 15, 15]
-            self.assertEqual(x_est_median[0], (16 - 12)/2)
-            self.assertEqual(x_est_median[1], (16 - 15)/2)
-            self.assertEqual(x_est_median[2], (16 - 15)/2)
+            self.assertEqual(x_est_median[0], (16 - 12) / 2)
+            self.assertEqual(x_est_median[1], (16 - 15) / 2)
+            self.assertEqual(x_est_median[2], (16 - 15) / 2)
 
     def test_sample_median(self):
         """Non-vectorized sample-median"""
@@ -101,17 +147,24 @@ class TestPktSelection(unittest.TestCase):
         """Vectorized sample-median with and without batch processing"""
         for drift_comp in [True, False]:
             for batch in [True, False]:
-                self._run_sample_median(drift_comp=drift_comp, vectorize=True,
+                self._run_sample_median(drift_comp=drift_comp,
+                                        vectorize=True,
                                         batch=batch)
 
-    def _run_sample_min(self, drift_comp=False, vectorize=False,
-                        recursive=False, batch=False):
+    def _run_sample_min(self,
+                        drift_comp=False,
+                        vectorize=False,
+                        recursive=False,
+                        batch=False):
         """Sample-minimum test runner"""
         data = copy.deepcopy(immutable_data)
-        N    = 3
+        N = 3
         pkts = PktSelection(N, data)
-        pkts.process('min', drift_comp=drift_comp, vectorize=vectorize,
-                     recursive=recursive, batch=batch)
+        pkts.process('min',
+                     drift_comp=drift_comp,
+                     vectorize=vectorize,
+                     recursive=recursive,
+                     batch=batch)
         x_est_min = [r["x_pkts_min"] for r in data if "x_pkts_min" in r]
 
         # Check values
@@ -144,17 +197,24 @@ class TestPktSelection(unittest.TestCase):
         """Vectorized sample-minimum with and without batch processing"""
         for drift_comp in [True, False]:
             for batch in [True, False]:
-                self._run_sample_min(drift_comp=drift_comp, vectorize=True,
+                self._run_sample_min(drift_comp=drift_comp,
+                                     vectorize=True,
                                      batch=batch)
 
-    def _run_sample_max(self, drift_comp=False, vectorize=False,
-                        recursive=False, batch=False):
+    def _run_sample_max(self,
+                        drift_comp=False,
+                        vectorize=False,
+                        recursive=False,
+                        batch=False):
         """Sample-maximum test runner"""
         data = copy.deepcopy(immutable_data)
-        N    = 3
+        N = 3
         pkts = PktSelection(N, data)
-        pkts.process('max', drift_comp=drift_comp, vectorize=vectorize,
-                     recursive=recursive, batch=batch)
+        pkts.process('max',
+                     drift_comp=drift_comp,
+                     vectorize=vectorize,
+                     recursive=recursive,
+                     batch=batch)
         x_est_max = [r["x_pkts_max"] for r in data if "x_pkts_max" in r]
 
         # Check values
@@ -187,17 +247,24 @@ class TestPktSelection(unittest.TestCase):
         """Vectorized sample-maximum with and without batch processing"""
         for drift_comp in [True, False]:
             for batch in [True, False]:
-                self._run_sample_max(drift_comp=drift_comp, vectorize=True,
+                self._run_sample_max(drift_comp=drift_comp,
+                                     vectorize=True,
                                      batch=batch)
 
-    def _run_sample_mode(self, drift_comp=False, vectorize=False,
-                         recursive=False, batch=False):
+    def _run_sample_mode(self,
+                         drift_comp=False,
+                         vectorize=False,
+                         recursive=False,
+                         batch=False):
         """Sample-mode test runner"""
         data = copy.deepcopy(immutable_data)
-        N    = 3
+        N = 3
         pkts = PktSelection(N, data)
-        pkts.process('mode', drift_comp=drift_comp, vectorize=vectorize,
-                     recursive=recursive, batch=batch)
+        pkts.process('mode',
+                     drift_comp=drift_comp,
+                     vectorize=vectorize,
+                     recursive=recursive,
+                     batch=batch)
         x_est_mode = [r["x_pkts_mode"] for r in data if "x_pkts_mode" in r]
 
         # Check results
@@ -283,11 +350,11 @@ class TestPktSelection(unittest.TestCase):
         """Vectorized sample-mode with and without batch processing"""
         for drift_comp in [True, False]:
             for batch in [True, False]:
-                self._run_sample_mode(drift_comp=drift_comp, vectorize=True,
+                self._run_sample_mode(drift_comp=drift_comp,
+                                      vectorize=True,
                                       batch=batch)
 
     def test_sample_mode_recursive(self):
         """Recursive sample-mode"""
         for drift_comp in [True, False]:
             self._run_sample_mode(drift_comp=drift_comp, recursive=True)
-

@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-
 """Run batch of acquisitions
 """
+import json
+import logging
+import subprocess
+import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-import subprocess, json, sys, logging
 from multiprocessing.pool import ThreadPool
 
 
 def _append_key_val(cmd, key, val):
     """Add key,val pair from dictionary to a given list of arguments"""
-    assert(len(key) > 0), "Empty key"
+    assert (len(key) > 0), "Empty key"
 
     if (isinstance(val, tuple)):
         # Special case used for counted argument (with action='count')
@@ -20,7 +22,7 @@ def _append_key_val(cmd, key, val):
         keyarg = "--" + key
 
     # The arguments come from a dictionary, so they should never be repeated
-    assert(keyarg not in cmd)
+    assert (keyarg not in cmd)
     cmd.append(keyarg)
 
     if (val is None or isinstance(val, tuple)):
@@ -34,16 +36,16 @@ def _append_key_val(cmd, key, val):
 
 def _run(action, arg_dict, job_id, dry_run=False):
     """Run the acquisition"""
-    assert(isinstance(arg_dict, dict))
+    assert (isinstance(arg_dict, dict))
     logging.info("Running {} {}".format(action + ".py", job_id))
 
     # Convert argument dictionary to a list of arguments
     args = []
-    for k,v in arg_dict.items():
+    for k, v in arg_dict.items():
         _append_key_val(args, k, v)
 
     script = action + ".py"
-    cmd    = ["python3", script]
+    cmd = ["python3", script]
     cmd.extend(args)
 
     if (dry_run):
@@ -61,15 +63,18 @@ def parser():
                        formatter_class=ArgumentDefaultsHelpFormatter)
     p.add_argument('filename',
                    help='JSON file describing the target action batch')
-    p.add_argument('-a','--action',
+    p.add_argument('-a',
+                   '--action',
                    choices=["analyze"],
                    default="analyze",
                    help="Action to run in batch (capture or analyze).")
-    p.add_argument('-j', '--jobs',
+    p.add_argument('-j',
+                   '--jobs',
                    type=int,
                    default=1,
                    help="Number jobs to run concurrently.")
-    p.add_argument('--verbose', '-v',
+    p.add_argument('--verbose',
+                   '-v',
                    action='count',
                    default=1,
                    help="Verbosity (logging) level.")
@@ -95,11 +100,11 @@ def main():
     # keys. The 'global' entry should be a dictionary holding the global
     # command-line arguments. The 'batch' entry should be a list of
     # dictionaries, each describing the specific parameters of the action.
-    assert('global' in cfg)
-    assert('batch' in cfg)
-    assert(isinstance(cfg['global'], dict))
-    assert(isinstance(cfg['batch'], list))
-    assert(all([isinstance(x, dict) for x in cfg['batch']]))
+    assert ('global' in cfg)
+    assert ('batch' in cfg)
+    assert (isinstance(cfg['global'], dict))
+    assert (isinstance(cfg['batch'], list))
+    assert (all([isinstance(x, dict) for x in cfg['batch']]))
 
     # Global command-line arguments
     global_dict = cfg['global']

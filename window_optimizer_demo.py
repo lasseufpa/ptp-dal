@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """Analyse the estimators performance as a function of window length
 """
 import argparse, logging, sys
@@ -11,10 +10,12 @@ import ptp.cache
 import ptp.datasets
 import ptp.metrics
 import matplotlib
+
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import time, re
+
 
 def main():
     # Available estimators
@@ -22,15 +23,19 @@ def main():
     est_choices = [k for k in est_op] + ['all']
 
     parser = argparse.ArgumentParser(description="Window length optimizer")
-    parser.add_argument('-e', '--estimator',
+    parser.add_argument('-e',
+                        '--estimator',
                         default='all',
                         help='Window-based estimator',
                         choices=est_choices)
-    parser.add_argument('-m', '--metric',
-                        default='max-te',
-                        help='Estimation error metric for performance assessment',
-                        choices=['max-te', 'mse'])
-    parser.add_argument('-p', '--plot',
+    parser.add_argument(
+        '-m',
+        '--metric',
+        default='max-te',
+        help='Estimation error metric for performance assessment',
+        choices=['max-te', 'mse'])
+    parser.add_argument('-p',
+                        '--plot',
                         default=False,
                         action='store_true',
                         help='Whether or not to plot results')
@@ -42,18 +47,22 @@ def main():
                         default=False,
                         action='store_true',
                         help='Whether or not to plot global curve')
-    parser.add_argument('--no-plot-info',
-                        default=False,
-                        action='store_true',
-                        help='Whether or not to save window information in plot')
-    parser.add_argument('-s', '--save',
+    parser.add_argument(
+        '--no-plot-info',
+        default=False,
+        action='store_true',
+        help='Whether or not to save window information in plot')
+    parser.add_argument('-s',
+                        '--save',
                         default=False,
                         action='store_true',
                         help='Whether or not to save window configurations')
-    parser.add_argument('-f', '--file',
+    parser.add_argument('-f',
+                        '--file',
                         default=None,
                         help='Serial capture file.')
-    parser.add_argument('-N', '--num-iter',
+    parser.add_argument('-N',
+                        '--num-iter',
                         default=0,
                         type=int,
                         help='Restrict number of iterations')
@@ -61,10 +70,11 @@ def main():
                         default=False,
                         action='store_true',
                         help='Do not apply early stopping')
-    parser.add_argument('--force',
-                        default=False,
-                        action='store_true',
-                        help='Force processing even if already done previously')
+    parser.add_argument(
+        '--force',
+        default=False,
+        action='store_true',
+        help='Force processing even if already done previously')
     parser.add_argument('--fine',
                         default=False,
                         action='store_true',
@@ -84,7 +94,10 @@ def main():
                         action='store_true',
                         help='Whether to disable the drift compensation step '
                         'applied within packet selection algorithms.')
-    parser.add_argument('--verbose', '-v', action='count', default=1,
+    parser.add_argument('--verbose',
+                        '-v',
+                        action='count',
+                        default=1,
                         help="Verbosity (logging) level")
     args = parser.parse_args()
 
@@ -93,7 +106,7 @@ def main():
 
     # Download the dataset if not available
     ds_manager = ptp.datasets.Datasets()
-    ds_path    = ds_manager.download(args.file)
+    ds_path = ds_manager.download(args.file)
 
     # Load the data
     if (args.file.split("-")[0] == "serial"):
@@ -106,37 +119,38 @@ def main():
         src.load(ds_path)
 
     # Get sync period from metadata
-    if (hasattr(src, 'metadata') and
-        'sync_period' in src.metadata and
-        src.metadata['sync_period'] is not None):
-        T_ns = src.metadata['sync_period']*1e9
+    if (hasattr(src, 'metadata') and 'sync_period' in src.metadata
+            and src.metadata['sync_period'] is not None):
+        T_ns = src.metadata['sync_period'] * 1e9
     else:
         # FIXME we should use at least a command-line variable
-        T_ns = 1e9/4
+        T_ns = 1e9 / 4
 
     # Define cache object
     cache = None if args.no_cache else ptp.cache.Cache(args.file)
 
     # Time offset drift estimations through the PI control loop
-    freq_estimator  = ptp.frequency.Estimator(src.data)
+    freq_estimator = ptp.frequency.Estimator(src.data)
     damping, loopbw = freq_estimator.optimize_loop(cache=cache)
-    freq_estimator.loop(damping = damping, loopbw = loopbw)
-
+    freq_estimator.loop(damping=damping, loopbw=loopbw)
 
     # Options applied to the algorithms executed by the window optimizer
     drift_comp = not args.pkts_no_drift_comp
     algo_opts = {
-        'drift_comp'     : drift_comp, # whether to apply drift compensation
-        'bias_corr_mode' : 'none',     # bias correction mode
-        'bias_est'       : {},         # bias estimates
-        'batch_size'     : 4096        # batch size
+        'drift_comp': drift_comp,  # whether to apply drift compensation
+        'bias_corr_mode': 'none',  # bias correction mode
+        'bias_est': {},  # bias estimates
+        'batch_size': 4096  # batch size
     }
 
     # Optimize window lengths
     window_optimizer = ptp.window.Optimizer(src.data, T_ns, algo_opts)
-    window_optimizer.process(args.estimator, error_metric=args.metric,
-                             cache=cache, early_stopping=(not args.no_stop),
-                             force=args.force, fine_pass=args.fine,
+    window_optimizer.process(args.estimator,
+                             error_metric=args.metric,
+                             cache=cache,
+                             early_stopping=(not args.no_stop),
+                             force=args.force,
+                             fine_pass=args.fine,
                              max_window=args.max_window,
                              save_global=args.global_plot)
 

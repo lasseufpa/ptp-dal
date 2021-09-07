@@ -1,6 +1,13 @@
 """Dataset manager
 """
-import subprocess, os, logging, json, requests, shutil
+import json
+import logging
+import os
+import shutil
+import subprocess
+
+import requests
+
 from ptp import util, docs
 
 logger = logging.getLogger(__name__)
@@ -20,12 +27,12 @@ class Datasets():
 
     def _set_paths(self):
         """Define paths to save the configuration file"""
-        this_file       = os.path.realpath(__file__)
-        rootdir         = os.path.dirname(os.path.dirname(this_file))
+        this_file = os.path.realpath(__file__)
+        rootdir = os.path.dirname(os.path.dirname(this_file))
         self.local_repo = os.path.join(rootdir, "data")
-        home            = os.path.expanduser("~")
-        self.cfg_path   = os.path.join(home, ".ptp")
-        self.cfg_file   = os.path.join(self.cfg_path, "config.json")
+        home = os.path.expanduser("~")
+        self.cfg_path = os.path.join(home, ".ptp")
+        self.cfg_file = os.path.join(self.cfg_path, "config.json")
 
         # Create local repo if it does not exist
         if not os.path.isdir(self.local_repo):
@@ -33,12 +40,14 @@ class Datasets():
 
     def _get_all_ds_variations(self, dataset):
         """Get all possible variations to the dataset name"""
-        self.ds_name    = os.path.basename(dataset)
-        no_ext_ds_name  = os.path.splitext(self.ds_name)[0]
-        ds_prefix       = no_ext_ds_name.replace("-comp", "")
-        ds_suffixes     = ["-comp.xz", "-comp.pbz2", "-comp.gz",
-                           "-comp.pickle", "-comp.json", ".json"]
-        all_ds_names    = [ds_prefix + suffix for suffix in ds_suffixes]
+        self.ds_name = os.path.basename(dataset)
+        no_ext_ds_name = os.path.splitext(self.ds_name)[0]
+        ds_prefix = no_ext_ds_name.replace("-comp", "")
+        ds_suffixes = [
+            "-comp.xz", "-comp.pbz2", "-comp.gz", "-comp.pickle", "-comp.json",
+            ".json"
+        ]
+        all_ds_names = [ds_prefix + suffix for suffix in ds_suffixes]
         all_local_paths = [os.path.join(self.local_repo, d) for d in \
                            all_ds_names]
 
@@ -50,7 +59,8 @@ class Datasets():
             os.mkdir(self.cfg_path)
         elif (not os.path.isdir(self.cfg_path)):
             raise IsADirectoryError(
-                "{} already exists, but is not a directory".format(self.cfg_path))
+                "{} already exists, but is not a directory".format(
+                    self.cfg_path))
 
     def _load_cfg(self):
         """Load user credentials from configuration file"""
@@ -84,20 +94,20 @@ class Datasets():
         if (not util.ask_yes_or_no("Provide information now?")):
             return
 
-        cfg  = list()
+        cfg = list()
         more = True
         while (more):
             dl_mode = input("Download via API or SSH? (API) ") or "API"
 
             if (dl_mode.upper() == 'SSH'):
                 server = input("IP address of the dataset server: ")
-                path   = input("Path to dataset repository on server: ")
-                user   = input("Username to access the server: ")
+                path = input("Path to dataset repository on server: ")
+                user = input("Username to access the server: ")
                 cfg.append({
-                    'dl_mode' : 'SSH',
-                    'addr'    : server,
-                    'path'    : path,
-                    'user'    : user
+                    'dl_mode': 'SSH',
+                    'addr': server,
+                    'path': path,
+                    'user': user
                 })
 
             elif (dl_mode.upper() == 'API'):
@@ -105,13 +115,14 @@ class Datasets():
                 ssl_crt_in = input("Path to your SSL certificate: ")
                 ssl_key, ssl_crt = self._copy_key_cert(ssl_key_in, ssl_crt_in)
                 cfg.append({
-                    'dl_mode' : 'API',
-                    'ssl_key' : ssl_key,
-                    'ssl_crt' : ssl_crt
+                    'dl_mode': 'API',
+                    'ssl_key': ssl_key,
+                    'ssl_crt': ssl_crt
                 })
 
             else:
-                raise ValueError("Download mode {} not defined".format(dl_mode))
+                raise ValueError(
+                    "Download mode {} not defined".format(dl_mode))
 
             more = util.ask_yes_or_no("Add another address?")
 
@@ -134,18 +145,21 @@ class Datasets():
         """
         ds_repo = cfg['user'] + "@" + cfg['addr'] + ":" + cfg['path']
         scp_src = os.path.join(ds_repo, ds_name)
-        cmd     = ["scp", scp_src, "data/"]
+        cmd = ["scp", scp_src, "data/"]
         ds_path = None
 
-        logger.info("Trying %s" %(scp_src))
-        res = subprocess.run(cmd, timeout=60.0, stdout=subprocess.DEVNULL,
+        logger.info("Trying %s" % (scp_src))
+        res = subprocess.run(cmd,
+                             timeout=60.0,
+                             stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
 
         if (res.returncode == 0):
             print("Downloaded {} from {}".format(ds_name, ds_repo))
             ds_path = os.path.join("data", ds_name)
         else:
-            logger.debug("Couldn't find file {} in {}".format(ds_name, ds_repo))
+            logger.debug("Couldn't find file {} in {}".format(
+                ds_name, ds_repo))
 
         return ds_path
 
@@ -160,15 +174,15 @@ class Datasets():
             Path to the file that was downloaded. None if not found.
 
         """
-        addr    = self.api_url + 'dataset'
-        ds_req  = os.path.join(addr, ds_name)
+        addr = self.api_url + 'dataset'
+        ds_req = os.path.join(addr, ds_name)
         logger.info("Trying " + ds_req)
-        found   = False
+        found = False
         ds_path = None
 
         try:
             cert = (cfg['ssl_crt'], cfg['ssl_key'])
-            req  = requests.get(ds_req, cert=cert, timeout=60.0)
+            req = requests.get(ds_req, cert=cert, timeout=60.0)
             req.raise_for_status()
             local_ds_path = os.path.join(self.local_repo, ds_name)
             open(local_ds_path, 'wb').write(req.content)
@@ -228,7 +242,6 @@ class Datasets():
         # remote repositories
         raise RuntimeError("Couldn't find dataset")
 
-
     def search(self, parameters):
         """Search datasets via RESTful API
 
@@ -239,8 +252,8 @@ class Datasets():
             List with the founded datasets
 
         """
-        addr     = self.api_url + 'search'
-        headers  = {'content-type': 'application/json'}
+        addr = self.api_url + 'search'
+        headers = {'content-type': 'application/json'}
         ds_found = None
 
         if (self.cfg is None):
@@ -249,7 +262,8 @@ class Datasets():
         api_connections = [e for e in self.cfg if (e['dl_mode'] == 'API')]
 
         if (len(api_connections) == 0):
-            logger.error("Couldn't find a dataset server in your configuration")
+            logger.error(
+                "Couldn't find a dataset server in your configuration")
             return
 
         for conn in api_connections:
@@ -271,7 +285,4 @@ class Datasets():
                     logger.info(e)
                 pass
 
-
         return ds_found
-
-

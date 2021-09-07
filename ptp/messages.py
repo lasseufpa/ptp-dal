@@ -1,12 +1,18 @@
 """PTP Messages
 """
-import logging, heapq
+import heapq
+import logging
+
 import numpy as np
 
 
 class PtpEvt():
-    def __init__(self, name, period_sec=None, pdv_distr="Gamma",
-                 gamma_shape=None, gamma_scale=None):
+    def __init__(self,
+                 name,
+                 period_sec=None,
+                 pdv_distr="Gamma",
+                 gamma_shape=None,
+                 gamma_scale=None):
         """PTP Event Message
 
         Controls transmission and reception of a PTP event message. When the
@@ -22,16 +28,16 @@ class PtpEvt():
 
         """
 
-        self.name          = name
-        self.period_sec    = period_sec
-        self.on_way        = False
-        self.next_tx       = float("inf")
-        self.next_rx       = float("inf")
-        self.seq_num       = None
-        self.tx_tstamp     = None
-        self.rx_tstamp     = None
+        self.name = name
+        self.period_sec = period_sec
+        self.on_way = False
+        self.next_tx = float("inf")
+        self.next_rx = float("inf")
+        self.seq_num = None
+        self.tx_tstamp = None
+        self.rx_tstamp = None
         self.one_way_delay = None
-        self.pdv_distr     = pdv_distr
+        self.pdv_distr = pdv_distr
 
         # Apply default gamma shape and scale if not defined. The default values
         # come from the fit for 60% load, 5-hop cross-traffic scenario in the
@@ -55,7 +61,7 @@ class PtpEvt():
         else:
             self.gamma_shape = gamma_shape
 
-        assert(pdv_distr in ["Gamma", "Gaussian", "mirrorGamma"])
+        assert (pdv_distr in ["Gamma", "Gaussian", "mirrorGamma"])
 
         # Prepare mirrored Gamma distribution if requested for the simulation
         if (pdv_distr == "mirrorGamma"):
@@ -64,9 +70,9 @@ class PtpEvt():
     def _mirrored_erlang_pdf(self):
         """Generate mirrored Erlang pdfs from analytical expression"""
 
-        k          = self.gamma_shape  # shape
-        mu         = self.gamma_scale  # scale
-        lamb       = 1/mu              # rate
+        k = self.gamma_shape  # shape
+        mu = self.gamma_scale  # scale
+        lamb = 1 / mu  # rate
 
         # Maximum delay with non-zero probability
         #
@@ -81,18 +87,20 @@ class PtpEvt():
         max_val_sm = 18000
 
         # Master-to-slave PDF
-        x   = np.arange(0, max_val_ms, 1.0)
-        fx  = ((lamb**k)/np.math.factorial(k-1)) * (x ** (k-1)) * (np.exp(-lamb*x))
+        x = np.arange(0, max_val_ms, 1.0)
+        fx = ((lamb**k) / np.math.factorial(k - 1)) * (x**(k - 1)) * (np.exp(
+            -lamb * x))
         fx /= fx.sum()
-        fx  = np.flip(fx)
+        fx = np.flip(fx)
 
         self._mirrored_erlang_fx_ms = fx
 
         # Slave-to-master PDF
-        x   = np.arange(0, max_val_sm, 1.0)
-        fx  = ((lamb**k)/np.math.factorial(k-1)) * (x ** (k-1)) * (np.exp(-lamb*x))
+        x = np.arange(0, max_val_sm, 1.0)
+        fx = ((lamb**k) / np.math.factorial(k - 1)) * (x**(k - 1)) * (np.exp(
+            -lamb * x))
         fx /= fx.sum()
-        fx  = np.flip(fx)
+        fx = np.flip(fx)
 
         self._mirrored_erlang_fx_sm = fx
 
@@ -110,10 +118,10 @@ class PtpEvt():
         #
         # FIXME remove hard-coded maximum values below
         if self.name == "Sync":
-            max_val   = 21000
+            max_val = 21000
             return np.random.choice(max_val, 1, p=self._mirrored_erlang_fx_ms)
         else:
-            max_val   = 18000
+            max_val = 18000
             return np.random.choice(max_val, 1, p=self._mirrored_erlang_fx_sm)
 
     def _sched_next_tx(self, tx_sim_time):
@@ -150,7 +158,8 @@ class PtpEvt():
         self.next_rx = tx_sim_time + (delay_ns * 1e-9)
 
         logger = logging.getLogger("PtpEvt")
-        logger.debug("Delay of %s #%d: %f ns" %(self.name, self.seq_num, delay_ns))
+        logger.debug("Delay of %s #%d: %f ns" %
+                     (self.name, self.seq_num, delay_ns))
 
     def sched_tx(self, tx_sim_time, evts):
         """Manually schedule a transmission time
@@ -167,8 +176,8 @@ class PtpEvt():
         heapq.heappush(evts, self.next_tx)
 
         logger = logging.getLogger("PtpEvt")
-        logger.debug("Schedule %s transmission to %f ns" %(self.name,
-                                                           self.next_tx * 1e9))
+        logger.debug("Schedule %s transmission to %f ns" %
+                     (self.name, self.next_tx * 1e9))
 
     def tx(self, sim_time, rtc_timestamp, evts):
         """Transmit message
@@ -184,12 +193,13 @@ class PtpEvt():
 
         # Do not transmit before scheduled time or if there is already an
         # ongoing transmission
-        if ((self.next_tx is None) or (sim_time < self.next_tx) or self.on_way):
+        if ((self.next_tx is None) or (sim_time < self.next_tx)
+                or self.on_way):
             return False
 
         # Proceed with transmission
-        self.on_way         = True
-        self.tx_tstamp      = rtc_timestamp
+        self.on_way = True
+        self.tx_tstamp = rtc_timestamp
 
         if (self.seq_num is None):
             self.seq_num = 0
@@ -197,8 +207,8 @@ class PtpEvt():
             self.seq_num += 1
 
         logger = logging.getLogger("PtpEvt")
-        logger.debug("Transmitting %s #%d at %s" %(self.name, self.seq_num,
-                                                   sim_time))
+        logger.debug("Transmitting %s #%d at %s" %
+                     (self.name, self.seq_num, sim_time))
 
         # Schedule the next transmission for periodic messages. For non-periodic
         # messages, just clear the next Tx time.
@@ -237,13 +247,13 @@ class PtpEvt():
             return False
 
         # Proceed with reception
-        self.on_way         = False
-        self.rx_tstamp      = rx_rtc_tstamp
-        self.one_way_delay  = float(tx_rtc_tstamp - self.tx_tstamp)
+        self.on_way = False
+        self.rx_tstamp = rx_rtc_tstamp
+        self.one_way_delay = float(tx_rtc_tstamp - self.tx_tstamp)
 
         logger = logging.getLogger("PtpEvt")
-        logger.debug("Received %s #%d at %s" %(self.name, self.seq_num,
-                                               sim_time))
-        logger.debug("One-way delay: %f" %(self.one_way_delay))
+        logger.debug("Received %s #%d at %s" %
+                     (self.name, self.seq_num, sim_time))
+        logger.debug("One-way delay: %f" % (self.one_way_delay))
 
         return True

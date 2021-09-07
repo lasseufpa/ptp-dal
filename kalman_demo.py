@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """Experiment with Kalman Filter
 
 Compare Kalman to LS
@@ -27,15 +26,15 @@ import ptp.kalman
 import ptp.metrics
 import ptp.frequency
 
-
 # Run PTP simulation
 n_iter = 1e3
-simulation = ptp.simulation.Simulation(n_iter = n_iter, pdv_distr="Gamma",
-                                       freq_rw = 1e-18)
+simulation = ptp.simulation.Simulation(n_iter=n_iter,
+                                       pdv_distr="Gamma",
+                                       freq_rw=1e-18)
 simulation.run()
 
 # Least-squares estimator
-N  = 128
+N = 128
 ls = ptp.ls.Ls(N, simulation.data)
 ls.process()
 
@@ -49,9 +48,7 @@ kalman.process()
 
 # PTP analyser
 analyser = ptp.metrics.Analyser(simulation.data)
-analyser.plot_toffset_vs_time(show_ls=True,
-                              show_kf=True,
-                              save=True)
+analyser.plot_toffset_vs_time(show_ls=True, show_kf=True, save=True)
 analyser.plot_toffset_err_vs_time(show_ls=True,
                                   show_kf=True,
                                   show_raw=False,
@@ -60,7 +57,4 @@ analyser.plot_foffset_vs_time(show_ls=True,
                               show_kf=True,
                               show_raw=False,
                               save=True)
-analyser.plot_mtie(show_ls=True,
-                   show_kf=True,
-                   show_raw=False,
-                   save=True)
+analyser.plot_mtie(show_ls=True, show_kf=True, show_raw=False, save=True)

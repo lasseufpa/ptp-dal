@@ -1,8 +1,9 @@
 import unittest
+
 from ptp.timestamping import *
 
-class TestTimestamping(unittest.TestCase):
 
+class TestTimestamping(unittest.TestCase):
     def test_sum(self):
         """Summation with no ns wrapping"""
         x = Timestamp(1, 200)
