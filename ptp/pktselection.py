@@ -11,14 +11,14 @@ SAMPLE_MODE_BIN_0 = 10  # starting value
 
 
 class PktSelection():
+    """Packet Selection
+
+    Args:
+        N       : Observation window length
+        data    : Array of objects with simulation data
+
+    """
     def __init__(self, N, data):
-        """Packet Selection
-
-        Args:
-            N       : Observation window length
-            data    : Array of objects with simulation data
-
-        """
         self.data = data  # this pointer could be changed
         self._original_data = data  # this should be immutable
 
@@ -757,75 +757,104 @@ class PktSelection():
         sample-average, EWMA, sample-median, sample-minimum, sample-maximum, or
         sample-mode over sliding windows of observations.
 
-        ----------------------------------------
-        Drift compensation:
+        Note:
 
-        If drift compensation is enabled, use vector of drifts to compensate
-        the differences of timestamps along the observation window.
+            Drift compensation:
 
-        Note that:
-            x[n] = t2[n] - (t1[n] + dms[n])
-            x[n] = (t3[n] + dsm[n]) - t4[n]
+            If drift compensation is enabled, use vector of drifts to
+            compensate the differences of timestamps along the observation
+            window.
 
-        so that
+            Note that:
 
-            t2[n] - t1[n] = +x[n] + dms[n],
-            t4[n] - t3[n] = -x[n] + dsm[n]
+            .. math::
 
-        However, x[n] can be modeled as:
+                x[n] = t2[n] - (t1[n] + d_{ms}[n])
 
-            x[n] = x_0 + drift[n],
+            .. math::
 
-        where the drift[n] term is mostly due to frequency offset, which
-        sometimes can be accurately estimated (especially for high quality
-        oscillators).
+                x[n] = (t3[n] + d_{sm}[n]) - t4[n]
 
-        Using this model, and if the drift is compensated, it can be stated
-        that:
+            so that
 
-            t2[n] - t1[n] - drift[n] = +x_0 + dms[n],
-            t4[n] - t3[n] + drift[n] = -x_0 + dsm[n]
+            .. math::
 
-        In the end, this means that drift-compensated timestamp differences
-        will lead to an approximately constant time offset corrupted by
-        variable delay realizations. This is the ideal input to packet
-        selection operators. Once the operators process the drift-compensated
-        timestamp differences, ideally its result would approach:
+                t2[n] - t1[n] = +x[n] + d_{ms}[n],
 
-            x_est -> x_0
+            .. math::
 
-        To complete the work, the total (cumulative) drift over the observation
-        window should be re-added to the estimate, so that it approaches the
-        true time offset by the end of the observation window (while `x_0` is
-        the offset in the beginning):
+                t4[n] - t3[n] = -x[n] + d_{sm}[n]
 
-            x_est += drift[N-1]
+            However, x[n] can be modeled as:
 
-        For the operators that process time offset observations x_est[n]
-        directly, the drift can be similarly removed prior to the selection
-        operator and the sum of the drift re-added to the final result.
+            .. math::
 
-        ----------------------------------------
-        Vectorization and batch processing:
+                x[n] = x_0 + drift[n],
 
-        There are two types of packet-selection processing in this function:
-        sample-by-sample and window-by-window. All window-based processing
-        algorithms also have corresponding vectorized implementations. The
-        difference on the vectorized implementations is that, instead of
-        processing one window at a time, they process several windows at once,
-        i.e. process a matrix with windows stacked on top of each other. This
-        is referred to as matrix-by-matrix processing.
+            where the drift[n] term is mostly due to frequency offset, which
+            sometimes can be accurately estimated (especially for high quality
+            oscillators).
 
-        Depending on the dataset size, it may become infeasible to stack all
-        available windows and process the resulting matrix at once. This could
-        consume too much memory. To overcome this, this function relies also on
-        batch processing. In this case, the vectorized implementation is still
-        used, but the number of windows that are processed at once is
-        limited. They are capped to the batch size.
+            Using this model, and if the drift is compensated, it can be stated
+            that:
 
-        In contrast, the two methods (moving average methods) that are
-        sample-by-sample cannot benefit from vectorization. The reason is that
-        they are recursive, and hence must be computed sample by sample.
+            .. math::
+
+                t2[n] - t1[n] - drift[n] = +x_0 + d_{ms}[n],
+
+            .. math::
+
+                t4[n] - t3[n] + drift[n] = -x_0 + d_{sm}[n]
+
+            In the end, this means that drift-compensated timestamp differences
+            will lead to an approximately constant time offset corrupted by
+            variable delay realizations. This is the ideal input to packet
+            selection operators. Once the operators process the
+            drift-compensated timestamp differences, ideally its result would
+            approach:
+
+            .. code-block::
+
+                x_est -> x_0
+
+            To complete the work, the total (cumulative) drift over the
+            observation window should be re-added to the estimate, so that it
+            approaches the true time offset by the end of the observation
+            window (while `x_0` is the offset in the beginning):
+
+            .. code-block::
+
+                x_est += drift[N-1]
+
+            For the operators that process time offset observations x_est[n]
+            directly, the drift can be similarly removed prior to the selection
+            operator and the sum of the drift re-added to the final result.
+
+        Note:
+
+            Vectorization and batch processing:
+
+            There are two types of packet-selection processing in this
+            function: sample-by-sample and window-by-window. All window-based
+            processing algorithms also have corresponding vectorized
+            implementations. The difference on the vectorized implementations
+            is that, instead of processing one window at a time, they process
+            several windows at once, i.e. process a matrix with windows stacked
+            on top of each other. This is referred to as matrix-by-matrix
+            processing.
+
+            Depending on the dataset size, it may become infeasible to stack
+            all available windows and process the resulting matrix at once.
+            This could consume too much memory. To overcome this, this
+            function relies also on batch processing. In this case, the
+            vectorized implementation is still used, but the number of windows
+            that are processed at once is limited. They are capped to the
+            batch size.
+
+            In contrast, the two methods (moving average methods) that are
+            sample-by-sample cannot benefit from vectorization. The reason
+            is that they are recursive, and hence must be computed sample
+            by sample.
 
         Args:
             strategy   : Select the strategy of interest: "avg", "ewma",

@@ -10,6 +10,33 @@ from ptp.timestamping import Timestamp
 
 
 class Rtc():
+    """Real-time Clock (RTC) Model
+
+    The model incorporates random-walk frequency noise and random-walk time
+    noise. These are controlled by the normalized variance of the frequency
+    offset random-walk iid step (norm_var_freq_rw) and the normalized variance
+    of the time offset random-walk (norm_var_time_rw). Importantly, these
+    normalized variances are ultimately multiplied by the update period of the
+    model as suggested in [1].
+
+    References:
+
+    1. G. Giorgi and C. Narduzzi, "Performance Analysis of Kalman-Filter-Based
+       Clock Synchronization in IEEE 1588 Networks," in IEEE Transactions on
+       Instrumentation and Measurement, vol. 60, no. 8, pp. 2902-2909, Aug.
+       2011.
+
+
+    Args:
+        nom_freq_hz      : Nominal frequency (Hz) of the driving clock
+        resolution_ns    : Timestamp resolution in nanoseconds
+        tol_ppb          : Frequency tolerance in ppb
+        norm_var_freq_rw : Freq. offset random-walk's normalized variance
+        norm_var_time_rw : Time offset random-walk's normalized variance
+        label            : RTC label
+        ts_quantization  : Enables quantization of the time scale
+
+    """
     def __init__(self,
                  nom_freq_hz,
                  resolution_ns,
@@ -18,35 +45,6 @@ class Rtc():
                  norm_var_time_rw=0.0,
                  label="RTC",
                  ts_quantization=True):
-        """Real-time Clock (RTC)
-
-        Model:
-
-        The model incorporates random-walk frequency noise and random-walk time
-        noise. These are controlled by the normalized variance of the frequency
-        offset random-walk iid step (norm_var_freq_rw) and the normalized
-        variance of the time offset random-walk (norm_var_time_rw).
-        Importantly, these normalized variances are ultimately multiplied by
-        the update period of the model as suggested in [1].
-
-        References:
-
-        [1] G. Giorgi and C. Narduzzi, "Performance Analysis of
-        Kalman-Filter-Based Clock Synchronization in IEEE 1588 Networks," in
-        IEEE Transactions on Instrumentation and Measurement, vol. 60, no. 8,
-        pp. 2902-2909, Aug. 2011.
-
-
-        Args:
-            nom_freq_hz      : Nominal frequency (Hz) of the driving clock
-            resolution_ns    : Timestamp resolution in nanoseconds
-            tol_ppb          : Frequency tolerance in ppb
-            norm_var_freq_rw : Freq. offset random-walk's normalized variance
-            norm_var_time_rw : Time offset random-walk's normalized variance
-            label            : RTC label
-            ts_quantization  : Enables quantization of the time scale
-
-        """
         # Time scale quantization
         self.ts_quantization = ts_quantization
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Run batch of acquisitions
 """
 import json
@@ -58,7 +58,7 @@ def _run(action, arg_dict, job_id, dry_run=False):
     res.check_returncode()
 
 
-def parser():
+def get_parser():
     p = ArgumentParser(description="Run a batch of actions",
                        formatter_class=ArgumentDefaultsHelpFormatter)
     p.add_argument('filename',
@@ -82,7 +82,11 @@ def parser():
                    action='store_true',
                    default=False,
                    help="Print all commands but do not run them")
-    return p.parse_args()
+    return p
+
+
+def parser():
+    return get_parser().parse_args()
 
 
 def main():

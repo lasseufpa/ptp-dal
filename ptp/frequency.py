@@ -1,4 +1,4 @@
-"""Estimators
+"""Frequency Offset Estimators
 """
 import logging
 
@@ -11,25 +11,23 @@ logger = logging.getLogger(__name__)
 
 
 class Estimator():
-    """Frequency offset estimator"""
+    """Frequency offset estimator
+
+    Args:
+        data   : Array of objects with simulation data
+        delta  : (int > 0) Observation interval in samples. When set to 1,
+                    estimates the frequency offsets based on consecutive data
+                    entries.  When set to 2, estimates frequency offset i
+                    based on timestamps from the i-th iteration and from
+                    iteration 'i-2', and so on.
+        pkts   : Packet selection/filtering strategy to apply before
+                    computing unbiased frequency offet estimates (sample-min
+                    or sample-max). When set to None, disables the
+                    pre-filtering stage.
+        N_pkts : Packet selection window length.
+
+    """
     def __init__(self, data, delta=1, pkts=None, N_pkts=128):
-        """Initialize the frequency offset estimator
-
-        Args:
-            data   : Array of objects with simulation data
-            delta  : (int > 0) Observation interval in samples. When set to 1,
-                     estimates the frequency offsets based on consecutive data
-                     entries.  When set to 2, estimates frequency offset i
-                     based on timestamps from the i-th iteration and from
-                     iteration 'i-2', and so on.
-            pkts   : Packet selection/filtering strategy to apply before
-                     computing unbiased frequency offet estimates (sample-min
-                     or sample-max). When set to None, disables the
-                     pre-filtering stage.
-            N_pkts : Packet selection window length.
-
-
-        """
         assert (delta > 0)
         assert (isinstance(delta, int))
         assert (pkts in ["sample-min", "sample-max", None])
@@ -277,12 +275,20 @@ class Estimator():
 
         Compute one of the following:
 
+        .. code-block::
+
             y_est_1[n] = (t21[n] - t21[n-N]) / (t1[n] - t1[n-N]),
 
         or
+
+        .. code-block::
+
             y_est_2[n] = -(t43[n] - t43[n-N]) / (t4[n] - t4[n-N]),
 
         or
+
+        .. code-block::
+
             y_est_3[n]   = (y_est_1[n] + y_est_2[n]) / 2.
 
         These are the one-way, reversed one-way, and two-way implementations,
@@ -344,7 +350,7 @@ class Estimator():
         computation affects results and may render the optimization below less
         effective for drift compensation.
 
-        Args :
+        Args:
             strategy        : Unbiased frequency offset estimation strategy.
             loss            : Loss function used to optimize the window length
                               (mse or max-error).
@@ -422,7 +428,7 @@ class Estimator():
         optimizer can lead to better performance because, in the end, what we
         really care about is predicting drifts accurately.
 
-        Args :
+        Args:
             strategy        : Unbiased frequency offset estimation strategy.
             loss            : Loss function used to optimize the window length
                               (mse or max-error).
@@ -441,7 +447,8 @@ class Estimator():
                               with the optimal parameters already exists in
                               cache.
 
-        Note: The cumulative criterion typically leads to better optimization
+        Note:
+            The cumulative criterion typically leads to better optimization
             performance. The absolute criterion considers estimation errors
             that are often masked by the uncertainty on dataset labels. For
             example, if the truth labels have an uncertainty of +-8 ns and the

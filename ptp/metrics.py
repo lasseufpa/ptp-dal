@@ -64,6 +64,18 @@ est_keys = {
 
 
 class Analyser():
+    """PTP metrics analyser
+
+    Args:
+        data        : Array of objects with simulation data
+        file        : Path of the file
+        prefix      : Prefix to include on filenames when saving
+        usetex      : Whether to use latex interpreter
+        save_format : Select image format: 'png' or 'eps'
+        dpi         : Image resolution in dots per inch
+        skip        : Fraction of the dataset to skip on the analysis.
+
+    """
     def __init__(self,
                  data,
                  file=None,
@@ -73,18 +85,6 @@ class Analyser():
                  dpi=300,
                  cache=None,
                  skip=0.2):
-        """PTP metrics analyser
-
-        Args:
-            data        : Array of objects with simulation data
-            file        : Path of the file
-            prefix      : Prefix to include on filenames when saving
-            usetex      : Whether to use latex interpreter
-            save_format : Select image format: 'png' or 'eps'
-            dpi         : Image resolution in dots per inch
-            skip        : Fraction of the dataset to skip on the analysis.
-
-        """
         self.data = data
         self.path = self._set_path(file)
         self.prefix = "" if prefix is None else prefix + "_"

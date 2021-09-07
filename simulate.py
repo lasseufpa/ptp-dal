@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """PTP Simulator
 
 """
@@ -9,7 +9,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import ptp.simulation
 
 
-def main():
+def get_parser():
     parser = ArgumentParser(description="PTP Simulator",
                             formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('-N',
@@ -86,7 +86,11 @@ def main():
                            default=False,
                            action='store_true',
                            help="Disables the quantization of the time scale")
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = get_parser().parse_args()
 
     logging_level = 70 - (10 * args.verbose) if args.verbose > 0 else 0
     logging.basicConfig(stream=sys.stderr, level=logging_level)

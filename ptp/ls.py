@@ -8,21 +8,20 @@ logger = logging.getLogger(__name__)
 
 
 class Ls():
+    """Least-squares Time Offset Estimator
+
+    Args:
+        N : observation window length (number of measurements per window)
+        data : Array of objects with simulation data
+        T_ns : nominal time offset measurement period in nanoseconds, used
+               for **debugging only**. It is used to obtain the fractional
+               frequency offset y (drift in sec/sec) when using the
+               efficient LS implementation, since the latter only estimates
+               y*T_ns (drif in nanoseconds/measurement). In the end, this
+               is used for plotting the frequency offset.
+
+    """
     def __init__(self, N, data, T_ns=float('inf')):
-        """Least-squares Time Offset Estimator
-
-        Args:
-            N    : observation window length (number of measurements per
-                   window)
-            data : Array of objects with simulation data
-            T_ns : nominal time offset measurement period in nanoseconds, used
-                   for **debugging only**. It is used to obtain the fractional
-                   frequency offset y (drift in sec/sec) when using the
-                   efficient LS implementation, since the latter only estimates
-                   y*T_ns (drif in nanoseconds/measurement). In the end, this
-                   is used for plotting the frequency offset.
-
-        """
         self.N = N
         self.data = data
         self.i_batch = 0

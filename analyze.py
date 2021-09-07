@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import logging
 import sys
@@ -406,7 +406,7 @@ def _run_analyzer(data,
     analyser.save_maxte_and_mtie_cache()
 
 
-def parse_args():
+def get_parser():
     """Parse command-line arguments"""
     parser = ArgumentParser(description="PTP Analyser",
                             formatter_class=ArgumentDefaultsHelpFormatter)
@@ -588,7 +588,11 @@ def parse_args():
         default=False,
         action='store_true',
         help='Whether to disable automatic threshold tuning.')
-    return parser.parse_args()
+    return parser
+
+
+def parse_args():
+    return get_parser().parse_args()
 
 
 def setup(args):

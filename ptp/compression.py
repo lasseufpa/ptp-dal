@@ -10,14 +10,16 @@ import time
 
 
 class Codec():
-    def __init__(self, ds={}, filename="", compressed=False):
-        """Construct codec
+    """Dataset compression coder/decoder (codec)
 
         Args:
             ds         : (dictionary) dataset
             filename   : (string) dataset file name
             compressed : (bool) whether the supplied dataset is compressed
-        """
+
+    """
+    def __init__(self, ds={}, filename="", compressed=False):
+
         assert (isinstance(ds, dict))
         assert (isinstance(filename, str))
 

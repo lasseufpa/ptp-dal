@@ -13,29 +13,45 @@ class Bias():
 
     The PTP timestamp differences can be modeled as:
 
-        t2[n] - t1[n] = x[n] + d_ms[n]
-        t3[n] - t4[n] = x[n] - d_sm[n]
+    .. math::
+
+        t_2[n] - t_1[n] = x[n] + d_{ms}[n]
+
+    .. math::
+
+        t_3[n] - t_4[n] = x[n] - d_{sm}[n]
 
     By summing the two equations and dividing by two, one can obtain the true
     time offset as:
 
-        ((t2[n] - t1[n]) + (t3[n] - t4[n]))/2 = x[n] + (d_ms[n] - d_sm[n])/2
+    .. math::
+
+        ((t_2[n] - t_1[n]) + (t_3[n] - t_4[n]))/2 =
+        x[n] + (d_{ms}[n] - d_{sm}[n])/2
 
     This is equivalent to:
 
-        x_est[n] = x[n] + (d_ms[n] - d_sm[n])/2,
+    .. math::
+
+        \\tilde{x}[n] = x[n] + (d_{ms}[n] - d_{sm}[n])/2,
 
     since the slave's time offset measurement is computed by:
 
-        x_est[n] = ((t2[n] - t1[n]) - (t4[n] - t3[n])) / 2
+    .. math::
+
+        \\tilde{x}[n] = ((t_2[n] - t_1[n]) - (t_4[n] - t_3[n])) / 2
 
     This means that the time offset measurements are noisy:
 
-        x_est[n] = x[n] + w[n],
+    .. math::
+
+        \\tilde{x}[n] = x[n] + w[n],
 
     where the noise term is:
 
-        w[n] = (d_ms[n] - d_sm[n])/2,
+    .. math::
+
+        w[n] = (d_{ms}[n] - d_{sm}[n])/2,
 
     which is also known as the "delay asymmetry".
 
@@ -46,9 +62,10 @@ class Bias():
 
     This class provides mechanisms for calculating and compensating w[n]. While
     doing so, it also considers the post processing that is to be applied on
-    x_est[n]. For example, if sample-minimum packet selection is applied on a
-    window of x_est[n], the value that compensates w[n] differs from the case
-    where x_est[n] measurements are used directly.
+    :math:`\\tilde{x}[n]`. For example, if sample-minimum packet selection is
+    applied on a window of :math:`\\tilde{x}[n]`, the value that compensates
+    w[n] differs from the case where :math:`\\tilde{x}[n]` measurements are
+    used directly.
 
     """
     def __init__(self, data):
@@ -133,8 +150,10 @@ class Bias():
         measurements x_est[n] are considered, the compensation value should be
         the mean of w[n], like so:
 
-        x_est_corr[n] = x_est[n] - mean{w[n]}
-                     ~= x[n] + (w[n] - mean{w[n]}).
+        .. code-block::
+
+            x_est_corr[n] = x_est[n] - mean{w[n]}
+                         ~= x[n] + (w[n] - mean{w[n]}).
 
         The resulting corrected time offset measurements will then be unbiased
         as desired.
@@ -142,13 +161,17 @@ class Bias():
         On the other hand, if e.g. sample minimum is used, the bias that arises
         comes from the sample-minimum output:
 
-        samp_min[n] = (min{x[n] + d_ms[n]} + min{x[n] - d_sm[n]}) / 2
-                   ~= x[n] + (min{d_ms[n]} - min{d_sm[n]})/2
-                   ~= x[n] + w_sm[n],
+        .. code-block::
+
+            samp_min[n] = (min{x[n] + d_ms[n]} + min{x[n] - d_sm[n]}) / 2
+                    ~= x[n] + (min{d_ms[n]} - min{d_sm[n]})/2
+                    ~= x[n] + w_sm[n],
 
         where
 
-        w_sm[n] = (min{d_ms[n]} - min{d_sm[n]})/2
+        .. code-block::
+
+            w_sm[n] = (min{d_ms[n]} - min{d_sm[n]})/2
 
         Thus, the asymmetry to be compensated is "w_sm[n]" in this case.
         Similar expressions can be derived by considering other packet
@@ -162,33 +185,45 @@ class Bias():
         asymmetry. Ultimately, the timestamps delivered for post-processing
         stages would already be compensated and ideally symmetric on average.
 
-        When timestamps are compensated, it suffices to adjust t4[n]. By
+        When timestamps are compensated, it suffices to adjust t_4[n]. By
         considering that:
 
-        t4_corr[n] = t4[n] - corr[n]
+        .. code-block::
+
+            t4_corr[n] = t_4[n] - corr[n]
 
         The expression for timestamp differences becomes:
 
-        t2[n] - t1[n]             = x[n] + d_ms[n]
-        t3[n] - (t4[n] - corr[n]) = x[n] - d_sm[n]
+        .. code-block::
+
+            t_2[n] - t_1[n]             = x[n] + d_ms[n]
+            t_3[n] - (t_4[n] - corr[n]) = x[n] - d_sm[n]
 
         which can be arranged to:
 
-        t2[n] - t1[n] = x[n] + d_ms[n]
-        t3[n] - t4[n] = x[n] - (d_sm[n] + corr[n])
+        .. code-block::
+
+            t_2[n] - t_1[n] = x[n] + d_ms[n]
+            t_3[n] - t_4[n] = x[n] - (d_sm[n] + corr[n])
 
         This means that, to ensure symmetry, we need:
 
-        d_ms[n] = (d_sm[n] + corr[n])
+        .. code-block::
+
+            d_ms[n] = (d_sm[n] + corr[n])
 
         So that:
 
-        corr[n] = d_ms[n] - d_sm[n]
+        .. code-block::
+
+            corr[n] = d_ms[n] - d_sm[n]
 
         In practice, the correction value corr[n] must be a constant that
         reflects the static asymmetry. Hence, the constant correction is:
 
-        corr = mean{d_ms[n] - d_sm[n]}
+        .. code-block::
+
+            corr = mean{d_ms[n] - d_sm[n]}
 
         Note, however, that this correction won't be sufficient in case packet
         selection is later applied. This is because some selection operators

@@ -7,27 +7,26 @@ import numpy as np
 
 
 class PtpEvt():
+    """PTP Event Message
+
+    Controls transmission and reception of a PTP event message. When the
+    message is periodically transmitted (Sync), a period must be passed by
+    argument. Otherwise, transmission must be scheduled manually.
+
+    Args:
+        name        : Message name
+        period_sec  : Transmission period in seconds
+        pdv_distr   : PDV distribution
+        gamma_shape : Shape parameter of the Gamma distribution
+        gamma_scale : Scale parameter of the Gamma distribution
+
+    """
     def __init__(self,
                  name,
                  period_sec=None,
                  pdv_distr="Gamma",
                  gamma_shape=None,
                  gamma_scale=None):
-        """PTP Event Message
-
-        Controls transmission and reception of a PTP event message. When the
-        message is periodically transmitted (Sync), a period must be passed by
-        argument. Otherwise, transmission must be scheduled manually.
-
-        Args:
-            name        : Message name
-            period_sec  : Transmission period in seconds
-            pdv_distr   : PDV distribution
-            gamma_shape : Shape parameter of the Gamma distribution
-            gamma_scale : Scale parameter of the Gamma distribution
-
-        """
-
         self.name = name
         self.period_sec = period_sec
         self.on_way = False

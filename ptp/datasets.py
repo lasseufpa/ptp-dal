@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class Datasets():
+    """Dataset manager"""
     def __init__(self):
-        """Dataset manager"""
         self._set_paths()
         self._check_cfg()
 

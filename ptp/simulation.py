@@ -49,6 +49,25 @@ class SimTime():
 
 
 class Simulation():
+    """PTP Simulation class
+
+    Args:
+        n_iter          : Number of iterations
+        sim_t_step      : Simulation time step in seconds
+        sync_period     : Sync transmission period in seconds
+        rtc_clk_freq    : RTC clock frequency in Hz
+        rtc_resolution  : RTC representation resolution in ns
+        freq_tolerance  : Slave RTC frequency tolerance in ppb
+        freq_rw         : Normalized variance of the frequency offset
+                            random-walk presented by the slave RTC.
+        phase_rw        : Normalized variance of the phase offset
+                            random-walk presented by the slave RTC.
+        pdv_distr       : PTP message PDV distribution (Gamma or Gaussian)
+        gamma_shape     : Shape parameter of the Gamma distribution
+        gamma_scale     : Scale parameter of the Gamma distribution
+        ts_quantization : Enables quantization of the time scale
+
+    """
     def __init__(self,
                  n_iter=100,
                  sim_t_step=1e-9,
@@ -62,26 +81,6 @@ class Simulation():
                  gamma_shape=None,
                  gamma_scale=None,
                  ts_quantization=True):
-        """PTP Simulation class
-
-        Args:
-            n_iter          : Number of iterations
-            sim_t_step      : Simulation time step in seconds
-            sync_period     : Sync transmission period in seconds
-            rtc_clk_freq    : RTC clock frequency in Hz
-            rtc_resolution  : RTC representation resolution in ns
-            freq_tolerance  : Slave RTC frequency tolerance in ppb
-            freq_rw         : Normalized variance of the frequency offset
-                              random-walk presented by the slave RTC.
-            phase_rw        : Normalized variance of the phase offset
-                              random-walk presented by the slave RTC.
-            pdv_distr       : PTP message PDV distribution (Gamma or Gaussian)
-            gamma_shape     : Shape parameter of the Gamma distribution
-            gamma_scale     : Scale parameter of the Gamma distribution
-            ts_quantization : Enables quantization of the time scale
-
-        """
-
         self.n_iter = n_iter
         self.sync_period = sync_period
         self.rtc_clk_freq = rtc_clk_freq

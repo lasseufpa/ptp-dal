@@ -6,13 +6,14 @@ logger = logging.getLogger("DelayReqResp")
 
 
 class DelayReqResp():
-    def __init__(self, seq_num, t1):
-        """Delay request-response mechanism
+    """Delay request-response mechanism
 
-        Args:
-            seq_num : Sequence number
-            t1      : Sync departure timestamp
-        """
+    Args:
+        seq_num : Sequence number
+        t1      : Sync departure timestamp
+    """
+    def __init__(self, seq_num, t1):
+
         self.seq_num = seq_num
         self.t1 = t1
         self.t2 = None

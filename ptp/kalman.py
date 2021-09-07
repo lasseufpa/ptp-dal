@@ -10,6 +10,149 @@ logger = logging.getLogger(__name__)
 
 
 class KalmanFilter():
+    """Kalman Filter for Time/Frequency Offset Processing
+
+    The Kalman state vector is:
+
+    .. code-block::
+
+        s[n] = [ x[n] ]
+               [ y[n] ]
+
+    that is, composed by the time offset (:math:`x[n]`) and frequency offset
+    (:math:`y[n]`).
+
+    The recursive model for the time offset is:
+
+    .. math::
+
+        x[n] = x[n-1] + y[n-1]*T + w_x[n],
+
+    where :math:`w_x[n]` is the time offset state noise.
+
+    The recursive model for the frequency offset is:
+
+    .. math::
+
+        y[n] = y[n-1] + w_y[n],
+
+    where :math:`w_y[n]` is the frequency offset state noise.
+
+    Thus, the state transition matrix becomes:
+
+    .. code-block::
+
+        A = [ 1   T ],
+            [ 0   1 ]
+
+    such that:
+
+    .. math::
+
+        s[n+1] = A*s[n] + w[n],
+
+    where :math:`w[n] \\sim N(0, Q)` is the state noise vector and Q is the
+    so-called state noise covariance matrix.
+
+    The state noise covariance matrix takes the expected variability of the
+    true state into account. The true frequency offset changes over time due to
+    several oscillator noise sources. Similarly, the time offset uncertainty
+    comes from phase noise and other effects. Both of these uncertainties are
+    small in magnitude, so that the transition covariance matrix is expected to
+    have small values.
+
+    The model in [1] considers random-walk in both time and frequency. These
+    are given in terms of normalized variances, which must be scaled by the
+    observation period (Sync message period). Here, in contrast, we consider
+    non-normalized variances, "var_y" and "var_x".
+
+    .. code-block::
+
+        Q = [ var_x,   0,  ]
+            [   0,   var_y ]
+
+    In addition to the state model, the Kalman filter also uses a measurement
+    model.
+
+    The measurement model can rely on scalar observations, as presented in [2],
+    where only the time offset is observed, or vector observations, as
+    presented in [1], where both time and frequency offsets are observed.
+
+    In the scalar-observation model, the observation is given by:
+
+    .. math::
+
+        z[n] = x[n] + v_x[n],
+
+    where :math:`z[n]`, :math:`x[n]` (time offset), and :math:`v_x[n]` are all
+    scalars.
+
+    In the vector-observation model, it is given by:
+
+    .. code-block::
+
+        z[n] = [ x[n] ] + [ v_x[n] ]
+               [ y[n] ]   [ v_y[n] ],
+
+    where :math:`z[n]` is (2x1).
+
+    The observed values come directly from the raw time and frequency offset
+    measurements that are taken after each delay request-response exchange.
+    That is, :math:`z[n] = [\\tilde{x}[n], \\tilde{y}[n]]^T`.
+
+    The observation covariance matrix reflects the confidence on the
+    observations. Both time and frequency offset observations are expected to
+    be very noisy. Thus, it is important to define sufficiently high
+    variances/covariances in this covariance matrix.
+
+    When ignoring the timestamping noise (e.g., due to the timestamp
+    granularity) and assuming that the PDV is the predominant noise, the
+    observation noise covariance matrix can be shown to be given by:
+
+    .. code-block::
+
+        R = [ (Var{d_ms} + Var{d_sm})/4 ]
+
+    when the scalar-observation model is used, or:
+
+    .. code-block::
+
+        R = [ (Var{d_ms} + Var{d_sm})/4 , Var{d_ms} / (2*N*T)    ]
+            [  Var{d_ms} / (2*N*T)      , 2*Var{d_ms} / (N*T)**2 ]
+
+    when the vector-observation model is used.
+
+    The former (scalar-observation) is easier to compute in practice because it
+    can be computed by "Var{d_est}", namely the variance of the delay estimates
+    taken from PTP two-way exchanges. In contrast, the latter
+    (vector-observation) requires the knowledge of the individual m-to-s and
+    s-to-m variances, which a practical slave does not know. This formulation
+    also assumes that m-to-s and s-to-m delays are independent (distinct) WSS
+    and white discrete-time random processes.
+
+    References:
+
+    1. G. Giorgi and C. Narduzzi, "Performance Analysis of Kalman-Filter-Based
+       Clock Synchronization in IEEE 1588 Networks," in IEEE Transactions on
+       Instrumentation and Measurement, vol. 60, no. 8, pp. 2902-2909, Aug.
+       2011.
+    2. G. Giorgi, "An Event-Based Kalman Filter for Clock Synchronization," in
+       IEEE Transactions on Instrumentation and Measurement, vol. 64, no. 2,
+       pp. 449-457, Feb. 2015.
+    3. Brown, R. and Hwang, P., Introduction To Random Signals And Applied
+       Kalman Filtering With Matlab Exercises, 4Th Edition. John Wiley & Sons,
+       2012.
+
+    Args:
+        data : Array of objects with simulation data
+        T    : Nominal Sync period in sec
+        N    : Interval used for frequency offset estimations
+        s_0  : Initial state
+        P_0  : Initial state's covariance matrix
+        Q    : Process noise covariance matrix
+        R    : Measurement covariance matrix
+
+    """
     def __init__(self,
                  data,
                  T,
@@ -19,132 +162,6 @@ class KalmanFilter():
                  P_0=None,
                  R=None,
                  Q=None):
-        """Kalman Filter for Time/Frequency Offset Processing
-
-        ---- Predict Step ----
-
-        The Kalman state vector is:
-
-        s[n] = [ x[n] ]
-               [ y[n] ]
-
-        that is, composed by the time offset (x[n]) and frequency offset
-        (y[n]).
-
-        The recursive model for the time offset is:
-
-        x[n] = x[n-1] + y[n-1]*T + w_x[n],
-
-        where w_x[n] is the time offset state noise.
-
-        The recursive model for the frequency offset is:
-
-        y[n] = y[n-1] + w_y[n],
-
-        where w_y[n] is the frequency offset state noise.
-
-        Thus, the state transition matrix becomes:
-
-        A = [ 1   T ],
-            [ 0   1 ]
-
-        such that:
-
-        s[n+1] = A*s[n] + w[n],
-
-        where w[n] ~ N(0, Q) is the state noise vector and Q is the so-called
-        state noise covariance matrix.
-
-        The state noise covariance matrix takes the expected variability of the
-        true state into account. The true frequency offset changes over time
-        due to several oscillator noise sources. Similarly, the time offset
-        uncertainty comes from phase noise and other effects. Both of these
-        uncertainties are small in magnitude, so that the transition covariance
-        matrix is expected to have small values.
-
-        The model in [1] considers random-walk in both time and frequency.
-        These are given in terms of normalized variances, which must be scaled
-        by the observation period (Sync message period). Here, in contrast, we
-        consider non-normalized variances, "var_y" and "var_x".
-
-        Q = [ var_x,   0,  ]
-            [   0,   var_y ]
-
-        ---- Update Step ----
-
-        In addition to the state model, the Kalman filter also uses a
-        measurement model.
-
-        The measurement model can rely on scalar observations, as presented in
-        [2], where only the time offset is observed, or vector observations, as
-        presented in [1], where both time and frequency offsets are observed.
-
-        In the scalar-observation model, the observation is given by:
-
-        z[n] = x[n] + v_x[n],
-
-        where z[n], x[n] (time offset), and v_x[n] are all scalars.
-
-        In the vector-observation model, it is given by:
-
-        z[n] = [ x[n] ] + [ v_x[n] ]
-               [ y[n] ]   [ v_y[n] ],
-
-        where z[n] is (2x1).
-
-        The observed values come directly from the raw time and frequency
-        offset measurements that are taken after each delay request-response
-        exchange. That is, z[n] = [x_est[n], y_est[n]]^T.
-
-        The observation covariance matrix reflects the confidence on the
-        observations. Both time and frequency offset observations are expected
-        to be very noisy. Thus, it is important to define sufficiently high
-        variances/covariances in this covariance matrix.
-
-        When ignoring the timestamping noise (e.g., due to the timestamp
-        granularity) and assuming that the PDV is the predominant noise, the
-        observation noise covariance matrix can be shown to be given by:
-
-        R = [ (Var{d_ms} + Var{d_sm})/4 ]
-
-        when the scalar-observation model is used, or:
-
-        R = [ (Var{d_ms} + Var{d_sm})/4 , Var{d_ms} / (2*N*T)    ]
-            [  Var{d_ms} / (2*N*T)      , 2*Var{d_ms} / (N*T)**2 ]
-
-        when the vector-observation model is used.
-
-        The former (scalar-observation) is easier to compute in practice
-        because it can be computed by "Var{d_est}", namely the variance of the
-        delay estimates taken from PTP two-way exchanges. In contrast, the
-        latter (vector-observation) requires the knowledge of the individual
-        m-to-s and s-to-m variances, which a practical slave does not know.
-        This formulation also assumes that m-to-s and s-to-m delays are
-        independent (distinct) WSS and white discrete-time random processes.
-
-        References:
-
-        [1] G. Giorgi and C. Narduzzi, "Performance Analysis of
-            Kalman-Filter-Based Clock Synchronization in IEEE 1588 Networks,"
-            in IEEE Transactions on Instrumentation and Measurement, vol. 60,
-            no. 8, pp. 2902-2909, Aug. 2011.
-        [2] G. Giorgi, "An Event-Based Kalman Filter for Clock
-            Synchronization," in IEEE Transactions on Instrumentation and
-            Measurement, vol. 64, no. 2, pp. 449-457, Feb. 2015.
-        [3] Brown, R. and Hwang, P., Introduction To Random Signals And Applied
-            Kalman Filtering With Matlab Exercises, 4Th Edition. John Wiley &
-            Sons, 2012.
-
-        Args:
-            data : Array of objects with simulation data
-            T    : Nominal Sync period in sec
-            N    : Interval used for frequency offset estimations
-            s_0  : Initial state
-            P_0  : Initial state's covariance matrix
-            Q    : Process noise covariance matrix
-            R    : Measurement covariance matrix
-
-        """
         self.data = data  # this pointer could be changed
         self._original_data = data  # this pointer should be immutable
         self.T = T

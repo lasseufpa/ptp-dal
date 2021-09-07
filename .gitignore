@@ -8,3 +8,4 @@ data/
 cache/
 !cache/README.md
 *.pyc
+docs/build/
